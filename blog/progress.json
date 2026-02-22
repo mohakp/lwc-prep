@@ -1,0 +1,10 @@
+{
+  "_comment": "This file maps article IDs to their localStorage keys for read-progress tracking. Actual progress is stored in localStorage under 'lwc_blog_read' as a JSON array of article IDs.",
+  "storageKey": "lwc_blog_read",
+  "themeKey": "lwc_blog_theme",
+  "articles": [
+    "01", "02", "03", "04", "05", "06", "07",
+    "08", "09", "10", "11", "12", "13", "14",
+    "15", "16", "17", "18", "19", "20", "21"
+  ]
+}

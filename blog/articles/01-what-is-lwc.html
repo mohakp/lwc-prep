@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01. What is LWC &amp; Why It Matters — LWC.guide</title>
+  <meta name="description" content="Deep-dive into What is LWC and Why It Matters — from W3C Web Components to Salesforce's Lightning Web Components, covering history, architecture, and expert insights.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/01-what-is-lwc.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why This Matters</a></li>
+          <li><a href="#mental-model">2. Mental Model</a></li>
+          <li class="level-3"><a href="#custom-elements">Custom Elements</a></li>
+          <li class="level-3"><a href="#shadow-dom">Shadow DOM</a></li>
+          <li class="level-3"><a href="#html-templates">HTML Templates</a></li>
+          <li class="level-3"><a href="#es-modules">ES Modules</a></li>
+          <li><a href="#the-spec">3. LWC Architecture</a></li>
+          <li class="level-3"><a href="#lwc-vs-aura">LWC vs Aura</a></li>
+          <li class="level-3"><a href="#lwc-vs-frameworks">LWC vs React/Angular/Vue</a></li>
+          <li><a href="#code-walkthrough">4. Code Walkthrough</a></li>
+          <li><a href="#internals">5. Internals</a></li>
+          <li><a href="#pitfalls">6. Common Pitfalls</a></li>
+          <li><a href="#p3-insight">7. Expert Insight</a></li>
+          <li><a href="#recall">8. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 01</div>
+        <h1>What is LWC &amp; Why It Matters</h1>
+        <div class="article-meta">
+          <span>⏱ 14 min read</span>
+          <span class="tags">
+            <span class="tag">#fundamentals</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="01"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           ARTICLE BODY
+           ============================================================ -->
+
+      <!-- 1. HOOK -->
+      <section id="hook">
+        <h2>1. Why This Matters</h2>
+        <p>
+          If you ask a developer "What is LWC?", the typical answer is "Salesforce's component framework."
+          That answer is technically correct and practically useless. It tells you nothing about <em>why</em>
+          the platform made the choices it did, what constraints shape every API decision, or how to reason
+          about edge cases that aren't in the documentation.
+        </p>
+        <p>
+          At expert level, you are expected to advise architects and make technology decisions. You will be asked:
+        </p>
+        <ul>
+          <li>Why did Salesforce replace Aura with LWC?</li>
+          <li>When should we still use Aura?</li>
+          <li>How does LWC's approach compare to React, and why does the difference matter in a multi-tenant cloud?</li>
+          <li>What constraints does the Salesforce platform contract impose on component design?</li>
+        </ul>
+        <p>
+          You cannot answer these questions by memorizing API surfaces. You can only answer them if you understand
+          LWC from first principles — starting with the W3C web standards it is built on and working up to the
+          Salesforce-specific design decisions that sit on top.
+        </p>
+        <p>
+          This article builds that foundation. Every subsequent article in this series assumes you have read this one.
+        </p>
+      </section>
+
+      <!-- 2. MENTAL MODEL -->
+      <section id="mental-model">
+        <h2>2. Mental Model: The Web Components Standard</h2>
+        <p>
+          Before LWC existed, browsers were evolving a native component model called the <strong>Web Components
+          standard</strong>. This is a collection of four independent W3C specifications that, together, let
+          you create reusable, encapsulated HTML elements without any framework.
+        </p>
+        <p>
+          LWC is a <em>thin layer on top of these four specs</em>. To understand LWC deeply, you must understand
+          what each spec does and what problem it solves.
+        </p>
+
+        <h3 id="custom-elements">Custom Elements API</h3>
+        <p>
+          The Custom Elements API lets you register a class as a new HTML element with a custom tag name.
+          Once registered, the browser treats your class exactly like a built-in element: it calls lifecycle
+          callbacks when the element is inserted into or removed from the DOM.
+        </p>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Plain browser Custom Elements — no framework
+class MyCounter extends HTMLElement {
+  // The browser calls this when the element is first created.
+  constructor() {
+    super(); // Always required — initializes the HTMLElement base
+    this._count = 0;
+  }
+
+  // Called when the element is inserted into the document
+  connectedCallback() {
+    this.render();
+  }
+
+  // Called when the element is removed from the document
+  disconnectedCallback() {
+    // Clean up event listeners, timers, subscriptions
+  }
+
+  // Called when a watched attribute changes value
+  attributeChangedCallback(name, oldValue, newValue) {
+    this._count = parseInt(newValue, 10);
+    this.render();
+  }
+
+  // Declares which attributes to observe
+  static get observedAttributes() { return ['count']; }
+
+  render() {
+    this.innerHTML = `&lt;p&gt;Count: ${this._count}&lt;/p&gt;`;
+  }
+}
+
+// Register the tag with the browser
+customElements.define('my-counter', MyCounter);
+
+// Now you can use &lt;my-counter count="5"&gt;&lt;/my-counter&gt; in HTML</code></pre>
+        <p>
+          LWC maps directly to these callbacks. <code>connectedCallback</code>, <code>disconnectedCallback</code>,
+          and <code>constructor</code> in an LWC component are the same Custom Elements lifecycle callbacks — just
+          with platform-enforced constraints layered on top (covered in depth in
+          <a href="05-lifecycle-hooks.html">Article 05</a>).
+        </p>
+
+        <h3 id="shadow-dom">Shadow DOM</h3>
+        <p>
+          Shadow DOM solves the oldest problem in front-end development: CSS global scope. Before Shadow DOM,
+          any CSS rule anywhere in the document could accidentally override styles inside your component.
+          This made reusable components fragile.
+        </p>
+        <p>
+          Shadow DOM creates a separate, encapsulated DOM tree attached to a host element. CSS inside the
+          shadow tree cannot leak out, and CSS outside cannot reach in (by default). Events that fire
+          inside the shadow tree are "retargeted" at the shadow boundary — the event's <code>target</code>
+          appears to be the host element from the perspective of code outside the shadow tree.
+        </p>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">class MyWidget extends HTMLElement {
+  constructor() {
+    super();
+    // attachShadow creates the encapsulated shadow tree
+    // 'open' means JavaScript outside can still reach it via element.shadowRoot
+    // 'closed' would prevent external access entirely
+    const shadow = this.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      &lt;style&gt;
+        p { color: red; } /* Only affects this shadow tree */
+      &lt;/style&gt;
+      &lt;p&gt;I am encapsulated&lt;/p&gt;
+    `;
+  }
+}
+customElements.define('my-widget', MyWidget);</code></pre>
+        <p>
+          LWC uses a <strong>synthetic Shadow DOM</strong> implementation (not the native browser API) in
+          Lightning Experience, which lets Salesforce polyfill consistent behavior across older browsers
+          and apply platform-level security policies. The distinction matters — see
+          <a href="07-shadow-dom-vs-light-dom.html">Article 07</a> for the full treatment.
+        </p>
+
+        <h3 id="html-templates">HTML Templates</h3>
+        <p>
+          The <code>&lt;template&gt;</code> element is a browser-native way to declare inert HTML that is
+          parsed but not rendered. You can clone it and insert it into the DOM on demand — essentially a
+          blueprint for DOM fragments.
+        </p>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;template id="myTemplate"&gt;
+  &lt;!-- Parsed but not rendered or executed until cloned --&gt;
+  &lt;p class="greeting"&gt;Hello, world&lt;/p&gt;
+&lt;/template&gt;
+
+&lt;script&gt;
+  const tpl = document.getElementById('myTemplate');
+  const clone = tpl.content.cloneNode(true);  // Deep clone the fragment
+  document.body.appendChild(clone);           // Now it renders
+&lt;/script&gt;</code></pre>
+        <p>
+          LWC's <code>.html</code> template file is compiled at build time into a render function that
+          creates DOM using this same concept — the template is never executed as-is; it becomes JavaScript
+          instructions for the LWC runtime to create and update the DOM efficiently.
+        </p>
+
+        <h3 id="es-modules">ES Modules</h3>
+        <p>
+          ES Modules (ESM) — standardized in ES2015 — define how JavaScript files import and export values
+          with static syntax (<code>import</code> / <code>export</code>). The static nature means the entire
+          module graph is known at compile time, enabling tree-shaking and build-time validation.
+        </p>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Named export — explicitly shared
+export function formatDate(date) { return date.toISOString(); }
+
+// Default export — the primary thing a module provides
+export default class MyComponent extends LightningElement { /* ... */ }
+
+// Import with path resolution handled by the LWC compiler
+import { LightningElement } from 'lwc';            // Platform module
+import { getRecord } from 'lightning/uiRecordApi'; // Salesforce wire adapter
+import myLabel from '@salesforce/label/c.MyLabel'; // Static resource reference</code></pre>
+        <p>
+          LWC's build system resolves these imports at compile time. The Salesforce-specific import
+          namespaces (<code>@salesforce/*</code>, <code>lightning/*</code>) are intercepted by the
+          compiler and replaced with platform implementations — this is how compile-time validation of
+          field references works.
+        </p>
+      </section>
+
+      <!-- 3. THE SPEC -->
+      <section id="the-spec">
+        <h2>3. LWC Architecture</h2>
+
+        <h3>The Aura Problem (and Why LWC Was Built)</h3>
+        <p>
+          Salesforce's previous framework, <strong>Aura</strong> (previously called "Lightning Components"),
+          launched in 2014 at a time when native browser component APIs didn't exist. Aura had to invent
+          everything: its own module system, its own event system, its own component model, its own rendering
+          engine, its own client-side data cache (LDS), and its own security model (Locker Service).
+        </p>
+        <p>
+          By 2017, browser standards had caught up. Web Components were shipping in Chrome, Firefox, and Safari.
+          ES modules were natively supported. Salesforce made the architectural decision to rebuild on standards
+          rather than continue extending the Aura abstraction. The result was LWC, released to GA in Spring 2019.
+        </p>
+        <p>The key advantages of the standards-based approach:</p>
+        <ul>
+          <li><strong>Performance</strong> — The browser does the heavy lifting (DOM creation, event dispatch).
+            Aura required a heavy JavaScript runtime layer for everything.</li>
+          <li><strong>Interoperability</strong> — Standard Custom Elements can be embedded in any web context.
+            Aura components were Aura-only.</li>
+          <li><strong>Testability</strong> — LWC components are plain JavaScript classes; Jest can test them
+            without any Salesforce infrastructure. Aura was notoriously difficult to unit test.</li>
+          <li><strong>Maintainability</strong> — Aura used a proprietary JSON-based component descriptor format
+            (<code>.cmp</code> files). LWC uses standard HTML, JS, and CSS that every modern toolchain understands.</li>
+          <li><strong>Security</strong> — Aura's Locker Service was a proxy-based security model bolted on after
+            the fact. LWC was designed from the start with Lightning Web Security (LWS), which uses native
+            JavaScript realms for namespace isolation.</li>
+        </ul>
+
+        <h3 id="lwc-vs-aura">LWC vs Aura — Deep Comparison</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Aura</th>
+                <th>LWC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Component model</td>
+                <td>Proprietary (<code>.cmp</code> XML + controller JS)</td>
+                <td>W3C Custom Elements + standard HTML/JS/CSS</td>
+              </tr>
+              <tr>
+                <td>Rendering</td>
+                <td>Virtual DOM-like re-render, Aura runtime-managed</td>
+                <td>Compiled render functions; reactive property proxy</td>
+              </tr>
+              <tr>
+                <td>Data binding</td>
+                <td>Two-way binding (<code>v.attribute</code>)</td>
+                <td>One-way, top-down (parent → child via <code>@api</code>)</td>
+              </tr>
+              <tr>
+                <td>Events</td>
+                <td>Component events, Application events (global bus)</td>
+                <td>DOM CustomEvents + LMS (Lightning Message Service)</td>
+              </tr>
+              <tr>
+                <td>Shadow DOM</td>
+                <td>No true Shadow DOM; global CSS scope</td>
+                <td>Synthetic Shadow DOM; component CSS is scoped</td>
+              </tr>
+              <tr>
+                <td>Security</td>
+                <td>Locker Service (proxy-based, heavy performance cost)</td>
+                <td>Lightning Web Security (isolated JS realms, lighter)</td>
+              </tr>
+              <tr>
+                <td>Testing</td>
+                <td>No official unit test framework</td>
+                <td>Jest + @salesforce/sfdx-lwc-jest (official)</td>
+              </tr>
+              <tr>
+                <td>Module system</td>
+                <td>AMD-like loader (<code>$A.require</code>)</td>
+                <td>ES Modules (native import/export)</td>
+              </tr>
+              <tr>
+                <td>Performance baseline</td>
+                <td>3–5× slower (estimated, varies)</td>
+                <td>Near-native browser performance</td>
+              </tr>
+              <tr>
+                <td>Interoperability</td>
+                <td>Aura-only</td>
+                <td>Can embed in Aura, VisualForce via Lightning Out</td>
+              </tr>
+              <tr>
+                <td>Lifecycle callbacks</td>
+                <td>Custom Aura callbacks (init, change, etc.)</td>
+                <td>W3C Custom Elements callbacks (constructor, connectedCallback, etc.)</td>
+              </tr>
+              <tr>
+                <td>New development</td>
+                <td>No new capabilities since 2019</td>
+                <td>Active development; new APIs each release</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="lwc-vs-frameworks">LWC vs React / Angular / Vue</h3>
+        <p>
+          Understanding LWC's position relative to mainstream frameworks helps you explain architectural
+          decisions to non-Salesforce developers on a team.
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>LWC</th>
+                <th>React</th>
+                <th>Angular</th>
+                <th>Vue</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Reactivity model</td>
+                <td>Proxy-based (property mutation → re-render)</td>
+                <td>Virtual DOM diffing (setState triggers diff)</td>
+                <td>Zone.js (monkey-patches async APIs)</td>
+                <td>Proxy-based (similar to LWC)</td>
+              </tr>
+              <tr>
+                <td>Shadow DOM</td>
+                <td>Yes (synthetic in SF platform)</td>
+                <td>No (optional via Web Components)</td>
+                <td>Emulated or native (ViewEncapsulation)</td>
+                <td>No (optional via Web Components)</td>
+              </tr>
+              <tr>
+                <td>Deployment constraint</td>
+                <td>Salesforce platform only (in practice)</td>
+                <td>Any server/CDN</td>
+                <td>Any server/CDN</td>
+                <td>Any server/CDN</td>
+              </tr>
+              <tr>
+                <td>Data access</td>
+                <td>Wire adapters + LDS (platform-integrated)</td>
+                <td>Any (Redux, React Query, etc.)</td>
+                <td>Any (RxJS, NgRx, etc.)</td>
+                <td>Any (Pinia, Vuex, etc.)</td>
+              </tr>
+              <tr>
+                <td>Two-way binding</td>
+                <td>No (by design)</td>
+                <td>No (controlled components pattern)</td>
+                <td>Yes (ngModel)</td>
+                <td>Yes (v-model)</td>
+              </tr>
+              <tr>
+                <td>Testing</td>
+                <td>Jest + LWC test utils</td>
+                <td>Jest + React Testing Library</td>
+                <td>Jasmine/Jest + TestBed</td>
+                <td>Jest + Vue Test Utils</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>The Multi-Tenant Platform Contract</h3>
+        <p>
+          The most fundamental constraint on LWC's design — one that has no parallel in React or Angular — is
+          that it must run in a <strong>multi-tenant Salesforce org</strong>. This means:
+        </p>
+        <ol>
+          <li>
+            <strong>Multiple namespaces coexist</strong> — A customer org may have 10 managed packages installed,
+            each with their own LWC components. These components must not interfere with each other's CSS,
+            DOM, or JavaScript memory space. Shadow DOM (providing CSS isolation) and Lightning Web Security
+            (providing JS namespace isolation) both exist because of this constraint.
+          </li>
+          <li>
+            <strong>Field-level and object-level security must be enforced</strong> — A component cannot
+            circumvent FLS by directly accessing an API. LDS wire adapters enforce FLS automatically —
+            if a user cannot see a field, the field is absent from the wire adapter response. This is why
+            LDS exists as a platform service rather than a simple HTTP client.
+          </li>
+          <li>
+            <strong>Governor limits apply</strong> — LWC runs in a browser, but it calls an Apex backend
+            that runs in a governor-limited Salesforce environment. Wire adapters and LDS manage caching
+            and request batching to reduce server round-trips and governor limit consumption.
+          </li>
+          <li>
+            <strong>Content Security Policy is strictly enforced</strong> — You cannot load scripts from
+            arbitrary CDN URLs. All external JavaScript must go through Static Resources. You cannot use
+            <code>eval()</code> or <code>new Function()</code>. These restrictions exist to prevent XSS
+            attacks in a shared environment where one malicious component could affect all other tenants.
+          </li>
+        </ol>
+        <p>
+          Every time you encounter an LWC restriction that seems arbitrary, ask: "How would this break in a
+          multi-tenant environment?" The answer almost always explains the constraint.
+        </p>
+      </section>
+
+      <!-- 4. CODE WALKTHROUGH -->
+      <section id="code-walkthrough">
+        <h2>4. Code Walkthrough</h2>
+        <p>
+          An LWC component is a bundle of co-located files. Here is the minimal complete component, annotated
+          to show the connection to each web standard.
+        </p>
+
+        <h3>The HTML Template (<code>myGreeting.html</code>)</h3>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- myGreeting.html --&gt;
+&lt;!-- This file compiles to a render function — it never runs as-is --&gt;
+&lt;template&gt;
+  &lt;!-- {name} is a one-way data binding expression.
+       LWC intentionally has NO two-way binding (unlike Angular).
+       Data flows down from JS to template; events flow up. --&gt;
+  &lt;p&gt;Hello, {name}!&lt;/p&gt;
+
+  &lt;!-- Calling methods in expressions is NOT allowed: {formatName()} would fail.
+       Computed values must be properties or getters in the JS class. --&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3>The JavaScript Controller (<code>myGreeting.js</code>)</h3>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// myGreeting.js
+// LightningElement IS the Custom Element base class, wrapped by LWC
+import { LightningElement, api } from 'lwc';
+
+export default class MyGreeting extends LightningElement {
+  // @api marks a property as a public component API (parent-settable).
+  // Internally, @api generates a getter/setter pair that makes the property
+  // observable to the parent and read-only from child code.
+  @api name = 'World';
+
+  // LWC lifecycle hooks map directly to Custom Elements callbacks.
+  // The LWC runtime calls these at the right moments.
+  connectedCallback() {
+    // Safe to access DOM here — component is attached to the document
+    // NOT safe: do not access child component elements yet (use renderedCallback)
+    console.log('MyGreeting is in the DOM');
+  }
+
+  disconnectedCallback() {
+    // Clean up: unsubscribe from LMS, clear timers, remove event listeners
+    console.log('MyGreeting removed from DOM');
+  }
+}</code></pre>
+
+        <h3>The CSS (<code>myGreeting.css</code>)</h3>
+        <pre class="language-css" data-lang="CSS"><code class="language-css">/* myGreeting.css */
+/* These styles are AUTOMATICALLY scoped to this component by the LWC compiler.
+   At build time, the compiler adds a unique attribute selector to every rule,
+   e.g.: p[lwc-xyz123] { color: navy; }
+   This means the 'p' rule here NEVER affects paragraphs outside this component. */
+p {
+  color: navy;
+  font-weight: bold;
+}
+
+/* To style the component's host element (the custom element itself): */
+:host {
+  display: block; /* LWC components are inline by default — this is a common fix */
+  margin-bottom: 1rem;
+}</code></pre>
+
+        <h3>The Metadata File (<code>myGreeting.js-meta.xml</code>)</h3>
+        <pre class="language-html" data-lang="XML"><code class="language-html">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+  &lt;!-- apiVersion: which Salesforce release API to use.
+       Does NOT affect browser JS behavior — affects server-side Apex API calls
+       and which platform features the compiler validates against. --&gt;
+  &lt;apiVersion&gt;61.0&lt;/apiVersion&gt;
+
+  &lt;!-- isExposed: true = visible in Lightning App Builder, Experience Builder, Flow.
+       false = can only be referenced programmatically (e.g., composed in another LWC) --&gt;
+  &lt;isExposed&gt;true&lt;/isExposed&gt;
+
+  &lt;!-- targets: declares which Salesforce surfaces this component supports --&gt;
+  &lt;targets&gt;
+    &lt;target&gt;lightning__AppPage&lt;/target&gt;
+    &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+    &lt;target&gt;lightning__HomePage&lt;/target&gt;
+  &lt;/targets&gt;
+&lt;/LightningComponentBundle&gt;</code></pre>
+
+        <h3>Using the Component</h3>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- parentComponent.html --&gt;
+&lt;template&gt;
+  &lt;!-- The tag name is kebab-case: namespace-componentName
+       In the same org (default namespace): c-my-greeting
+       In a managed package with namespace 'acme': acme-my-greeting --&gt;
+  &lt;c-my-greeting name="Alice"&gt;&lt;/c-my-greeting&gt;
+  &lt;c-my-greeting name="Bob"&gt;&lt;/c-my-greeting&gt;
+&lt;/template&gt;</code></pre>
+      </section>
+
+      <!-- 5. INTERNALS -->
+      <section id="internals">
+        <h2>5. Internals</h2>
+
+        <h3>How LWC Compilation Works</h3>
+        <p>
+          When you deploy an LWC component, the Salesforce server-side compiler (and locally, the Salesforce
+          CLI) processes your bundle files through several stages:
+        </p>
+        <ol>
+          <li>
+            <strong>Template compilation</strong> — The <code>.html</code> file is parsed and compiled into
+            a JavaScript render function. Expressions like <code>{name}</code> become property accessors on
+            the component instance. Directives like <code>lwc:if</code> become conditional DOM creation logic.
+          </li>
+          <li>
+            <strong>Decorator transformation</strong> — The Babel plugin transforms <code>@api</code>,
+            <code>@track</code>, and <code>@wire</code> decorators into getter/setter pairs and wire
+            service registrations. These are not TC39 decorators — they're custom transforms.
+          </li>
+          <li>
+            <strong>CSS scoping</strong> — The compiler assigns a unique attribute (e.g., <code>lwc-abc123</code>)
+            to the component and rewrites every CSS selector in the component's stylesheet to require that
+            attribute. This achieves CSS isolation without native Shadow DOM's browser support requirement.
+          </li>
+          <li>
+            <strong>Import resolution</strong> — Imports like <code>from '@salesforce/label/c.MyLabel'</code>
+            are statically analyzed and validated against org metadata at deploy time. If the label doesn't
+            exist, the deployment fails — giving you a compile-time error instead of a runtime null.
+          </li>
+          <li>
+            <strong>Module bundling</strong> — The compiled component is packaged as a Lightning module that
+            the browser's LWC runtime can load. LWC uses a custom module loader, not Node's CommonJS or
+            raw browser ESM, to allow the platform to control module resolution.
+          </li>
+        </ol>
+
+        <h3>The LightningElement Base Class</h3>
+        <p>
+          Your component class <code>extends LightningElement</code>. What is <code>LightningElement</code>?
+          In a Salesforce org, it is not a vanilla <code>HTMLElement</code> subclass — it is the LWC
+          framework's base class that wraps the Custom Elements lifecycle, sets up the reactive property
+          system, initializes Shadow DOM, and registers the component with the wire service.
+        </p>
+        <p>
+          In Jest tests (via <code>@salesforce/sfdx-lwc-jest</code>), <code>LightningElement</code> is
+          a polyfill that simulates the same behavior in a JSDOM environment, which is why you can test
+          LWC components without a Salesforce org.
+        </p>
+
+        <h3>The Reactive Property System</h3>
+        <p>
+          When you set a property on an LWC component instance (a property decorated with <code>@api</code>
+          or a reactive primitive decorated with <code>@track</code>), the LWC runtime intercepts the
+          mutation via a JavaScript <code>Proxy</code>. The proxy marks the component as "dirty" and
+          schedules a re-render via a microtask queue — similar to how Vue 3 works, and unlike React's
+          explicit <code>setState()</code> call.
+        </p>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Conceptual (simplified) reactive property implementation
+// LWC runtime creates something like this for every reactive property:
+
+function makeReactive(component, propertyKey) {
+  let _value = component[propertyKey];
+  Object.defineProperty(component, propertyKey, {
+    get() { return _value; },
+    set(newValue) {
+      if (_value !== newValue) {
+        _value = newValue;
+        // Schedule a re-render on the microtask queue
+        scheduleRerender(component);
+      }
+    }
+  });
+}
+
+// In practice, LWC uses ES Proxy on the component's own object,
+// not individual property descriptors — but the effect is the same.</code></pre>
+      </section>
+
+      <!-- 6. COMMON PITFALLS -->
+      <section id="pitfalls">
+        <h2>6. Common Pitfalls</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 1: Treating LWC like React</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Developers with React backgrounds often try to use state management patterns (lifting state,
+              Redux-style stores, context providers) that don't map cleanly to LWC's model. LWC has
+              <strong>no state management library</strong> — the idiomatic solution for shared state is
+              Lightning Message Service (LMS) or a service component pattern.
+            </p>
+            <p>Also, LWC templates cannot call methods — this is a React habit that breaks in LWC:</p>
+            <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- ❌ Wrong: calling a method in a template expression is NOT supported --&gt;
+&lt;template&gt;
+  &lt;p&gt;{formatDate(this.date)}&lt;/p&gt;
+&lt;/template&gt;
+
+&lt;!-- ✅ Correct: use a getter instead --&gt;
+&lt;template&gt;
+  &lt;p&gt;{formattedDate}&lt;/p&gt;
+&lt;/template&gt;</code></pre>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ✅ Correct: expose computed values as getters
+get formattedDate() {
+  return this.date ? new Intl.DateTimeFormat('en-US').format(this.date) : '';
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 2: Mutating @api properties from within the child</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>@api</code> properties are read-only from the child's perspective. Mutating them
+              in the child component will cause an error in LWC strict mode (which is the default in
+              all new components). This is intentional — it enforces the one-directional data flow.
+            </p>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Wrong: child trying to change its own @api property
+@api name;
+handleClick() {
+  this.name = 'modified'; // Throws: "Cannot assign to read only property"
+}
+
+// ✅ Correct: child fires an event; parent decides whether to update
+handleClick() {
+  this.dispatchEvent(new CustomEvent('namechange', { detail: 'modified' }));
+}
+// Parent listens and updates its own state, which flows back down via @api</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 3: Confusing LWC with Aura interop</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LWC components can be embedded in Aura, but Aura components cannot be embedded in LWC
+              (only at the page level, not as a child component). This asymmetry surprises developers
+              mid-migration.
+            </p>
+            <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- ✅ Allowed: LWC inside Aura --&gt;
+&lt;!-- myAuraComponent.cmp --&gt;
+&lt;aura:component&gt;
+  &lt;c:myLwcComponent /&gt;
+&lt;/aura:component&gt;
+
+&lt;!-- ❌ NOT allowed: Aura inside LWC (child component level) --&gt;
+&lt;!-- myLwcComponent.html --&gt;
+&lt;template&gt;
+  &lt;c-my-aura-component&gt;&lt;/c-my-aura-component&gt; &lt;!-- This won't work --&gt;
+&lt;/template&gt;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 4: Using innerHTML or document.querySelector</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Setting <code>innerHTML</code> is blocked by Salesforce's Content Security Policy and
+              Lightning Web Security — it's a classic XSS vector. Similarly, <code>document.querySelector</code>
+              cannot reach inside Shadow DOM; you must use <code>this.template.querySelector</code> instead.
+            </p>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Wrong: blocked by CSP + bypasses Shadow DOM encapsulation
+this.template.innerHTML = '&lt;p&gt;' + userInput + '&lt;/p&gt;';
+document.querySelector('.my-element'); // Cannot pierce shadow boundary
+
+// ✅ Correct: use template data binding and scoped query
+// Bind in template: &lt;p&gt;{safeValue}&lt;/p&gt;
+this.template.querySelector('.my-element'); // Scoped to this component's shadow</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. EXPERT INSIGHT -->
+      <section id="p3-insight">
+        <h2>7. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 When to Still Choose Aura (Coexistence Strategy)</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              At expert level, "use LWC for everything" is not the right answer. There are legitimate cases
+              where Aura is still the correct choice in 2024:
+            </p>
+            <ul>
+              <li>
+                <strong>Overlays and Modals via <code>lightning:overlayLibrary</code></strong> — This Aura
+                component has no LWC equivalent. If you need to programmatically create modals from JavaScript
+                (not from a template), Aura is still required. The LWC alternative is to use the
+                <code>lightning/modal</code> module (GA'd in Winter '23), but it has different constraints.
+              </li>
+              <li>
+                <strong>Existing Aura codebase with extensive component hierarchy</strong> — The cost of
+                migrating a large Aura application is not zero. If Aura works and the risk of regressions
+                is high, a phased migration (new features in LWC, existing features stay in Aura) is the
+                pragmatic expert answer.
+              </li>
+              <li>
+                <strong>Aura Application Events for cross-app communication</strong> — If you have components
+                in different lightning apps that need to communicate, Aura Application Events still work.
+                LMS is the preferred alternative but requires all components to be in the same lightning page.
+              </li>
+            </ul>
+            <p>
+              The architect-level decision framework: "Is there an LWC-native equivalent that provides the
+              same capability with less coupling?" If yes, use LWC. If no, use Aura for that specific piece
+              and compose it with LWC components where possible.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 The One-Way Binding Design Decision</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LWC deliberately chose one-way binding — a decision Aura got wrong with two-way binding.
+              Two-way binding in Aura led to cascading re-renders that were difficult to trace and debug.
+              A change in a deeply nested child could trigger re-renders all the way up the tree.
+            </p>
+            <p>
+              One-way binding (parent → child via properties, child → parent via events) makes data flow
+              explicit and traceable. The cost is slightly more boilerplate. The benefit is that component
+              behavior is predictable and testable in isolation — a parent cannot be surprised by a child
+              mutating shared state.
+            </p>
+            <p>
+              This is not unique to LWC — React made the same architectural choice. It has become the
+              dominant pattern in modern UI frameworks because it makes large applications maintainable.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 LWC Outside Salesforce: Open Source LWC</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LWC has an open-source version (<a href="https://lwc.dev" target="_blank" rel="noopener noreferrer">lwc.dev</a>)
+              that runs independently of Salesforce. It strips the platform-specific wire adapters and
+              deployment targets, exposing the pure component framework.
+            </p>
+            <p>
+              In practice, open-source LWC is rarely used outside of Salesforce contexts (it has a small
+              community compared to React/Vue). However, knowing it exists helps you explain LWC to developers
+              who assume it is entirely proprietary. The core component model — the way templates compile,
+              how reactivity works, the lifecycle callbacks — is the same in both versions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. QUICK RECALL CARD -->
+      <section id="recall">
+        <h2>8. Quick Recall Card</h2>
+        <div class="recall-card">
+          <h3>📋 What is LWC &amp; Why It Matters — Key Points</h3>
+          <ul>
+            <li><strong>Four web standards</strong> form LWC's foundation: Custom Elements, Shadow DOM, HTML Templates, ES Modules.</li>
+            <li><strong>Aura replaced by LWC</strong> in 2019 because browser standards caught up; LWC is thinner, faster, standard-based.</li>
+            <li><strong>LWC uses synthetic Shadow DOM</strong> in Lightning Experience (not native) — this affects CSS isolation and event retargeting behavior.</li>
+            <li><strong>One-way data binding</strong>: properties flow parent→child, events flow child→parent. No two-way binding by design.</li>
+            <li><strong>Multi-tenant constraints</strong> explain LWC restrictions: namespace isolation (LWS), CSP enforcement, FLS via LDS, governor limit awareness.</li>
+            <li><strong>LWC vs Aura interop</strong>: LWC can be a child in Aura; Aura cannot be a child in LWC. Migration is one-way at the component level.</li>
+            <li><strong>Compile-time validation</strong>: <code>@salesforce/schema</code> and label imports are validated at deploy time, not runtime.</li>
+            <li><strong>Template method calls are forbidden</strong>: use getters for computed values (<code>{formattedDate}</code> not <code>{formatDate()}</code>).</li>
+            <li><strong>Still use Aura when</strong>: no LWC equivalent exists (legacy overlayLibrary), migrating large Aura apps (phased approach).</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Cross-links -->
+      <section>
+        <h2>Related Articles</h2>
+        <ul>
+          <li><a href="02-web-standards.html">Article 02 — Core Architecture &amp; Web Standards</a> — Deep-dive into browser rendering, Custom Elements API, and LWC's reactive engine</li>
+          <li><a href="03-component-structure.html">Article 03 — Component File Structure</a> — Bundle anatomy, js-meta.xml, CSS scoping at compile time</li>
+          <li><a href="05-lifecycle-hooks.html">Article 05 — Lifecycle Hooks</a> — LWC hooks mapped to W3C Custom Elements callbacks</li>
+          <li><a href="07-shadow-dom-vs-light-dom.html">Article 07 — Shadow DOM vs Light DOM</a> — Synthetic Shadow DOM internals, encapsulation rules</li>
+          <li><a href="08-component-communication.html">Article 08 — Component Communication</a> — Events, LMS, and the full communication taxonomy</li>
+        </ul>
+      </section>
+
+      <!-- References -->
+      <section>
+        <h2>References</h2>
+        <ul>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Salesforce — LWC Developer Guide</a></li>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.get_started_introduction" target="_blank" rel="noopener noreferrer">Salesforce — LWC Getting Started</a></li>
+          <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_components" target="_blank" rel="noopener noreferrer">MDN — Web Components</a></li>
+          <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/define" target="_blank" rel="noopener noreferrer">MDN — customElements.define()</a></li>
+          <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM" target="_blank" rel="noopener noreferrer">MDN — Using Shadow DOM</a></li>
+          <li><a href="https://www.w3.org/TR/custom-elements/" target="_blank" rel="noopener noreferrer">W3C — Custom Elements Specification</a></li>
+          <li><a href="https://lwc.dev" target="_blank" rel="noopener noreferrer">LWC Open Source (lwc.dev)</a></li>
+          <li><a href="https://developer.salesforce.com/blogs/2018/12/introducing-lightning-web-components" target="_blank" rel="noopener noreferrer">Salesforce Blog — Introducing LWC (2018)</a></li>
+          <li><a href="https://help.salesforce.com/s/articleView?id=sf.security_lwsec_intro.htm" target="_blank" rel="noopener noreferrer">Salesforce Help — Lightning Web Security</a></li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="../index.html" class="nav-prev">
+          <span class="nav-label">← Home</span>
+          <span class="nav-title">All Articles</span>
+        </a>
+        <a href="02-web-standards.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">02. Core Architecture &amp; Web Standards</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle    = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html      = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read — persisted in localStorage
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId  = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : '☐ Mark as Read';
+        btn.classList.toggle('is-read', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks  = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+
+      const headings  = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active    = headings[0];
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) { active = heading; } else { break; }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" width="960" height="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#0070d2"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#e65100"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#6610f2"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2e7d32"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#c62828"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="800" fill="#f8f9fa" rx="12"/>
+  <rect x="1" y="1" width="958" height="798" fill="none" stroke="#dee2e6" stroke-width="1.5" rx="12"/>
+
+  <!-- HEADER -->
+  <rect x="0" y="0" width="960" height="56" fill="#0070d2" rx="12"/>
+  <rect x="0" y="44" width="960" height="12" fill="#0070d2"/>
+  <text x="480" y="24" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#ffffff">LWC Component Communication Taxonomy</text>
+  <text x="480" y="42" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#c8e0f8">@api · CustomEvent · Shared State · Lightning Message Service · Platform Events</text>
+
+  <!-- ===== PANEL 1: Parent → Child ===== -->
+  <rect x="16" y="68" width="294" height="288" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="68" width="294" height="32" fill="#e8f4fd" rx="8"/>
+  <rect x="16" y="88" width="294" height="12" fill="#e8f4fd"/>
+  <text x="163" y="88" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#0070d2">1. Parent → Child</text>
+
+  <rect x="75" y="108" width="176" height="42" fill="#0070d2" rx="6"/>
+  <text x="163" y="125" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#ffffff">Parent Component</text>
+  <text x="163" y="140" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#c8e0f8">&lt;c-child my-title={titleVal}&gt;</text>
+
+  <!-- @api arrow down (solid) -->
+  <line x1="140" y1="150" x2="140" y2="178" stroke="#0070d2" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <rect x="148" y="156" width="84" height="18" fill="#e8f4fd" rx="3" stroke="#0070d2" stroke-width="0.5"/>
+  <text x="190" y="168" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#0070d2">@api property</text>
+
+  <!-- @api method arrow (dashed) -->
+  <line x1="210" y1="150" x2="210" y2="178" stroke="#0070d2" stroke-width="1.5" stroke-dasharray="4,2" marker-end="url(#arrow-blue)"/>
+  <text x="238" y="162" font-family="'Segoe UI',sans-serif" font-size="8" fill="#0070d2">@api</text>
+  <text x="238" y="172" font-family="'Segoe UI',sans-serif" font-size="8" fill="#0070d2">method</text>
+
+  <rect x="75" y="180" width="176" height="42" fill="#1565c0" rx="6"/>
+  <text x="163" y="197" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#ffffff">Child Component</text>
+  <text x="163" y="212" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#c8e0f8">@api myTitle; // read-only in child</text>
+
+  <line x1="28" y1="238" x2="298" y2="238" stroke="#dee2e6" stroke-width="0.5" stroke-dasharray="4,3"/>
+
+  <text x="28" y="255" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">&#x2713;  Primitives and objects both work</text>
+  <text x="28" y="272" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">&#x2713;  @api getter/setter for validation</text>
+  <text x="28" y="289" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">&#x2717;  Child MUST NOT mutate @api prop</text>
+  <text x="28" y="306" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">&#x2717;  Objects pass by ref — clone to mutate</text>
+  <text x="28" y="323" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x25B8;  @api annotates the getter, not setter</text>
+  <text x="28" y="340" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x25B8;  Use @api method() to call child fn</text>
+
+  <!-- ===== PANEL 2: Child → Parent ===== -->
+  <rect x="326" y="68" width="294" height="288" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="326" y="68" width="294" height="32" fill="#fff3e0" rx="8"/>
+  <rect x="326" y="88" width="294" height="12" fill="#fff3e0"/>
+  <text x="473" y="88" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#e65100">2. Child → Parent</text>
+
+  <rect x="385" y="108" width="176" height="42" fill="#e65100" rx="6"/>
+  <text x="473" y="125" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#ffffff">Parent Component</text>
+  <text x="473" y="140" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#ffe0cc">onmyevent={handleMyEvent}</text>
+
+  <!-- CustomEvent arrow up -->
+  <line x1="473" y1="180" x2="473" y2="152" stroke="#e65100" stroke-width="2.5" marker-end="url(#arrow-orange)"/>
+  <rect x="478" y="158" width="92" height="18" fill="#fff3e0" rx="3" stroke="#e65100" stroke-width="0.5"/>
+  <text x="524" y="170" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#e65100">CustomEvent</text>
+
+  <rect x="385" y="182" width="176" height="42" fill="#bf360c" rx="6"/>
+  <text x="473" y="199" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#ffffff">Child Component</text>
+  <text x="473" y="214" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#ffe0cc">this.dispatchEvent(new CustomEvent(...))</text>
+
+  <line x1="338" y1="238" x2="608" y2="238" stroke="#dee2e6" stroke-width="0.5" stroke-dasharray="4,3"/>
+
+  <text x="338" y="255" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">&#x2713;  bubbles:true skips intermediate parents</text>
+  <text x="338" y="272" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">&#x2713;  composed:true crosses shadow boundary</text>
+  <text x="338" y="289" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">&#x2717;  Event name must be all lowercase only</text>
+  <text x="338" y="306" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">&#x2717;  No camelCase: 'myevent' not 'myEvent'</text>
+  <text x="338" y="323" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x25B8;  Pass data via event.detail object</text>
+  <text x="338" y="340" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x25B8;  event.target is retargeted at boundary</text>
+
+  <!-- ===== PANEL 3: Cross-Tree LMS ===== -->
+  <rect x="636" y="68" width="308" height="288" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="636" y="68" width="308" height="32" fill="#f3e8ff" rx="8"/>
+  <rect x="636" y="88" width="308" height="12" fill="#f3e8ff"/>
+  <text x="790" y="88" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#6610f2">3. Cross-Tree: LMS</text>
+
+  <rect x="644" y="108" width="124" height="42" fill="#6610f2" rx="6"/>
+  <text x="706" y="125" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" font-weight="700" fill="#ffffff">LWC Publisher</text>
+  <text x="706" y="140" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#e0d0ff">publish(ctx, channel, msg)</text>
+
+  <!-- MessageChannel center box -->
+  <rect x="738" y="164" width="116" height="34" fill="#f3e8ff" rx="6" stroke="#6610f2" stroke-width="1.5"/>
+  <text x="796" y="179" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#6610f2">MessageChannel</text>
+  <text x="796" y="191" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#6610f2">.messageChannel-meta.xml</text>
+
+  <rect x="816" y="108" width="120" height="42" fill="#4a148c" rx="6"/>
+  <text x="876" y="125" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" font-weight="700" fill="#ffffff">LWC Subscriber</text>
+  <text x="876" y="140" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#e0d0ff">subscribe(ctx, ch, cb, scope)</text>
+
+  <!-- Publisher → Channel -->
+  <path d="M 706 150 L 706 181 L 738 181" fill="none" stroke="#6610f2" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <text x="718" y="173" font-family="'Segoe UI',sans-serif" font-size="8" fill="#6610f2">publish</text>
+
+  <!-- Channel → Subscriber -->
+  <path d="M 854 181 L 876 181 L 876 150" fill="none" stroke="#6610f2" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <text x="858" y="173" font-family="'Segoe UI',sans-serif" font-size="8" fill="#6610f2">notify</text>
+
+  <!-- Scope badge -->
+  <rect x="738" y="202" width="116" height="16" fill="#ede7f6" rx="3"/>
+  <text x="796" y="213" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#4a148c">APPLICATION_SCOPE | default scope</text>
+
+  <line x1="648" y1="230" x2="932" y2="230" stroke="#dee2e6" stroke-width="0.5" stroke-dasharray="4,3"/>
+
+  <text x="648" y="247" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">&#x2713;  Works across any component tree depth</text>
+  <text x="648" y="264" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">&#x2713;  Bridges LWC &#x2194; Aura &#x2194; Visualforce</text>
+  <text x="648" y="281" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">&#x2717;  MUST unsubscribe in disconnectedCB()</text>
+  <text x="648" y="298" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">&#x2717;  @wire(MessageContext) ctx — required</text>
+  <text x="648" y="315" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x25B8;  Import MC from @salesforce/messageChannel/</text>
+  <text x="648" y="332" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x25B8;  APPLICATION_SCOPE = whole-page visible</text>
+
+  <!-- ===== PANEL 4: Sibling via Shared Parent State ===== -->
+  <rect x="16" y="368" width="448" height="172" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="368" width="448" height="32" fill="#e8f5e9" rx="8"/>
+  <rect x="16" y="388" width="448" height="12" fill="#e8f5e9"/>
+  <text x="240" y="388" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#2e7d32">4. Sibling &#x2194; Sibling (via Shared Parent)</text>
+
+  <!-- Parent (State Owner) -->
+  <rect x="168" y="406" width="152" height="36" fill="#2e7d32" rx="5"/>
+  <text x="244" y="420" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" font-weight="700" fill="#ffffff">Parent — State Owner</text>
+  <text x="244" y="433" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#c8e6c9">listens for events, updates state</text>
+
+  <!-- Sibling A -->
+  <rect x="36" y="468" width="120" height="36" fill="#388e3c" rx="5"/>
+  <text x="96" y="482" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" font-weight="700" fill="#ffffff">Sibling A</text>
+  <text x="96" y="495" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#c8e6c9">fires CustomEvent up</text>
+
+  <!-- Sibling B -->
+  <rect x="332" y="468" width="120" height="36" fill="#388e3c" rx="5"/>
+  <text x="392" y="482" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" font-weight="700" fill="#ffffff">Sibling B</text>
+  <text x="392" y="495" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#c8e6c9">receives @api value</text>
+
+  <!-- Arrow: Sibling A → Parent (event up) -->
+  <path d="M 120 468 L 200 442" fill="none" stroke="#e65100" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+  <text x="152" y="451" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#e65100">event up</text>
+
+  <!-- Arrow: Parent → Sibling B (prop down) -->
+  <path d="M 290 442 L 370 468" fill="none" stroke="#0070d2" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
+  <text x="337" y="451" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#0070d2">@api down</text>
+
+  <text x="28" y="522" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x26A0;  Siblings cannot communicate directly — route via parent or use LMS for cross-tree siblings.</text>
+
+  <!-- ===== PANEL 5: Platform Events ===== -->
+  <rect x="480" y="368" width="464" height="172" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="480" y="368" width="464" height="32" fill="#fce4ec" rx="8"/>
+  <rect x="480" y="388" width="464" height="12" fill="#fce4ec"/>
+  <text x="712" y="388" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#c62828">5. Platform Events (Server-Pushed)</text>
+
+  <!-- Salesforce -->
+  <rect x="492" y="408" width="96" height="36" fill="#c62828" rx="5"/>
+  <text x="540" y="422" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#ffffff">Salesforce</text>
+  <text x="540" y="435" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#ffcdd2">publishes event</text>
+
+  <line x1="588" y1="426" x2="624" y2="426" stroke="#c62828" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="606" y="420" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#c62828">CometD</text>
+
+  <!-- empApi -->
+  <rect x="626" y="408" width="108" height="36" fill="#b71c1c" rx="5"/>
+  <text x="680" y="422" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#ffffff">lightning/empApi</text>
+  <text x="680" y="435" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#ffcdd2">subscribe(channel,-1,cb)</text>
+
+  <line x1="734" y1="426" x2="770" y2="426" stroke="#c62828" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="752" y="420" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="8" fill="#c62828">callback</text>
+
+  <!-- LWC Component -->
+  <rect x="772" y="408" width="100" height="36" fill="#e53935" rx="5"/>
+  <text x="822" y="422" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#ffffff">LWC Component</text>
+  <text x="822" y="435" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" fill="#ffcdd2">handles real-time event</text>
+
+  <!-- Cross-tech row -->
+  <text x="492" y="460" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#6c757d">Cross-Tech via LMS:</text>
+
+  <rect x="604" y="466" width="56" height="16" fill="#0070d2" rx="3"/>
+  <text x="632" y="477" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#ffffff">LWC</text>
+  <line x1="660" y1="474" x2="676" y2="474" stroke="#6610f2" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <rect x="678" y="466" width="56" height="16" fill="#e65100" rx="3"/>
+  <text x="706" y="477" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#ffffff">Aura</text>
+  <line x1="734" y1="474" x2="750" y2="474" stroke="#6610f2" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <rect x="752" y="466" width="78" height="16" fill="#1565c0" rx="3"/>
+  <text x="791" y="477" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#ffffff">Visualforce</text>
+  <text x="836" y="477" font-family="'Segoe UI',sans-serif" font-size="9" fill="#6c757d">same channel</text>
+
+  <text x="492" y="497" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x2713;  Unregister in disconnectedCallback() to prevent memory leaks.</text>
+  <text x="492" y="511" font-family="'Segoe UI',sans-serif" font-size="10" fill="#6c757d">&#x2713;  Replay ID: -1 = latest event, -2 = replay all stored events.</text>
+
+  <!-- ===== DECISION TABLE ===== -->
+  <rect x="16" y="552" width="928" height="208" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="552" width="928" height="32" fill="#f8f9fa" rx="8"/>
+  <rect x="16" y="572" width="928" height="12" fill="#f8f9fa"/>
+  <text x="480" y="572" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="13" font-weight="700" fill="#0d1117">Communication Decision Framework — Expert Must Know</text>
+
+  <!-- Column headers -->
+  <rect x="28" y="590" width="138" height="20" fill="#e9ecef" rx="2"/>
+  <rect x="174" y="590" width="148" height="20" fill="#e9ecef" rx="2"/>
+  <rect x="330" y="590" width="148" height="20" fill="#e9ecef" rx="2"/>
+  <rect x="486" y="590" width="210" height="20" fill="#e9ecef" rx="2"/>
+  <rect x="704" y="590" width="228" height="20" fill="#e9ecef" rx="2"/>
+
+  <text x="97" y="604" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#0d1117">Pattern</text>
+  <text x="248" y="604" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#0d1117">API / Mechanism</text>
+  <text x="404" y="604" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#0d1117">Direction</text>
+  <text x="591" y="604" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#0d1117">Use When</text>
+  <text x="818" y="604" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#0d1117">Avoid When</text>
+
+  <!-- Row 1: @api Binding -->
+  <rect x="28" y="614" width="138" height="26" fill="#e8f4fd" rx="2"/>
+  <text x="36" y="631" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#0070d2">1. @api Binding</text>
+  <text x="176" y="631" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">@api, {property} in template</text>
+  <text x="332" y="631" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">Parent &#x2192; Child only</text>
+  <text x="488" y="631" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">Owner passes config or data to component</text>
+  <text x="706" y="631" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">Child needs to push data back up</text>
+
+  <!-- Row 2: CustomEvent -->
+  <rect x="28" y="644" width="138" height="26" fill="#fff3e0" rx="2"/>
+  <text x="36" y="661" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#e65100">2. CustomEvent</text>
+  <text x="176" y="661" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">dispatchEvent, on* handler</text>
+  <text x="332" y="661" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">Child &#x2192; Ancestor</text>
+  <text x="488" y="661" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">Action in child needs parent to react</text>
+  <text x="706" y="661" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">Communicating to unrelated components</text>
+
+  <!-- Row 3: Shared State -->
+  <rect x="28" y="674" width="138" height="26" fill="#e8f5e9" rx="2"/>
+  <text x="36" y="691" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#2e7d32">3. Shared State</text>
+  <text x="176" y="691" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">@api + CustomEvent combo</text>
+  <text x="332" y="691" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">Sibling via Parent</text>
+  <text x="488" y="691" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">Siblings share a direct common parent</text>
+  <text x="706" y="691" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">Components in separate DOM trees</text>
+
+  <!-- Row 4: LMS -->
+  <rect x="28" y="704" width="138" height="26" fill="#f3e8ff" rx="2"/>
+  <text x="36" y="721" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#6610f2">4. LMS</text>
+  <text x="176" y="721" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">MessageChannel, publish/subscribe</text>
+  <text x="332" y="721" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">Any &#x2192; Any (cross-tree)</text>
+  <text x="488" y="721" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">Cross-DOM or cross-technology needed</text>
+  <text x="706" y="721" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">Simple parent &#x2192; child (overkill)</text>
+
+  <!-- Row 5: Platform Events -->
+  <rect x="28" y="734" width="138" height="22" fill="#fce4ec" rx="2"/>
+  <text x="36" y="750" font-family="'Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#c62828">5. Platform Events</text>
+  <text x="176" y="750" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">lightning/empApi, subscribe()</text>
+  <text x="332" y="750" font-family="'Segoe UI',sans-serif" font-size="10" fill="#0d1117">Server &#x2192; Client (push)</text>
+  <text x="488" y="750" font-family="'Segoe UI',sans-serif" font-size="10" fill="#2e7d32">Real-time server-initiated notifications</text>
+  <text x="706" y="750" font-family="'Segoe UI',sans-serif" font-size="10" fill="#c62828">Polling or scheduled refresh is sufficient</text>
+
+  <!-- FOOTER -->
+  <text x="480" y="783" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="10" fill="#adb5bd">LWC.guide — Expert-Level Proficiency Prep · Salesforce LWC Developer Guide</text>
+</svg>

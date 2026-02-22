@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>21. Study Resources &amp; Learning Roadmap — LWC.guide</title>
+  <meta name="description" content="A complete study roadmap for expert-level LWC competency: 8-week plan, Trailhead priority map, GitHub repos, dev org setup, VS Code extensions, and mock assessment strategy.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/21-study-resources.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">What Expert Actually Means</a></li>
+          <li><a href="#rubric">The Competency Rubric</a></li>
+          <li><a href="#devorg">Setting Up Your Dev Org</a></li>
+          <li><a href="#vscode">VS Code Extensions</a></li>
+          <li><a href="#trailhead">Trailhead Priority Map</a></li>
+          <li><a href="#eight-week">8-Week Study Plan</a></li>
+          <li><a href="#github">GitHub Repos to Study</a></li>
+          <li><a href="#exercises">Hands-On Exercises</a></li>
+          <li><a href="#community">Community &amp; Forums</a></li>
+          <li><a href="#assessment">Mock Assessment Strategy</a></li>
+          <li><a href="#recall">Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 21</div>
+        <h1>Study Resources &amp; Learning Roadmap</h1>
+        <div class="article-meta">
+          <span>⏱ 18 min read</span>
+          <span class="tags">
+            <span class="tag">#resources</span>
+            <span class="tag">#study-plan</span>
+            <span class="tag">#p3plus</span>
+            <span class="tag">#trailhead</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="21"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           INTRODUCTION
+           ============================================================ -->
+      <section id="hook">
+        <h2>What Expert Actually Means</h2>
+        <p>
+          "Expert" on a professional skill grading system does not mean "knows all the APIs." It means you can <strong>reason about trade-offs</strong>, make architectural decisions under constraints, and <strong>explain why</strong> — not just what. The difference between an intermediate and an expert developer in an LWC context is the difference between:
+        </p>
+        <ul>
+          <li><strong>Intermediate:</strong> "Use <code>@wire</code> to call Apex." vs <strong>Expert:</strong> "Use <code>@wire</code> for reads where LDS caching + FLS auto-enforcement is beneficial; switch to imperative for mutations, complex transactions, or when you need <code>notifyRecordUpdateAvailable</code> to sync the cache."</li>
+          <li><strong>Intermediate:</strong> "Use LMS for cross-component communication." vs <strong>Expert:</strong> "Use LMS with <code>APPLICATION_SCOPE</code> for cross-DOM communication; be aware that subscriptions in disconnected components survive if you forget to unsubscribe in <code>disconnectedCallback</code>, creating memory leaks."</li>
+          <li><strong>Intermediate:</strong> "Shadow DOM provides CSS encapsulation." vs <strong>Expert:</strong> "Salesforce uses synthetic shadow DOM, which polyfills encapsulation — this means CSS custom properties (--variables) pierce shadow boundaries but class selectors do not; SLDS styling hooks are the only Salesforce-sanctioned way to style sub-components from outside."</li>
+        </ul>
+        <p>
+          This article gives you everything you need to get to that level: a rubric, a structured timeline, specific Trailhead modules, GitHub codebases to study, and a mock assessment strategy.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 How the Assessment Works</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              expert-level LWC assessments are online proctored with a mix of:
+              <strong>scenario-based multiple-choice</strong> (what would you do in this situation?),
+              <strong>code reading</strong> (identify the bug or anti-pattern),
+              and <strong>architecture questions</strong> (which approach and why?).
+            </p>
+            <p>
+              There is rarely a single "right" answer — examiners want to see that you understand
+              <em>trade-offs</em> and can justify your choice based on context.
+              Memorising API signatures is necessary but not sufficient.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           COMPETENCY RUBRIC
+           ============================================================ -->
+      <section id="rubric">
+        <h2>The Expert-Level Proficiency Rubric</h2>
+        <p>
+          Based on patterns seen in expert-level skill assessments and official Salesforce Certified JavaScript Developer content, Expert requires mastery across these eight dimensions:
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Intermediate Expectation</th>
+              <th>Expert Expectation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Architecture</strong></td>
+              <td>Can build components following examples</td>
+              <td>Designs component hierarchies, chooses communication patterns, justifies decisions</td>
+            </tr>
+            <tr>
+              <td><strong>Data &amp; Wire</strong></td>
+              <td>Uses <code>@wire</code> and imperative Apex</td>
+              <td>Knows LDS cache behaviour, when to use each, <code>refreshApex</code>, <code>notifyRecordUpdateAvailable</code></td>
+            </tr>
+            <tr>
+              <td><strong>Lifecycle</strong></td>
+              <td>Knows the hooks exist and basic usage</td>
+              <td>Can predict exact execution order in parent-child trees, avoids infinite re-renders, manages subscriptions correctly</td>
+            </tr>
+            <tr>
+              <td><strong>Shadow DOM</strong></td>
+              <td>Knows CSS is scoped</td>
+              <td>Understands event retargeting, querySelector scoping, Light DOM trade-offs, SLDS styling hooks</td>
+            </tr>
+            <tr>
+              <td><strong>Communication</strong></td>
+              <td>Uses events and <code>@api</code></td>
+              <td>Selects between CustomEvent, LMS, pubsub, Platform Events based on context; knows scope and memory implications</td>
+            </tr>
+            <tr>
+              <td><strong>Testing</strong></td>
+              <td>Can write basic Jest tests</td>
+              <td>Uses all three wire adapter test types, mocks NavigationMixin and LMS, flushes async with <code>flushPromises</code></td>
+            </tr>
+            <tr>
+              <td><strong>Security</strong></td>
+              <td>Knows LWS exists</td>
+              <td>Explains LWS vs Locker, CSP implications, avoids <code>innerHTML</code>, understands FLS enforcement via LDS</td>
+            </tr>
+            <tr>
+              <td><strong>Performance</strong></td>
+              <td>Uses lazy loading sometimes</td>
+              <td>Diagnoses infinite re-renders, applies IntersectionObserver, debounces input, understands key-based reconciliation</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ The Most Commonly Missed Expert Topics</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <ul>
+              <li><code>notifyRecordUpdateAvailable</code> — required to sync LDS cache after imperative DML; most developers don't know it exists</li>
+              <li>Parent-child lifecycle order — constructor fires child-first? No: <strong>parent constructor → parent connectedCallback → child constructor → child connectedCallback → child renderedCallback → parent renderedCallback</strong></li>
+              <li>Event retargeting — <code>event.target</code> is retargeted as events cross shadow boundaries; <code>event.composedPath()</code> reveals the full path</li>
+              <li><code>refreshApex</code> takes the <strong>wired result object</strong>, not <code>wiredResult.data</code> — a very common mistake</li>
+              <li>LMS subscriptions must be unsubscribed in <code>disconnectedCallback</code> or you leak memory on navigation</li>
+              <li>The <code>@track</code> decorator is mostly unnecessary since Spring '20 — but deep mutation of nested objects/arrays still requires it OR reassignment</li>
+              <li><code>lwc:if</code> vs <code>lwc:elseif</code> vs <code>lwc:else</code> — these are sibling directives on elements; using <code>lwc:else</code> on a non-adjacent sibling is a compile error</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SETTING UP YOUR DEV ORG
+           ============================================================ -->
+      <section id="devorg">
+        <h2>Setting Up Your Dev Org</h2>
+        <p>
+          Hands-on practice in a real Salesforce environment is non-negotiable. You need to see how LWC components actually behave in the platform — not just in a Jest test.
+        </p>
+
+        <h3>Option A: Developer Edition Org (Free, Permanent)</h3>
+        <p>
+          The recommended approach for sustained study. Sign up at
+          <a href="https://developer.salesforce.com/signup" target="_blank" rel="noopener noreferrer">developer.salesforce.com/signup</a>.
+        </p>
+        <ol>
+          <li>Create your free Developer Edition org (never expires)</li>
+          <li>Install <strong>Salesforce CLI</strong> from <a href="https://developer.salesforce.com/tools/salesforcecli" target="_blank" rel="noopener noreferrer">developer.salesforce.com/tools/salesforcecli</a></li>
+          <li>Authenticate: <code>sf org login web --alias myDevOrg</code></li>
+          <li>Pull the <code>lwc-recipes</code> repo and deploy to your org for exploration</li>
+        </ol>
+
+        <h3>Option B: Scratch Org (Requires Dev Hub)</h3>
+        <p>
+          If you have access to a Dev Hub org through your your Salesforce project, scratch orgs are ideal for disposable experimentation:
+        </p>
+        <pre><code class="language-bash">sf org create scratch \
+  --definition-file config/project-scratch-def.json \
+  --alias myScratch \
+  --duration-days 30 \
+  --set-default</code></pre>
+
+        <h3>Option C: Salesforce Playground (Zero Setup)</h3>
+        <p>
+          For quick syntax exploration, Trailhead Playgrounds are available directly in Trailhead modules. Each playground is a real Salesforce org with Salesforce CLI access. Use these for Trailhead challenges, but keep your Developer Edition org for building your own components.
+        </p>
+
+        <h3>Project Setup for Local Development</h3>
+        <pre><code class="language-bash"># Create a new SFDX project
+sf project generate --name lwc-practice --template standard
+
+# Directory structure created:
+# lwc-practice/
+#   force-app/main/default/lwc/   ← your components go here
+#   .sfdx/
+#   sfdx-project.json
+
+# Deploy a component after changes
+sf project deploy start --source-dir force-app
+
+# Open the org in browser
+sf org open</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Enable LWC Dev Server for Hot Reload</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Install the <strong>@salesforce/lwc-dev-server</strong> plugin for a webpack dev server
+              with hot module reload:
+            </p>
+            <pre><code class="language-bash">sf plugins install @salesforce/lwc-dev-server
+sf force lightning lwc start</code></pre>
+            <p>
+              This lets you iterate on templates and CSS without deploying to a Salesforce org.
+              Note: Apex <code>@wire</code> calls won't work locally (no Salesforce backend),
+              but UI logic, CSS, and event handling can all be developed and tested fast.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           VS CODE EXTENSIONS
+           ============================================================ -->
+      <section id="vscode">
+        <h2>Recommended VS Code Extensions</h2>
+        <p>
+          These extensions form the essential LWC development environment. The first three are from Salesforce and are mandatory; the rest are productivity multipliers.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Extension</th>
+              <th>Publisher</th>
+              <th>Why It Matters for Expert</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Salesforce Extension Pack</strong></td>
+              <td>Salesforce</td>
+              <td>Bundles all Salesforce extensions. LWC IntelliSense, SOQL editor, Apex language server, Org authentication, push/pull commands</td>
+            </tr>
+            <tr>
+              <td><strong>Salesforce CLI Integration</strong></td>
+              <td>Salesforce</td>
+              <td>Run CLI commands from VS Code command palette without switching to terminal</td>
+            </tr>
+            <tr>
+              <td><strong>Lightning Web Components</strong></td>
+              <td>Salesforce</td>
+              <td>Template auto-completion, <code>@api</code>/<code>@wire</code>/<code>@track</code> hints, component import resolution</td>
+            </tr>
+            <tr>
+              <td><strong>ESLint</strong></td>
+              <td>Microsoft</td>
+              <td>With <code>@salesforce/eslint-plugin-lwc</code> catches LWC-specific anti-patterns at write time (e.g., calling methods in templates, using <code>window</code> APIs)</td>
+            </tr>
+            <tr>
+              <td><strong>Prettier</strong></td>
+              <td>Prettier</td>
+              <td>Consistent formatting; configure with <code>@prettier/plugin-xml</code> for <code>js-meta.xml</code></td>
+            </tr>
+            <tr>
+              <td><strong>Jest Runner</strong></td>
+              <td>firsttris</td>
+              <td>Run individual Jest tests inline from the gutter — essential for test-driven LWC development</td>
+            </tr>
+            <tr>
+              <td><strong>Apex PMD</strong></td>
+              <td>chuckjonas</td>
+              <td>Static analysis for Apex code called from LWC — catches SOQL in loops, missing sharing keywords</td>
+            </tr>
+            <tr>
+              <td><strong>GitLens</strong></td>
+              <td>GitKraken</td>
+              <td>Inline blame, history exploration — useful when studying <code>lwc-recipes</code> commit history to understand design decisions</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>ESLint + LWC Configuration</h3>
+        <pre><code class="language-bash"># Install LWC ESLint plugin
+npm install --save-dev @salesforce/eslint-plugin-lwc \
+  @salesforce/eslint-config-lwc \
+  eslint</code></pre>
+
+        <pre><code class="language-json">// .eslintrc.json
+{
+  "extends": "@salesforce/eslint-config-lwc/recommended",
+  "rules": {
+    "@salesforce/lwc/no-api-reassignments": "error",
+    "@salesforce/lwc/no-document-query": "warn"
+  }
+}</code></pre>
+
+        <p>
+          The <code>@salesforce/eslint-plugin-lwc</code> plugin has rules specifically for:
+          reassigning <code>@api</code> properties inside the child, using <code>document.querySelector</code>
+          instead of <code>this.template.querySelector</code>, and other LWC-specific anti-patterns.
+          Running ESLint as part of your study routine trains muscle memory for correct patterns.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Lightning Inspector Chrome Extension</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Install the <strong>Salesforce Lightning Inspector</strong> from the Chrome Web Store.
+              It adds a new panel in Chrome DevTools with:
+            </p>
+            <ul>
+              <li>Component tree viewer (like React DevTools but for LWC)</li>
+              <li>Property inspector for each component instance</li>
+              <li>Performance tab showing re-render counts and duration</li>
+              <li>Event log showing event propagation</li>
+            </ul>
+            <p>
+              For expert assessment preparation, use the Performance tab to study
+              re-render behaviour when you change reactive properties — it makes
+              the rendering engine's behaviour concrete rather than theoretical.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           TRAILHEAD PRIORITY MAP
+           ============================================================ -->
+      <section id="trailhead">
+        <h2>Trailhead Priority Map</h2>
+        <p>
+          Trailhead modules are ranked here by Expert Relevance, not difficulty. Complete them in this order — earlier modules build the mental models that make later modules click.
+        </p>
+
+        <h3>Tier 1 — Foundation (Complete First)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Module / Superbadge</th>
+              <th>Est. Time</th>
+              <th>Expert Relevance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/lightning-web-components-basics" target="_blank" rel="noopener noreferrer">Lightning Web Components Basics</a></td>
+              <td>~1.5 hrs</td>
+              <td>Component structure, <code>@api</code>, events, wire</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/projects/quick-start-lightning-web-components" target="_blank" rel="noopener noreferrer">Quick Start: LWC</a></td>
+              <td>~30 min</td>
+              <td>Dev org setup, CLI deploy workflow</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/lwc-testing" target="_blank" rel="noopener noreferrer">LWC Testing with Jest</a></td>
+              <td>~2 hrs</td>
+              <td>Jest setup, wire adapter mocking, event testing</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/lightning-message-service" target="_blank" rel="noopener noreferrer">Lightning Message Service</a></td>
+              <td>~1 hr</td>
+              <td>Cross-DOM communication, scopes, subscribe/unsubscribe</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Tier 2 — Depth (Complete Before Assessment)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Module / Superbadge</th>
+              <th>Est. Time</th>
+              <th>Expert Relevance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/lightning-data-service" target="_blank" rel="noopener noreferrer">Lightning Data Service Basics</a></td>
+              <td>~1.5 hrs</td>
+              <td>LDS cache, uiRecordApi, getRecord, createRecord, updateRecord</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/apex-integration-services" target="_blank" rel="noopener noreferrer">Apex Integration Services</a></td>
+              <td>~2 hrs</td>
+              <td><code>@AuraEnabled(cacheable=true)</code>, wire vs imperative decision</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/navigation-lwc" target="_blank" rel="noopener noreferrer">Navigation in LWC</a></td>
+              <td>~1 hr</td>
+              <td>NavigationMixin, PageReference types, CurrentPageReference</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/js-skills-for-salesforce-devs" target="_blank" rel="noopener noreferrer">JavaScript Skills for Salesforce Developers</a></td>
+              <td>~3 hrs</td>
+              <td>Promises, async/await, module system, prototype chain — required for Expert</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/lightning-experience-security" target="_blank" rel="noopener noreferrer">Security Basics for LWC</a></td>
+              <td>~1 hr</td>
+              <td>CSP, LWS vs Locker Service, XSS prevention</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/content/learn/modules/salesforce-dx-quick-start" target="_blank" rel="noopener noreferrer">Salesforce DX Quick Start</a></td>
+              <td>~1 hr</td>
+              <td>Scratch orgs, source-driven development, CI/CD fundamentals</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Tier 3 — Superbadges (Proof of Mastery)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Superbadge</th>
+              <th>Est. Time</th>
+              <th>What It Tests</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/en/content/learn/superbadges/superbadge_lwc_specialist" target="_blank" rel="noopener noreferrer">Lightning Web Components Specialist</a></td>
+              <td>~10–15 hrs</td>
+              <td>End-to-end LWC development: data, events, wire, navigation — the most important superbadge for this assessment</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/en/content/learn/superbadges/superbadge_aura_lc_specialist" target="_blank" rel="noopener noreferrer">Aura Components Specialist</a></td>
+              <td>~6–8 hrs</td>
+              <td>Aura architecture — helps you understand LWC's design by contrast; relevant for Aura coexistence questions</td>
+            </tr>
+            <tr>
+              <td><a href="https://trailhead.salesforce.com/en/content/learn/superbadges/superbadge_apex_specialist" target="_blank" rel="noopener noreferrer">Apex Specialist</a></td>
+              <td>~8–10 hrs</td>
+              <td>Apex called from LWC — SOQL, DML, <code>@AuraEnabled</code> patterns</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Official Salesforce Documentation Links</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Bookmark these documentation pages — they are the authoritative source:</p>
+            <ul>
+              <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">LWC Developer Guide</a> — the canonical reference</li>
+              <li><a href="https://developer.salesforce.com/docs/component-library" target="_blank" rel="noopener noreferrer">Component Library</a> — all base components with live examples</li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-configuration-file.html" target="_blank" rel="noopener noreferrer">js-meta.xml Reference</a> — all XML elements documented</li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/wire-service.html" target="_blank" rel="noopener noreferrer">Wire Service</a> — wire adapter protocol documentation</li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/security-lwc.html" target="_blank" rel="noopener noreferrer">LWC Security</a> — LWS, CSP, best practices</li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/js-props-getter-setter.html" target="_blank" rel="noopener noreferrer">Getters and Setters</a> — @api getter/setter contract</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           8-WEEK STUDY PLAN
+           ============================================================ -->
+      <section id="eight-week">
+        <h2>8-Week Study Plan</h2>
+        <p>
+          This plan assumes you are a working Salesforce developer with some LWC exposure (intermediate level) and are studying outside regular work hours — approximately 8–10 hours per week. Adjust the pace to your schedule.
+        </p>
+
+        <h3>Week 1 — Foundations &amp; Architecture</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 01–03</td>
+              <td>This blog series</td>
+              <td>Web Components standard, LWC vs Aura, file bundle anatomy</td>
+            </tr>
+            <tr>
+              <td>Complete "LWC Basics" Trailhead</td>
+              <td>Trailhead Tier 1</td>
+              <td>Confirm baseline, earn the badge</td>
+            </tr>
+            <tr>
+              <td>Set up Dev Org + VS Code</td>
+              <td>Section above</td>
+              <td>Working local environment with CLI + extensions</td>
+            </tr>
+            <tr>
+              <td>Hands-on: build a <code>helloWorld</code> component</td>
+              <td>Dev Org</td>
+              <td>Experience the deploy cycle end-to-end</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can explain the LWC file bundle, deploy to a dev org, and articulate the LWC vs Aura trade-off.</p>
+
+        <h3>Week 2 — Decorators &amp; Lifecycle</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 04–05</td>
+              <td>This blog series</td>
+              <td>Decorators deep dive, lifecycle hooks execution order</td>
+            </tr>
+            <tr>
+              <td>Complete "JavaScript Skills" Trailhead</td>
+              <td>Trailhead Tier 2</td>
+              <td>Promises, async/await, classes, modules</td>
+            </tr>
+            <tr>
+              <td>Hands-on: parent-child lifecycle tracing</td>
+              <td>Dev Org</td>
+              <td>Build a 3-level parent-child tree, add <code>console.log</code> to each hook, observe order</td>
+            </tr>
+            <tr>
+              <td>Study <code>lwc-recipes</code>: <code>wireGetPicklistValues</code>, <code>wireGetObjectInfo</code></td>
+              <td>GitHub</td>
+              <td>Wire adapter patterns in real components</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can predict the exact console.log order for a 3-level parent-child tree without running code.</p>
+
+        <h3>Week 3 — Template Directives &amp; Shadow DOM</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 06–07</td>
+              <td>This blog series</td>
+              <td>Template directives, Shadow DOM vs Light DOM</td>
+            </tr>
+            <tr>
+              <td>Hands-on: <code>for:each</code> + key experiment</td>
+              <td>Dev Org</td>
+              <td>Build a list, observe DOM reconciliation with/without proper keys</td>
+            </tr>
+            <tr>
+              <td>Hands-on: slots and event retargeting</td>
+              <td>Dev Org</td>
+              <td>Build a parent with named slots, log <code>event.target</code> and <code>event.composedPath()</code></td>
+            </tr>
+            <tr>
+              <td>Study <code>lwc-recipes</code>: <code>wireCurrentPageReference</code>, slot examples</td>
+              <td>GitHub</td>
+              <td>See real-world slot and event composition patterns</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can explain event retargeting and predict what <code>event.target</code> will be at each shadow boundary.</p>
+
+        <h3>Week 4 — Communication &amp; Data</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 08–09</td>
+              <td>This blog series</td>
+              <td>Communication patterns, Salesforce data layer</td>
+            </tr>
+            <tr>
+              <td>Complete LMS Trailhead module</td>
+              <td>Trailhead Tier 1</td>
+              <td>Message channels, scopes, lifecycle</td>
+            </tr>
+            <tr>
+              <td>Complete LDS Trailhead module</td>
+              <td>Trailhead Tier 2</td>
+              <td>uiRecordApi adapters, cache behaviour</td>
+            </tr>
+            <tr>
+              <td>Hands-on: LDS CRUD without Apex</td>
+              <td>Dev Org</td>
+              <td>Build a form that uses <code>createRecord</code> + <code>updateRecord</code> + <code>deleteRecord</code></td>
+            </tr>
+            <tr>
+              <td>Hands-on: imperative Apex + <code>notifyRecordUpdateAvailable</code></td>
+              <td>Dev Org</td>
+              <td>Call imperative DML, then call <code>notifyRecordUpdateAvailable</code>, observe LDS cache update</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can implement the same use case three ways (LDS, wired Apex, imperative Apex) and justify which is best in different scenarios.</p>
+
+        <h3>Week 5 — Navigation, Dynamic Components, SLDS</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 10–12</td>
+              <td>This blog series</td>
+              <td>NavigationMixin, dynamic components, SLDS</td>
+            </tr>
+            <tr>
+              <td>Complete Navigation Trailhead module</td>
+              <td>Trailhead Tier 2</td>
+              <td>PageReference types, GenerateUrl, CurrentPageReference</td>
+            </tr>
+            <tr>
+              <td>Hands-on: dynamic component loader</td>
+              <td>Dev Org</td>
+              <td>Build a component that lazily imports and renders different child components based on a selector</td>
+            </tr>
+            <tr>
+              <td>Hands-on: SLDS styling hooks</td>
+              <td>Dev Org</td>
+              <td>Style a base <code>lightning-button</code> using CSS custom property hooks — without touching the component's internals</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can implement lazy-loaded dynamic components and explain why SLDS styling hooks exist.</p>
+
+        <h3>Week 6 — Security, Performance, Error Handling &amp; Accessibility</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 13–16</td>
+              <td>This blog series</td>
+              <td>Security, performance, error handling, accessibility</td>
+            </tr>
+            <tr>
+              <td>Complete Security Trailhead module</td>
+              <td>Trailhead Tier 2</td>
+              <td>LWS, CSP, anti-patterns</td>
+            </tr>
+            <tr>
+              <td>Hands-on: diagnose infinite re-render</td>
+              <td>Dev Org</td>
+              <td>Intentionally create an infinite re-render in <code>renderedCallback</code>, use Lightning Inspector to diagnose</td>
+            </tr>
+            <tr>
+              <td>Hands-on: build an error boundary</td>
+              <td>Dev Org</td>
+              <td>Implement <code>errorCallback</code> in a parent that catches errors from child components</td>
+            </tr>
+            <tr>
+              <td>Accessibility audit: run Salesforce Accessibility Checker</td>
+              <td>Dev Org</td>
+              <td>Find and fix one accessibility issue in a component you built</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can identify and fix performance regressions, implement error boundaries, and build accessible custom components.</p>
+
+        <h3>Week 7 — Testing, Deployment, Advanced Patterns</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Read Articles 17–19</td>
+              <td>This blog series</td>
+              <td>Jest testing, deployment targets, advanced patterns</td>
+            </tr>
+            <tr>
+              <td>Complete "LWC Testing with Jest" Trailhead</td>
+              <td>Trailhead Tier 1</td>
+              <td>Wire adapters, mocking Apex, flushPromises</td>
+            </tr>
+            <tr>
+              <td>Hands-on: write tests for a complex component</td>
+              <td>Dev Org</td>
+              <td>Test a component with <code>@wire</code>, events, and navigation — cover all three adapter test types</td>
+            </tr>
+            <tr>
+              <td>Start LWC Specialist Superbadge</td>
+              <td>Trailhead Tier 3</td>
+              <td>Begin the end-to-end challenge</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> You can write complete Jest test suites including wire adapter mocking, event testing, and navigation mocking.</p>
+
+        <h3>Week 8 — Review &amp; Mock Assessment</h3>
+        <table>
+          <thead>
+            <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Complete LWC Specialist Superbadge</td>
+              <td>Trailhead Tier 3</td>
+              <td>Full end-to-end mastery proof</td>
+            </tr>
+            <tr>
+              <td>Read Article 20 (Scenario Q&amp;A)</td>
+              <td>This blog series</td>
+              <td>Architecture-level thinking for expert-level scenarios</td>
+            </tr>
+            <tr>
+              <td>Re-read the Quick Recall Cards from each article</td>
+              <td>This blog series</td>
+              <td>Rapid review of all key facts</td>
+            </tr>
+            <tr>
+              <td>Mock Assessment — timed practice</td>
+              <td>See strategy below</td>
+              <td>Simulate exam conditions</td>
+            </tr>
+            <tr>
+              <td>Target weak areas from mock results</td>
+              <td>Specific articles</td>
+              <td>Focused remediation</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>Milestone:</strong> LWC Specialist Superbadge earned + mock assessment score above threshold.</p>
+      </section>
+
+      <!-- ============================================================
+           GITHUB REPOS
+           ============================================================ -->
+      <section id="github">
+        <h2>GitHub Repos to Study</h2>
+        <p>
+          Reading real Salesforce-authored LWC code is the fastest way to understand idioms
+          and patterns that Trailhead modules can't fully demonstrate.
+        </p>
+
+        <h3>1. lwc-recipes (Essential)</h3>
+        <p>
+          <a href="https://github.com/trailheadapps/lwc-recipes" target="_blank" rel="noopener noreferrer">github.com/trailheadapps/lwc-recipes</a>
+        </p>
+        <p>
+          The canonical collection of LWC patterns from Salesforce. Over 60 small, focused recipes
+          each demonstrating a specific concept. Key recipes to study for Expert:
+        </p>
+        <ul>
+          <li><code>wireGetPicklistValues</code> — <code>@wire(getPicklistValues)</code> with dependent picklists</li>
+          <li><code>wireGetObjectInfo</code> — object metadata at runtime</li>
+          <li><code>ldsDeleteRecord</code> — LDS CRUD without Apex</li>
+          <li><code>apexImperativeMethod</code> — async/await imperative Apex pattern</li>
+          <li><code>apexWireMethodToFunction</code> — function-wired Apex</li>
+          <li><code>libsMaps</code> — platformResourceLoader for Google Maps</li>
+          <li><code>messagingWithMessageChannels</code> — full LMS publish/subscribe example</li>
+          <li><code>dynamicStyling</code> — computed CSS classes</li>
+          <li><code>errorPanel</code> — <code>reduceErrors</code> utility + error display component</li>
+        </ul>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 How to Study lwc-recipes</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Don't just read the code — deploy and run it, then modify it:</p>
+            <ol>
+              <li>Deploy <code>lwc-recipes</code> to your dev org</li>
+              <li>Open Lightning Inspector while running each recipe — observe the component tree and re-renders</li>
+              <li>Break it intentionally — remove a <code>key</code> attribute, mutate an <code>@api</code> property — observe what breaks</li>
+              <li>Read the Jest test for each recipe — the test often explains the intent better than the component itself</li>
+            </ol>
+          </div>
+        </div>
+
+        <h3>2. dreamhouse-lwc</h3>
+        <p>
+          <a href="https://github.com/trailheadapps/dreamhouse-lwc" target="_blank" rel="noopener noreferrer">github.com/trailheadapps/dreamhouse-lwc</a>
+        </p>
+        <p>
+          A full Salesforce application built entirely with LWC. Unlike <code>lwc-recipes</code>
+          (which is isolated snippets), Dreamhouse shows:
+        </p>
+        <ul>
+          <li>Real component composition at application scale</li>
+          <li>LMS used across an entire application for cross-component state</li>
+          <li>Apex <code>@AuraEnabled(cacheable=true)</code> methods called from wire</li>
+          <li>Experience Cloud deployment</li>
+          <li>Complete Jest test suite with high coverage</li>
+        </ul>
+        <p>
+          Study the <code>propertyTile</code>, <code>propertyFilter</code>, and <code>paginator</code>
+          components together — they form a complete parent-child-sibling communication example
+          using LMS.
+        </p>
+
+        <h3>3. LWC OSS (Open Source)</h3>
+        <p>
+          <a href="https://github.com/salesforce/lwc" target="_blank" rel="noopener noreferrer">github.com/salesforce/lwc</a>
+        </p>
+        <p>
+          The open-source LWC engine. Relevant for Expert to understand the internals:
+        </p>
+        <ul>
+          <li><code>packages/@lwc/engine-core/src/framework/</code> — the reactive engine, rendering scheduler</li>
+          <li><code>packages/@lwc/synthetic-shadow/</code> — the synthetic Shadow DOM polyfill</li>
+          <li><code>packages/@lwc/wire-service/</code> — the wire service implementation</li>
+        </ul>
+        <p>
+          You don't need to read all of this — but reading <code>wire-service/src/</code> makes
+          the wire adapter protocol click in a way that documentation alone cannot achieve.
+        </p>
+
+        <h3>4. Force.com Labs Recipes</h3>
+        <p>
+          <a href="https://github.com/forcedotcom/LightningComponentLibrary" target="_blank" rel="noopener noreferrer">Salesforce GitHub organization</a> — search for LWC repos. Useful for finding
+          real-world patterns from Salesforce engineering teams.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           HANDS-ON EXERCISES
+           ============================================================ -->
+      <section id="exercises">
+        <h2>Hands-On Exercises by Topic</h2>
+        <p>
+          Concepts only become expert knowledge when you've built them yourself. These exercises are specifically designed to force you to confront the edge cases that appear on assessments.
+        </p>
+
+        <h3>Exercise 1: Lifecycle Order Tracer</h3>
+        <p>
+          <strong>Goal:</strong> Prove the parent-child execution order to yourself.<br>
+          Build a 3-level tree: <code>grandparent → parent → child</code>. In every lifecycle hook of every component, add a <code>console.log</code> like <code>console.log('grandparent:constructor')</code>.
+          Mount the grandparent, then add the parent programmatically, then unmount — observe the full sequence in DevTools.
+        </p>
+        <p><strong>Expected output order:</strong></p>
+        <pre><code class="language-text">grandparent:constructor
+grandparent:connectedCallback
+  parent:constructor
+  parent:connectedCallback
+    child:constructor
+    child:connectedCallback
+    child:renderedCallback
+  parent:renderedCallback
+grandparent:renderedCallback</code></pre>
+
+        <h3>Exercise 2: Wire Reactive Parameter Tracer</h3>
+        <p>
+          <strong>Goal:</strong> Understand when <code>@wire</code> re-runs.<br>
+          Wire an Apex method with a reactive parameter: <code>@wire(getContacts, { accountId: '$selectedId' })</code>.
+          Add a button that changes <code>selectedId</code>. Add a button that changes a different, unrelated property.
+          Use Lightning Inspector to observe which renders cause the wire to re-execute.
+        </p>
+
+        <h3>Exercise 3: LDS Cache Invalidation Experiment</h3>
+        <p>
+          <strong>Goal:</strong> Prove that <code>notifyRecordUpdateAvailable</code> is required after imperative DML.<br>
+          On a page with two components wired to the same record via <code>getRecord</code>:
+          (1) Update the record using imperative Apex (no <code>notifyRecordUpdateAvailable</code>) — observe that both components do not update.
+          (2) Add <code>notifyRecordUpdateAvailable([{ recordId }])</code> after the Apex call — observe both components update.
+        </p>
+
+        <h3>Exercise 4: Shadow DOM Event Retargeting</h3>
+        <p>
+          <strong>Goal:</strong> See event retargeting with your own eyes.<br>
+          Build a parent that listens for a click on a child component. Log both <code>event.target</code> and <code>event.composedPath()</code>. The <code>event.target</code> will be the child component element (retargeted). <code>event.composedPath()</code> will show the real DOM path including elements inside the child's shadow root.
+        </p>
+
+        <h3>Exercise 5: The Infinite Re-render Trap</h3>
+        <p>
+          <strong>Goal:</strong> Trigger and diagnose an infinite re-render.<br>
+          In <code>renderedCallback</code>, assign a new array to a tracked property:
+          <code>this.items = [...this.items]</code>. Watch the Lightning Inspector Performance tab max out.
+          Then fix it using the <code>_rendered</code> guard pattern (set a boolean flag, check it on entry).
+        </p>
+
+        <h3>Exercise 6: Custom Wire Adapter</h3>
+        <p>
+          <strong>Goal:</strong> Write a wire adapter from scratch.<br>
+          Implement a wire adapter that polls a hypothetical in-memory store and pushes values to subscribers. This forces you to understand the wire protocol: <code>adapter.connect()</code>, <code>adapter.disconnect()</code>, and calling <code>this.dataCallback({ data, error })</code>. See <a href="https://developer.salesforce.com/docs/platform/lwc/guide/wire-service-register-adapters.html" target="_blank" rel="noopener noreferrer">Custom Wire Adapters documentation</a>.
+        </p>
+
+        <h3>Exercise 7: Full Jest Test Suite</h3>
+        <p>
+          <strong>Goal:</strong> Write a complete test file covering all test types.<br>
+          For a single component that uses <code>@wire(getRecord)</code>, dispatches a <code>CustomEvent</code>, and uses <code>NavigationMixin.Navigate</code>, write tests that:
+        </p>
+        <ul>
+          <li>Emit wire data using <code>registerLdsTestWireAdapter</code></li>
+          <li>Emit a wire error and verify the error panel appears</li>
+          <li>Spy on the dispatched event and verify <code>event.detail</code></li>
+          <li>Mock navigation and verify the correct <code>PageReference</code> was used</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           COMMUNITY
+           ============================================================ -->
+      <section id="community">
+        <h2>Community &amp; Forums</h2>
+
+        <h3>Salesforce Stack Exchange</h3>
+        <p>
+          <a href="https://salesforce.stackexchange.com/questions/tagged/lightning-web-components" target="_blank" rel="noopener noreferrer">salesforce.stackexchange.com — LWC tag</a>
+        </p>
+        <p>
+          The highest signal-to-noise LWC Q&amp;A resource. Sorted by votes, the top answers represent community consensus on best practices. When studying, search for your specific problem here before anywhere else — the answers often include Expert-level nuance from experienced architects.
+        </p>
+        <p>
+          <strong>Study strategy:</strong> Browse the top-voted questions in the LWC tag. Many of the highest-scored questions are about exactly the edge cases that appear in expert assessments.
+        </p>
+
+        <h3>Trailblazer Community</h3>
+        <p>
+          <a href="https://trailhead.salesforce.com/trailblazer-community/groups/0F93A000000LmvNSAS" target="_blank" rel="noopener noreferrer">Lightning Web Components group</a> on the Trailblazer Community. Salesforce product managers and engineers occasionally participate here.
+        </p>
+
+        <h3>Salesforce Developers Blog</h3>
+        <p>
+          <a href="https://developer.salesforce.com/blogs/" target="_blank" rel="noopener noreferrer">developer.salesforce.com/blogs</a> — Filter by "Lightning Web Components". Release blogs (published at each Salesforce release) announce new LWC features and are often the first place to learn about new directives or wire adapters.
+        </p>
+
+        <h3>Unofficial SF Slack</h3>
+        <p>
+          <a href="https://www.salesforceben.com/unofficial-salesforce-slack-community/" target="_blank" rel="noopener noreferrer">Unofficial Salesforce Slack</a> — The #lwc and #apex-development channels have active expert communities for real-time Q&amp;A.
+        </p>
+
+        <h3>Key Experts to Follow</h3>
+        <p>
+          These people have been prolific contributors to LWC knowledge in the community:
+        </p>
+        <ul>
+          <li><strong>Salesforce Architects on Twitter/X</strong> — search for #salesforce + #LWC</li>
+          <li><strong>Salesforce MVPs</strong> — listed at <a href="https://www.salesforce.com/blog/mvp/" target="_blank" rel="noopener noreferrer">salesforce.com/blog/mvp</a></li>
+          <li>The maintainers of <code>lwc-recipes</code> (Salesforce Developer Relations team)</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           MOCK ASSESSMENT STRATEGY
+           ============================================================ -->
+      <section id="assessment">
+        <h2>Mock Assessment Strategy</h2>
+        <p>
+          The mock assessment is the most important activity in week 8. The goal is not to measure readiness — it is to expose gaps you didn't know existed.
+        </p>
+
+        <h3>Building Your Mock Assessment</h3>
+        <p>
+          Since there is no official  practice exam available externally, build your own from these sources:
+        </p>
+        <ol>
+          <li>
+            <strong>Salesforce Certified JavaScript Developer I practice questions</strong>
+            — <a href="https://www.salesforce.com/form/exam/salesforce-certified-javascript-developer-i/" target="_blank" rel="noopener noreferrer">Official Salesforce Certification</a>. The JavaScript Developer I exam overlaps heavily with Expert LWC — it tests async, module system, and browser APIs.
+          </li>
+          <li>
+            <strong>LWC Specialist Superbadge challenges</strong> — each challenge step is effectively a mini-assessment scenario.
+          </li>
+          <li>
+            <strong>Article 20 scenarios</strong> — time yourself to answer each of the 20 scenario-based questions from this blog series within 3 minutes each.
+          </li>
+          <li>
+            <strong>Flashcard creation</strong> — use the Quick Recall Cards at the end of each article to create flashcards (Anki or physical). Test yourself daily in week 8.
+          </li>
+        </ol>
+
+        <h3>Timed Practice Protocol</h3>
+        <ol>
+          <li><strong>Set a timer</strong> — expert assessments are time-limited. Practice under pressure.</li>
+          <li><strong>Answer without notes first</strong> — simulate exam conditions.</li>
+          <li><strong>After each block of 10 questions</strong>, check answers and note every question you got wrong OR guessed on.</li>
+          <li><strong>For each gap</strong>: go back to the relevant article section, re-read it, then re-do that question from scratch the next day.</li>
+          <li><strong>Repeat until you can answer correctly without hesitation.</strong></li>
+        </ol>
+
+        <h3>The "Explain It Out Loud" Technique</h3>
+        <p>
+          The most effective preparation technique for scenario questions: explain your answer
+          out loud (or write it out) as if you were presenting to a junior developer.
+          If you cannot explain something simply, you do not understand it well enough for Expert.
+        </p>
+        <p>
+          For each of the following, practice explaining it in under 60 seconds:
+        </p>
+        <ul>
+          <li>Why does lifecycle order in a parent-child tree go in that specific sequence?</li>
+          <li>Why does <code>refreshApex</code> take the wired result, not <code>.data</code>?</li>
+          <li>Why must you call <code>notifyRecordUpdateAvailable</code> after imperative DML?</li>
+          <li>What is event retargeting and why does Salesforce's synthetic Shadow DOM implement it?</li>
+          <li>When would you choose LMS over a parent-child event?</li>
+          <li>What is the difference between <code>errorCallback</code> and <code>try/catch</code> in LWC?</li>
+          <li>What does <code>static renderMode = 'light'</code> actually change?</li>
+          <li>Why can't you call a method in a template expression like <code>{myMethod()}</code>?</li>
+        </ul>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 The Day Before the Assessment</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <ul>
+              <li>Do NOT learn anything new the day before — only review what you already know.</li>
+              <li>Read through all 21 Quick Recall Cards (the last section of each article).</li>
+              <li>Re-do 5–10 of the scenario questions from Article 20 that you found hardest.</li>
+              <li>Get adequate sleep — memory consolidation happens during sleep.</li>
+              <li>On the day: read each question fully before answering; don't rush the first few.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>If You Fail — Diagnosis Framework</h3>
+        <p>
+          If you don't achieve Expert on the first attempt, map your errors to these categories:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Error Pattern</th><th>Root Cause</th><th>Remediation</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Got the concept right, chose the wrong option</td>
+              <td>Reading comprehension under pressure</td>
+              <td>Practice more timed questions; underline key words in scenarios</td>
+            </tr>
+            <tr>
+              <td>Confused two similar concepts</td>
+              <td>Shallow understanding of both</td>
+              <td>Build a comparison table for the two concepts; implement both in dev org</td>
+            </tr>
+            <tr>
+              <td>Didn't know the answer at all</td>
+              <td>Gap in coverage</td>
+              <td>Re-read the specific article section; build the pattern in dev org</td>
+            </tr>
+            <tr>
+              <td>Knew the concept but not the specific API</td>
+              <td>Memorisation gap</td>
+              <td>Add to flashcard deck; use daily for 1 week</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>Quick Recall Card — Study Resources</h2>
+        <table>
+          <tbody>
+            <tr>
+              <td><strong>Free Dev Org URL</strong></td>
+              <td><code>developer.salesforce.com/signup</code> — never expires, full platform access</td>
+            </tr>
+            <tr>
+              <td><strong>Salesforce CLI install</strong></td>
+              <td><code>developer.salesforce.com/tools/salesforcecli</code></td>
+            </tr>
+            <tr>
+              <td><strong>Key CLI commands</strong></td>
+              <td><code>sf org login web</code>, <code>sf project deploy start</code>, <code>sf org open</code></td>
+            </tr>
+            <tr>
+              <td><strong>Essential VS Code ext</strong></td>
+              <td>Salesforce Extension Pack + ESLint (<code>@salesforce/eslint-plugin-lwc</code>)</td>
+            </tr>
+            <tr>
+              <td><strong>Most important Trailhead module</strong></td>
+              <td>LWC Specialist Superbadge — earns you ~10–15 hrs of hands-on practice</td>
+            </tr>
+            <tr>
+              <td><strong>Best GitHub repo</strong></td>
+              <td><code>trailheadapps/lwc-recipes</code> — 60+ focused patterns with Jest tests</td>
+            </tr>
+            <tr>
+              <td><strong>Official LWC docs</strong></td>
+              <td><code>developer.salesforce.com/docs/component-library/documentation/en/lwc</code></td>
+            </tr>
+            <tr>
+              <td><strong>Most missed Expert facts</strong></td>
+              <td>Parent-child lifecycle order, <code>notifyRecordUpdateAvailable</code>, <code>refreshApex</code> takes wired result, event retargeting</td>
+            </tr>
+            <tr>
+              <td><strong>Mock assessment resources</strong></td>
+              <td>Article 20 scenarios + Salesforce JS Developer I practice + Superbadge challenges</td>
+            </tr>
+            <tr>
+              <td><strong>Best community resource</strong></td>
+              <td>Salesforce Stack Exchange — LWC tag, sorted by votes</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>🎯 You Have Completed the Series</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              If you have read all 21 articles in this series, completed the LWC Specialist Superbadge,
+              and worked through the hands-on exercises — you are prepared for a expert assessment.
+            </p>
+            <p>
+              The distinguishing characteristic of a expert developer is not the breadth of APIs
+              they know — it is their ability to reason from first principles when they encounter
+              something they haven't seen before. Every article in this series was designed to give
+              you that foundational reasoning, not just the surface-level facts.
+            </p>
+            <p>
+              Good luck on your assessment.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="20-scenario-qa.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">20. Scenario-Based Q&amp;A</span>
+        </a>
+        <a href="../index.html" class="nav-next">
+          <span class="nav-label">Back to Home →</span>
+          <span class="nav-title">All 21 Articles</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a> •
+      <a href="https://trailhead.salesforce.com/en/content/learn/superbadges/superbadge_lwc_specialist" target="_blank" rel="noopener noreferrer">LWC Specialist Superbadge</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../search.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const html    = document.documentElement;
+      const btn     = document.getElementById('themeToggle');
+      const label   = document.getElementById('themeLabel');
+      const stored  = localStorage.getItem('lwc-theme');
+      const initial = stored || 'light';
+      html.setAttribute('data-theme', initial);
+      label.textContent = initial === 'dark' ? 'Light' : 'Dark';
+
+      btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('lwc-theme', next);
+        label.textContent = next === 'dark' ? 'Light' : 'Dark';
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark-as-Read Button
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      const articleId = btn.dataset.articleId;
+      const KEY       = 'lwc-read-articles';
+
+      function getReadSet() {
+        try { return new Set(JSON.parse(localStorage.getItem(KEY)) || []); }
+        catch { return new Set(); }
+      }
+      function saveReadSet(set) {
+        localStorage.setItem(KEY, JSON.stringify([...set]));
+      }
+      function setReadState(isRead) {
+        btn.textContent    = isRead ? '☑ Read' : '☐ Mark as Read';
+        btn.setAttribute('aria-pressed', isRead);
+        btn.classList.toggle('mark-read-btn--active', isRead);
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+      const headings = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active = headings[0];
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) { active = heading; } else { break; }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

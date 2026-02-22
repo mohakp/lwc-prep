@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>20. Scenario-Based Q&amp;A (Expert Level) — LWC.guide</title>
+  <meta name="description" content="20 enterprise-level scenario-based questions and architecture-grade answers covering real-world LWC challenges at the expert-level proficiency level.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/20-scenario-qa.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">Introduction</a></li>
+          <li><a href="#q1">Q1: LDS Sync After Apex DML</a></li>
+          <li><a href="#q2">Q2: @api Mutation Prevention</a></li>
+          <li><a href="#q3">Q3: Lazy-load Chart via IntersectionObserver</a></li>
+          <li><a href="#q4">Q4: Sibling Communication</a></li>
+          <li><a href="#q5">Q5: @wire Stops Reacting</a></li>
+          <li><a href="#q6">Q6: errorCallback vs try-catch</a></li>
+          <li><a href="#q7">Q7: Responsive Layout</a></li>
+          <li><a href="#q8">Q8: File Upload with Progress</a></li>
+          <li><a href="#q9">Q9: Accessible Modal</a></li>
+          <li><a href="#q10">Q10: Large Multi-Component Architecture</a></li>
+          <li><a href="#q11">Q11: Platform Events + empApi</a></li>
+          <li><a href="#q12">Q12: 10,000-Record Datatable</a></li>
+          <li><a href="#q13">Q13: App Builder + Flow Dual Target</a></li>
+          <li><a href="#q14">Q14: Session Expiry Handling</a></li>
+          <li><a href="#q15">Q15: Custom Wire Adapter</a></li>
+          <li><a href="#q16">Q16: Aura → LWC Migration</a></li>
+          <li><a href="#q17">Q17: Works in Scratch, Fails in Prod</a></li>
+          <li><a href="#q18">Q18: Multi-Step Form with Preserved State</a></li>
+          <li><a href="#q19">Q19: Accessible Custom Dropdown</a></li>
+          <li><a href="#q20">Q20: Production Code Review Checklist</a></li>
+          <li><a href="#recall">Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 20</div>
+        <h1>Scenario-Based Q&amp;A — Expert Level</h1>
+        <div class="article-meta">
+          <span>⏱ 55 min read</span>
+          <span class="tags">
+            <span class="tag">#interview-prep</span>
+            <span class="tag">#architecture</span>
+            <span class="tag">#scenarios</span>
+            <span class="tag">#p3plus</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="20"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           INTRODUCTION
+           ============================================================ -->
+      <section id="hook">
+        <h2>Introduction: How Expert Scenarios Differ from Textbook Answers</h2>
+        <p>
+          A P2 developer answers: <em>"Use <code>@wire</code> to get record data."</em>
+          A expert architect answers: <em>"Use <code>@wire(getRecord)</code> from <code>lightning/uiRecordApi</code> here
+          because FLS is automatically enforced, the LDS client-side cache is shared across the page, and
+          a subsequent <code>createRecord</code> call on the same object will automatically invalidate
+          the cache — but if you're calling imperative Apex DML, you must call
+          <code>notifyRecordUpdateAvailable</code> to push that invalidation signal to LDS yourself."</em>
+        </p>
+        <p>
+          This article works through <strong>20 enterprise-grade scenarios</strong> that reflect real problems
+          encountered on large Salesforce implementations. For each scenario the answer is structured as:
+        </p>
+        <ul>
+          <li><strong>Diagnosis</strong> — what is actually happening and why</li>
+          <li><strong>Solution</strong> — the correct approach with annotated code</li>
+          <li><strong>Trade-offs</strong> — what you give up with this choice</li>
+          <li><strong>Expert nuance</strong> — the detail that separates an architect from a developer</li>
+        </ul>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 How Examiners Score These Questions</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              the expert-level competency rubric rewards <em>depth of reasoning</em> over breadth of recall.
+              You score higher by explaining <em>why</em> a solution works at the platform level, identifying
+              the specific API constraint that forces a design decision, and proactively mentioning the edge
+              cases or failure modes — even when not asked.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q1 — LDS SYNC AFTER APEX DML
+           ============================================================ -->
+      <section id="q1">
+        <h2>Q1: How do you keep LDS in sync after an Apex method performs DML?</h2>
+        <p>
+          <strong>Scenario:</strong> A parent component calls an imperative Apex method that inserts a record.
+          A sibling component on the same page uses <code>@wire(getRecord)</code> for the same object.
+          After the Apex call the sibling does not update. Why, and how do you fix it?
+        </p>
+
+        <h3>Diagnosis</h3>
+        <p>
+          Lightning Data Service maintains a <strong>client-side cache</strong> keyed by record ID and fields.
+          When LWC wire adapters like <code>getRecord</code> or <code>getListUi</code> populate data they are
+          reading from — and subscribing to changes in — that shared cache. When <em>Salesforce itself</em>
+          performs the DML (e.g., through <code>createRecord</code> from <code>lightning/uiRecordApi</code>),
+          LDS knows to invalidate the relevant cache entries automatically. But when <em>imperative Apex</em>
+          performs the DML, the platform has no visibility into what records were touched unless you explicitly
+          signal it.
+        </p>
+
+        <h3>Solution</h3>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+import saveOpportunity from '@salesforce/apex/OpportunityService.saveOpportunity';
+
+export default class OpportunityEditor extends LightningElement {
+  recordId;
+
+  async handleSave() {
+    try {
+      // 1. Imperative Apex call performs DML — LDS is UNAWARE
+      const savedId = await saveOpportunity({ ... });
+      this.recordId = savedId;
+
+      // 2. Tell LDS which record(s) were touched so it invalidates
+      //    its cache and notifies all @wire subscribers on the page.
+      //    Takes an array of { recordId } objects.
+      await notifyRecordUpdateAvailable([{ recordId: savedId }]);
+
+      // After the await, every @wire(getRecord, { recordId }) on the page
+      // that references savedId will re-fetch fresh data automatically.
+    } catch (error) {
+      // handle error
+    }
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>notifyRecordUpdateAvailable</code> accepts an <em>array</em> — if your Apex performs DML
+              on multiple records (e.g., a parent and related children), pass all affected record IDs in a
+              single call to minimise network round-trips. Also note: you do not need this if you used
+              <code>createRecord</code> / <code>updateRecord</code> from <code>lightning/uiRecordApi</code>
+              directly — LDS handles cache invalidation automatically for its own CRUD functions.
+              The <em>only</em> gap is imperative Apex DML.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q2 — @api MUTATION PREVENTION
+           ============================================================ -->
+      <section id="q2">
+        <h2>Q2: Why does mutating an <code>@api</code> object property cause issues, and how do you prevent it?</h2>
+        <p>
+          <strong>Scenario:</strong> A parent passes a complex object via <code>@api</code> to a child.
+          The child modifies a property on that object. The parent component's state changes unexpectedly.
+          Explain the root cause and the fix.
+        </p>
+
+        <h3>Diagnosis</h3>
+        <p>
+          JavaScript passes objects <strong>by reference</strong>. When the parent sets
+          <code>&lt;c-child record={myRecord}&gt;</code>, both parent and child hold a reference to the
+          <em>same object in heap memory</em>. When the child writes
+          <code>this.record.Name = 'New'</code>, it mutates the shared object. The parent's property is now
+          silently changed — there is no indication, no event, and no UI update triggered on the parent.
+          The LWC framework intentionally does <em>not</em> deep-clone <code>@api</code> values because
+          doing so for every property update would be prohibitively expensive.
+        </p>
+
+        <h3>Solution: Shallow Clone in the Setter</h3>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// child.js
+import { LightningElement, api } from 'lwc';
+
+export default class Child extends LightningElement {
+  _record = {};
+
+  // ✅ Expose a GETTER so @api decorates the getter, not the setter
+  @api
+  get record() {
+    return this._record;
+  }
+
+  // The setter receives the parent's reference — clone it immediately
+  set record(value) {
+    // Shallow clone: safe for flat objects
+    this._record = value ? { ...value } : {};
+
+    // For deeply nested objects use structuredClone() (Chrome 98+)
+    // this._record = value ? structuredClone(value) : {};
+  }
+
+  handleNameChange(event) {
+    // Now mutating _record does NOT touch the parent's original object
+    this._record = { ...this._record, Name: event.target.value };
+
+    // Communicate changes UP to parent via a CustomEvent
+    this.dispatchEvent(new CustomEvent('recordchange', {
+      detail: { ...this._record }
+    }));
+  }
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Array References Are Also Shared</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The same problem applies to arrays. <code>this.items.push(x)</code> in a child mutates the
+              parent's array in-place. Always spread: <code>this._items = [...(value || [])]</code> in the
+              setter. For deeply nested trees (e.g., tree-grid data) <code>structuredClone()</code> is the
+              correct tool, but profile its cost — cloning large arrays on every parent render is expensive.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q3 — LAZY LOAD CHART WITH INTERSECTIONOBSERVER
+           ============================================================ -->
+      <section id="q3">
+        <h2>Q3: How do you lazy-load a charting library only when the component enters the viewport?</h2>
+        <p>
+          <strong>Scenario:</strong> You have a dashboard with eight chart components. Loading all eight
+          Chart.js instances on page mount causes a 4-second initial render. You need to defer loading
+          until the user scrolls each chart into view.
+        </p>
+
+        <h3>Solution: IntersectionObserver + platformResourceLoader</h3>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement, track } from 'lwc';
+import { loadScript } from 'lightning/platformResourceLoader';
+import chartJsResource from '@salesforce/resourceUrl/chartjs';
+
+export default class LazyChart extends LightningElement {
+  @track chartLoaded = false;
+  _observer;
+  _initialized = false; // guard against double-load (renderedCallback fires many times)
+
+  connectedCallback() {
+    // Set up the IntersectionObserver BEFORE the component has rendered any canvas
+    this._observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !this._initialized) {
+          this._initialized = true;
+          this._observer.disconnect(); // one-shot: stop watching after first intersection
+          this._loadLibrary();
+        }
+      },
+      { threshold: 0.1 } // trigger when 10% of the element is visible
+    );
+  }
+
+  renderedCallback() {
+    // After first render the host element exists — observe it
+    if (!this._observerAttached) {
+      this._observer.observe(this.template.host);
+      this._observerAttached = true;
+    }
+  }
+
+  async _loadLibrary() {
+    try {
+      // platformResourceLoader returns a Promise that resolves when the
+      // script is fully parsed and executed by the browser
+      await loadScript(this, chartJsResource + '/chart.min.js');
+      this.chartLoaded = true;  // trigger re-render to show canvas
+      // chart initialisation happens in renderedCallback after chartLoaded = true
+    } catch (error) {
+      console.error('Chart.js load failed', error);
+    }
+  }
+
+  renderedCallback() {
+    if (this.chartLoaded && !this._chartInitialized) {
+      this._chartInitialized = true;
+      const canvas = this.template.querySelector('canvas');
+      // eslint-disable-next-line no-undef
+      new Chart(canvas.getContext('2d'), { /* config */ });
+    }
+    // Attach observer on first render (see above)
+    if (!this._observerAttached && this._observer) {
+      this._observer.observe(this.template.host);
+      this._observerAttached = true;
+    }
+  }
+
+  disconnectedCallback() {
+    if (this._observer) this._observer.disconnect();
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: Static Resource Versioning</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The URL returned by <code>@salesforce/resourceUrl/chartjs</code> includes a version hash
+              automatically. Uploading a new static resource version bumps the hash, busting the browser
+              cache immediately. This is why CDN URLs are an anti-pattern in Salesforce: you cannot control
+              their cache headers, and Stricter CSP mode will block them entirely as <code>script-src</code>
+              only whitelists trusted Salesforce domains.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q4 — SIBLING COMMUNICATION
+           ============================================================ -->
+      <section id="q4">
+        <h2>Q4: How do you communicate between two sibling components that have no shared parent?</h2>
+        <p>
+          <strong>Scenario:</strong> A sidebar navigation component and a main content component are both
+          placed directly on an App Builder page by an admin. They have no programmatic parent-child
+          relationship. When the user clicks a nav item the content component must update.
+        </p>
+
+        <h3>Decision Framework</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Mechanism</th>
+                <th>Works across DOM trees?</th>
+                <th>Works cross-technology?</th>
+                <th>When to use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CustomEvent (bubbling)</td>
+                <td>Only if they share a DOM ancestor</td>
+                <td>No</td>
+                <td>Parent-child within same LWC tree</td>
+              </tr>
+              <tr>
+                <td>Pub-sub module</td>
+                <td>Yes (same window)</td>
+                <td>LWC only</td>
+                <td>Simple, low-traffic; legacy pattern</td>
+              </tr>
+              <tr>
+                <td><strong>Lightning Message Service</strong></td>
+                <td><strong>Yes — crosses all DOM trees</strong></td>
+                <td><strong>LWC + Aura + VF</strong></td>
+                <td><strong>Production standard</strong></td>
+              </tr>
+              <tr>
+                <td>Platform Events</td>
+                <td>Yes (server-pushed)</td>
+                <td>Yes</td>
+                <td>Server-triggered cross-component updates</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>LMS Implementation</h3>
+        <pre class="language-xml" data-lang="XML"><code class="language-xml">&lt;!-- messageChannels/NavigationEvent__c.messageChannel-meta.xml --&gt;
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningMessageChannel xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+    &lt;masterLabel&gt;NavigationEvent&lt;/masterLabel&gt;
+    &lt;isExposed&gt;true&lt;/isExposed&gt;
+    &lt;description&gt;Navigation selection from sidebar to content area&lt;/description&gt;
+    &lt;lightningMessageFields&gt;
+        &lt;fieldName&gt;selectedItemId&lt;/fieldName&gt;
+        &lt;description&gt;The ID of the selected nav item&lt;/description&gt;
+    &lt;/lightningMessageFields&gt;
+&lt;/LightningMessageChannel&gt;</code></pre>
+
+        <pre class="language-javascript" data-lang="Publisher JS"><code class="language-javascript">// sidebarNav.js — PUBLISHER
+import { LightningElement, wire } from 'lwc';
+import { MessageContext, publish } from 'lightning/messageService';
+import NAV_EVENT_CHANNEL from '@salesforce/messageChannel/NavigationEvent__c';
+
+export default class SidebarNav extends LightningElement {
+  @wire(MessageContext) messageContext;
+
+  handleItemClick(event) {
+    const payload = { selectedItemId: event.currentTarget.dataset.id };
+    // publish() sends to ALL subscribers regardless of DOM position
+    publish(this.messageContext, NAV_EVENT_CHANNEL, payload);
+  }
+}</code></pre>
+
+        <pre class="language-javascript" data-lang="Subscriber JS"><code class="language-javascript">// contentArea.js — SUBSCRIBER
+import { LightningElement, wire } from 'lwc';
+import { MessageContext, subscribe, unsubscribe, APPLICATION_SCOPE } from 'lightning/messageService';
+import NAV_EVENT_CHANNEL from '@salesforce/messageChannel/NavigationEvent__c';
+
+export default class ContentArea extends LightningElement {
+  @wire(MessageContext) messageContext;
+  _subscription = null;
+  currentItemId;
+
+  connectedCallback() {
+    // APPLICATION_SCOPE: receives messages even when component is not in focus
+    // Default scope only receives messages while the component is active
+    this._subscription = subscribe(
+      this.messageContext,
+      NAV_EVENT_CHANNEL,
+      (message) => { this.currentItemId = message.selectedItemId; },
+      { scope: APPLICATION_SCOPE }
+    );
+  }
+
+  disconnectedCallback() {
+    // CRITICAL: always unsubscribe to prevent memory leaks
+    // The subscription holds a reference to this component — not unsubscribing
+    // means the GC cannot collect the component instance.
+    unsubscribe(this._subscription);
+    this._subscription = null;
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           Q5 — @wire STOPS REACTING
+           ============================================================ -->
+      <section id="q5">
+        <h2>Q5: Your <code>@wire</code> stops reacting to property changes. Walk through your diagnosis.</h2>
+        <p>
+          <strong>Scenario:</strong> A component wires a record query based on a search term. Changing the
+          search term in the UI appears to do nothing — the wired data never updates.
+        </p>
+
+        <h3>Systematic Diagnosis Checklist</h3>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 1: Missing $ prefix on reactive parameter</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Broken — 'searchTerm' is treated as a string literal, NOT a property reference
+@wire(searchContacts, { searchKey: 'searchTerm' })
+contacts;
+
+// ✅ Correct — '$' prefix makes LWC watch this.searchTerm for changes
+@wire(searchContacts, { searchKey: '$searchTerm' })
+contacts;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 2: Property mutated in place rather than reassigned</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Broken — mutating a property on a tracked object does NOT trigger
+//            @wire reactive parameter re-evaluation in all cases
+this.searchConfig.term = event.target.value;
+
+// ✅ Correct — reassign the primitive that the $ param watches
+this.searchTerm = event.target.value;</code></pre>
+            <p>
+              The wire service watches for <em>identity changes</em> on the reactive parameter.
+              Primitive reassignment always triggers a new identity. Object property mutation
+              may or may not, depending on whether the object reference itself changed.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 3: Parameter is undefined/null — wire is intentionally suppressed</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When a <code>$property</code> is <code>undefined</code> or <code>null</code>, the wire
+              service intentionally <strong>does not call the adapter</strong>. This is the "null-guard"
+              mechanism — it prevents unnecessary API calls when required parameters aren't yet available.
+              Check that your reactive parameter is defined before the wire would logically fire.
+            </p>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Property must not be undefined for wire to fire
+searchTerm = ''; // initialise to empty string, NOT undefined
+
+// This fires immediately (empty string is a defined value)
+@wire(searchContacts, { searchKey: '$searchTerm' })
+contacts;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 4: Apex method is not marked cacheable=true for @wire</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>@wire</code> can only call Apex methods annotated with
+              <code>@AuraEnabled(cacheable=true)</code>. Without it the compilation fails. But there's a
+              subtler issue: <code>cacheable=true</code> methods cannot perform DML. If your Apex
+              accidentally performs DML (even via a helper class), the method silently fails at runtime.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: refreshApex vs reassigning the reactive param</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>refreshApex(wiredResult)</code> forces a cache-bypass re-call of the wire adapter
+              without changing reactive parameters. It takes the <em>wired result object</em>
+              (<code>this.contacts</code>, not <code>this.contacts.data</code>). Use it after imperative
+              DML to synchronise the UI. A common mistake is calling <code>refreshApex(this.contacts.data)</code>
+              — this silently does nothing because the function expects the raw wire result, not the
+              unwrapped data.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q6 — errorCallback vs try-catch
+           ============================================================ -->
+      <section id="q6">
+        <h2>Q6: When does <code>errorCallback</code> fire vs <code>try-catch</code>? When should you use each?</h2>
+
+        <h3>Fundamental Distinction</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Aspect</th><th>try-catch</th><th>errorCallback</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>What it catches</td><td>Synchronous throws; awaited Promise rejections</td><td>Errors in <em>child component lifecycle hooks and renders</em></td></tr>
+              <tr><td>Scope</td><td>The current call stack only</td><td>The entire subtree of child components</td></tr>
+              <tr><td>Timing</td><td>Immediate, inline</td><td>Called by the LWC engine after child fails</td></tr>
+              <tr><td>Can prevent crash?</td><td>Yes, within the catching component</td><td>Yes — returning from errorCallback replaces crashed subtree with nothing, preventing white-screen</td></tr>
+              <tr><td>Catches unhandled Promise rejections?</td><td>Only with async/await</td><td>No</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Error Boundary Component — wraps risky child components
+import { LightningElement, track } from 'lwc';
+
+export default class ErrorBoundary extends LightningElement {
+  @track hasError = false;
+  @track errorMessage = '';
+
+  // errorCallback is only available on components that CONTAIN other components
+  // It fires when a child's constructor, connectedCallback, renderedCallback, or
+  // render function throws an unhandled error.
+  errorCallback(error, stack) {
+    this.hasError = true;
+    this.errorMessage = error.message;
+
+    // Log to a monitoring service (Apex, App Insights, etc.)
+    console.error('Child component error:', error.message, '\nStack:', stack);
+
+    // NOTE: You cannot call Apex directly here (it's not async-safe in errorCallback)
+    // Instead fire a CustomEvent upward to a logging service component
+    this.dispatchEvent(new CustomEvent('childerror', {
+      detail: { message: error.message, stack },
+      bubbles: true, composed: true
+    }));
+  }
+}</code></pre>
+
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;template&gt;
+  &lt;!-- Show fallback UI when child crashes --&gt;
+  &lt;lwc:if isTrue={hasError}&gt;
+    &lt;div class="error-fallback"&gt;
+      &lt;p&gt;This section encountered an error: {errorMessage}&lt;/p&gt;
+      &lt;button onclick={handleRetry}&gt;Retry&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/lwc:if&gt;
+  &lt;lwc:else&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+  &lt;/lwc:else&gt;
+&lt;/template&gt;</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: What errorCallback does NOT catch</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>errorCallback</code> does <em>not</em> catch: errors in event handlers
+              (those throw into the event dispatch stack, not the rendering stack), unhandled promise
+              rejections in child components, or errors in the error boundary component itself.
+              Wrap async operations inside child components with their own try-catch for handlers,
+              and reserve error boundaries for rendering crashes.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q7 — RESPONSIVE LAYOUT
+           ============================================================ -->
+      <section id="q7">
+        <h2>Q7: How do you build a layout that changes from 3-column desktop to single-column mobile?</h2>
+
+        <h3>Approach 1: SLDS Responsive Grid (preferred for SLDS-native UIs)</h3>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- SLDS grid system uses flexbox under the hood.
+     slds-col + slds-size modifiers follow a 12-column grid. --&gt;
+&lt;template&gt;
+  &lt;div class="slds-grid slds-wrap slds-gutters"&gt;
+    &lt;!-- On small: full width (12/12). On medium+: 4/12 = 1/3 width --&gt;
+    &lt;div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12"&gt;
+      &lt;c-panel-one&gt;&lt;/c-panel-one&gt;
+    &lt;/div&gt;
+    &lt;div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12"&gt;
+      &lt;c-panel-two&gt;&lt;/c-panel-two&gt;
+    &lt;/div&gt;
+    &lt;div class="slds-col slds-size_12-of-12 slds-medium-size_4-of-12"&gt;
+      &lt;c-panel-three&gt;&lt;/c-panel-three&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3>Approach 2: CSS Media Queries in Component CSS</h3>
+        <pre class="language-css" data-lang="CSS"><code class="language-css">/* dashboard.css */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+/* SLDS breakpoints: small < 480px, medium 480–768px, large > 768px */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr; /* single column on mobile */
+  }
+}</code></pre>
+
+        <h3>Approach 3: FormFactor-aware rendering (App Builder only)</h3>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { CurrentPageReference } from 'lightning/navigation';
+
+export default class AdaptiveDashboard extends LightningElement {
+  // formFactor is available from the page context when deployed to Lightning
+  // It returns 'Large', 'Medium', or 'Small'
+  @wire(CurrentPageReference)
+  pageRef;
+
+  get isMobile() {
+    // SLDS utility: import from @salesforce/client/formFactor for the cleanest approach
+    // Available since API v48
+    return false; // replace with actual formFactor check
+  }
+}
+
+// Cleanest approach:
+import formFactor from '@salesforce/client/formFactor';
+// formFactor is 'Large' | 'Medium' | 'Small' — evaluated at build time, not runtime</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: @salesforce/client/formFactor</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>@salesforce/client/formFactor</code> is a <em>compile-time constant</em> for mobile app
+              targets — on native mobile it resolves to <code>'Small'</code> before the component even
+              renders. This is more reliable than CSS media queries for showing/hiding entire component
+              subtrees, because it avoids shipping desktop HTML to a mobile device at all. Use CSS media
+              queries for visual adaptation; use formFactor for structural conditional rendering.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q8 — FILE UPLOAD WITH PROGRESS
+           ============================================================ -->
+      <section id="q8">
+        <h2>Q8: Implement file upload with real-time progress tracking in LWC.</h2>
+
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;template&gt;
+  &lt;input type="file" onchange={handleFileChange} accept=".pdf,.docx" /&gt;
+  &lt;lwc:if isTrue={isUploading}&gt;
+    &lt;div class="progress-bar" role="progressbar"
+         aria-valuenow={uploadPct} aria-valuemin="0" aria-valuemax="100"&gt;
+      &lt;div class="progress-bar__fill" style={progressStyle}&gt;&lt;/div&gt;
+      &lt;span&gt;{uploadPct}%&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/lwc:if&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement, track, api } from 'lwc';
+
+export default class FileUploader extends LightningElement {
+  @api recordId;
+  @track isUploading = false;
+  @track uploadPct = 0;
+
+  get progressStyle() {
+    return `width: ${this.uploadPct}%`;
+  }
+
+  handleFileChange(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    this._uploadFile(file);
+  }
+
+  _uploadFile(file) {
+    this.isUploading = true;
+    this.uploadPct = 0;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      this._sendChunked(base64, file.name);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async _sendChunked(base64Content, fileName) {
+    const CHUNK_SIZE = 750000; // ~750KB — Salesforce max request body ~1MB
+    const totalChunks = Math.ceil(base64Content.length / CHUNK_SIZE);
+    let contentDocumentId = null;
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = base64Content.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+      const isLast = i === totalChunks - 1;
+
+      try {
+        // Call Apex to save each chunk using ContentVersion
+        const result = await saveChunk({
+          recordId: this.recordId,
+          fileName,
+          base64Data: chunk,
+          contentType: 'application/octet-stream',
+          fileId: contentDocumentId,
+          isFirst: i === 0,
+          isLast
+        });
+        if (i === 0) contentDocumentId = result;
+        this.uploadPct = Math.round(((i + 1) / totalChunks) * 100);
+      } catch (error) {
+        this.isUploading = false;
+        // dispatch error event upward
+        this.dispatchEvent(new CustomEvent('uploaderror', { detail: error }));
+        return;
+      }
+    }
+
+    this.isUploading = false;
+    this.dispatchEvent(new CustomEvent('uploadsuccess', {
+      detail: { contentDocumentId }
+    }));
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: lightning-file-upload vs custom chunking</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>lightning-file-upload</code> handles chunking automatically and is the recommended
+              approach for standard file uploads ≤ 2GB. Use the custom chunked Apex approach only when you
+              need: custom access control (e.g., sharing with a specific library), virus scanning
+              integration, or files that must be associated with non-standard objects not supported by the
+              base component. The base component is inaccessible in Experience Cloud's Guest User profile —
+              that is a common reason teams build custom uploaders.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q9 — ACCESSIBLE MODAL
+           ============================================================ -->
+      <section id="q9">
+        <h2>Q9: Build a reusable modal component with proper focus management.</h2>
+        <p>
+          A modal must: trap focus inside itself while open, return focus to the trigger element on close,
+          and be dismissible with the Escape key. These are WCAG 2.1 requirements, not optional.
+        </p>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// modal.js
+import { LightningElement, api, track } from 'lwc';
+
+export default class Modal extends LightningElement {
+  @track _isOpen = false;
+  _triggerElement = null; // remember who opened the modal
+
+  @api
+  open(triggerElement) {
+    this._triggerElement = triggerElement || null;
+    this._isOpen = true;
+
+    // Defer focus to modal content after the re-render
+    // (renderedCallback fires after @track causes re-render)
+  }
+
+  @api
+  close() {
+    this._isOpen = false;
+    // Return focus to the element that opened the modal
+    if (this._triggerElement) {
+      this._triggerElement.focus();
+      this._triggerElement = null;
+    }
+    this.dispatchEvent(new CustomEvent('close'));
+  }
+
+  renderedCallback() {
+    if (this._isOpen && !this._focusTrapped) {
+      this._focusTrapped = true;
+      // Move focus to the first focusable element inside the modal
+      const firstFocusable = this.template.querySelector(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (firstFocusable) firstFocusable.focus();
+    }
+    if (!this._isOpen) {
+      this._focusTrapped = false;
+    }
+  }
+
+  handleKeyDown(event) {
+    if (!this._isOpen) return;
+
+    if (event.key === 'Escape') {
+      this.close();
+      return;
+    }
+
+    // Tab-trap: prevent focus from leaving the modal
+    if (event.key === 'Tab') {
+      const focusable = Array.from(
+        this.template.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus(); // wrap backward to last element
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus(); // wrap forward to first element
+      }
+    }
+  }
+
+  get isOpen() { return this._isOpen; }
+}</code></pre>
+
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;template&gt;
+  &lt;lwc:if isTrue={isOpen}&gt;
+    &lt;!-- Backdrop --&gt;
+    &lt;div class="modal-backdrop" onclick={close} aria-hidden="true"&gt;&lt;/div&gt;
+
+    &lt;!-- Modal container: role=dialog, aria-modal=true makes screen readers
+         announce this as a modal and limit navigation to its content --&gt;
+    &lt;div class="modal-container"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="modalTitle"
+         onkeydown={handleKeyDown}&gt;
+
+      &lt;header class="modal-header"&gt;
+        &lt;h2 id="modalTitle"&gt;&lt;slot name="header"&gt;Modal&lt;/slot&gt;&lt;/h2&gt;
+        &lt;button class="modal-close"
+                onclick={close}
+                aria-label="Close modal"&gt;✕&lt;/button&gt;
+      &lt;/header&gt;
+
+      &lt;div class="modal-body"&gt;
+        &lt;slot&gt;&lt;/slot&gt;
+      &lt;/div&gt;
+
+      &lt;footer class="modal-footer"&gt;
+        &lt;slot name="footer"&gt;&lt;/slot&gt;
+      &lt;/footer&gt;
+    &lt;/div&gt;
+  &lt;/lwc:if&gt;
+&lt;/template&gt;</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: Shadow DOM and focus management</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In LWC's synthetic shadow DOM, <code>document.activeElement</code> inside the tab-trap code
+              refers to the element within the shadow boundary — not the shadow host. This means the tab-
+              trap logic works correctly with <code>this.template.querySelectorAll</code>. However if you
+              use native Shadow DOM (e.g., OSS LWC in non-Salesforce context), <code>activeElement</code>
+              only goes as deep as the shadow host from outside — you'd need
+              <code>shadowRoot.activeElement</code> instead. This is one case where Salesforce's synthetic
+              shadow simplifies cross-shadow DOM queries.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q10 — LARGE PAGE ARCHITECTURE
+           ============================================================ -->
+      <section id="q10">
+        <h2>Q10: Design the LWC architecture for a large multi-component page.</h2>
+        <p>
+          <strong>Scenario:</strong> You're building an Account 360 page with: a header summary, a
+          related contacts datatable, an activity timeline, an opportunity pipeline chart, and a custom
+          quick-action sidebar. The page must be fast, maintainable, and testable.
+        </p>
+
+        <h3>Architecture Decision Record</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Decision</th><th>Choice</th><th>Rationale</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Container/Presenter split</td>
+                <td>Container owns data; presenters receive via @api</td>
+                <td>Presenters are pure, stateless, easy to Jest test</td>
+              </tr>
+              <tr>
+                <td>Data fetching</td>
+                <td>One @wire per record type in the container</td>
+                <td>Prevents N duplicate API calls for same data</td>
+              </tr>
+              <tr>
+                <td>Communication</td>
+                <td>LMS for cross-panel actions (e.g., "Open opportunity from timeline")</td>
+                <td>Panels are placed by admin — no guaranteed shared parent</td>
+              </tr>
+              <tr>
+                <td>Loading states</td>
+                <td>Each presenter owns its own skeleton/spinner</td>
+                <td>Panels load independently — better perceived performance</td>
+              </tr>
+              <tr>
+                <td>Error handling</td>
+                <td>Error boundary wrapping each panel</td>
+                <td>One crashed chart should not white-screen the whole page</td>
+              </tr>
+              <tr>
+                <td>Heavy panels</td>
+                <td>Dynamic import + IntersectionObserver</td>
+                <td>Chart and timeline loaded only when scrolled into view</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// account360Container.js — owns ALL data wires
+import { LightningElement, api, wire, track } from 'lwc';
+import { getRecord, getRelatedListRecords } from 'lightning/uiRecordApi';
+
+const ACCOUNT_FIELDS = ['Account.Name', 'Account.Industry', 'Account.AnnualRevenue'];
+
+export default class Account360Container extends LightningElement {
+  @api recordId;
+
+  // Single source of truth for the page — child presenters get slices via @api
+  @wire(getRecord, { recordId: '$recordId', fields: ACCOUNT_FIELDS })
+  account;
+
+  @wire(getRelatedListRecords, {
+    parentRecordId: '$recordId',
+    relatedListId: 'Contacts',
+    fields: ['Contact.Name', 'Contact.Email', 'Contact.Title'],
+    pageSize: 50
+  })
+  contacts;
+
+  get accountData() { return this.account?.data; }
+  get contactRecords() { return this.contacts?.data?.records ?? []; }
+  get isLoading() {
+    return !this.account?.data && !this.account?.error;
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: Why a single container is an anti-pattern at App Builder scale</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The container/presenter pattern works perfectly when components are programmatically composed
+              (i.e., the developer controls the page). But on an App Builder page, an admin may add or
+              remove panels without a developer's involvement — there is no "container" component. This is
+              why LMS is the communication backbone for App Builder pages: each independent panel can
+              publish or subscribe without knowing about other panels on the page.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q11 — PLATFORM EVENTS + empApi
+           ============================================================ -->
+      <section id="q11">
+        <h2>Q11: Use Platform Events + empApi for server-pushed notifications.</h2>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement, track } from 'lwc';
+import { subscribe, unsubscribe, onError, setDebugFlag, isEmpEnabled }
+  from 'lightning/empApi';
+
+export default class NotificationListener extends LightningElement {
+  @track notifications = [];
+  _channelName = '/event/Order_Update__e'; // Platform Event channel
+  _subscription = null;
+
+  connectedCallback() {
+    // empApi requires Streaming API to be enabled in the org
+    this._subscribe();
+  }
+
+  async _subscribe() {
+    if (!(await isEmpEnabled())) {
+      console.warn('Streaming API not available');
+      return;
+    }
+
+    // Register global error handler for CometD streaming errors
+    onError((error) => {
+      console.error('EMP API Error:', JSON.stringify(error));
+    });
+
+    // -1 = replay from last saved position (requires event retention on the PE definition)
+    //  0 = replay from tip (only new events)
+    const replayId = -1;
+
+    this._subscription = await subscribe(
+      this._channelName,
+      replayId,
+      (response) => {
+        // response.data.payload contains the Platform Event field values
+        const event = response.data.payload;
+        this.notifications = [
+          { id: response.data.event.replayId, ...event },
+          ...this.notifications
+        ].slice(0, 20); // keep last 20 notifications
+      }
+    );
+  }
+
+  disconnectedCallback() {
+    // Unsubscribe is async — always clean up to release CometD resources
+    if (this._subscription) {
+      unsubscribe(this._subscription, (response) => {
+        console.log('Unsubscribed:', response);
+      });
+    }
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: Platform Events vs LMS — when to choose which</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LMS is synchronous client-side message passing — the publisher and subscriber must both be
+              on the page at the same time. Platform Events are <em>durable, server-side event bus messages</em>
+              — they can be published by Apex triggers, flows, or external systems, and subscribers receive
+              them asynchronously via Streaming API. Use Platform Events when the event source is the
+              <em>server</em> (e.g., "a batch job finished", "an integration received a webhook"). Use LMS
+              when the event source is <em>another LWC component on the same page</em>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q12 — 10,000 RECORD DATATABLE
+           ============================================================ -->
+      <section id="q12">
+        <h2>Q12: Optimise a datatable that loads 10,000+ records.</h2>
+
+        <h3>Strategy Hierarchy (apply in order)</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Strategy</th><th>Impact</th><th>Complexity</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Server-side pagination (LIMIT/OFFSET in SOQL)</td><td>Highest — only fetch what's visible</td><td>Low</td></tr>
+              <tr><td>Infinite scroll / cursor-based pagination</td><td>High — eliminates OFFSET performance cliff</td><td>Medium</td></tr>
+              <tr><td>lightning-datatable virtual scrolling</td><td>High — renders only visible rows</td><td>Low (built-in)</td></tr>
+              <tr><td>Debounce search/filter input</td><td>Medium — reduces Apex calls on keypress</td><td>Low</td></tr>
+              <tr><td>Column lazy loading</td><td>Medium — defer heavy columns (rich text, images)</td><td>Medium</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Cursor-based pagination avoids OFFSET performance cliff at large offsets
+// Use the last record's Id as a cursor for deterministic pagination
+import { LightningElement, wire, track } from 'lwc';
+import getAccountPage from '@salesforce/apex/AccountService.getAccountPage';
+
+export default class LargeDataTable extends LightningElement {
+  @track records = [];
+  @track isLoading = false;
+  lastId = null; // cursor: Id of last record on current page
+  hasMore = true;
+  PAGE_SIZE = 100;
+
+  connectedCallback() {
+    this._loadPage();
+  }
+
+  async _loadPage() {
+    if (!this.hasMore || this.isLoading) return;
+    this.isLoading = true;
+    try {
+      // Apex: SELECT Id, Name ... WHERE Id > :lastId ORDER BY Id LIMIT :pageSize
+      const page = await getAccountPage({
+        lastId: this.lastId,
+        pageSize: this.PAGE_SIZE
+      });
+      this.records = [...this.records, ...page];
+      this.lastId = page.length ? page[page.length - 1].Id : this.lastId;
+      this.hasMore = page.length === this.PAGE_SIZE;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  handleLoadMore() {
+    // lightning-datatable fires 'loadmore' when user scrolls to bottom
+    this._loadPage();
+  }
+}
+
+// Debounce helper for search input
+_searchTimeout;
+handleSearch(event) {
+  clearTimeout(this._searchTimeout);
+  this._searchTimeout = setTimeout(() => {
+    this.searchTerm = event.target.value;
+    this.records = [];
+    this.lastId = null;
+    this.hasMore = true;
+    this._loadPage();
+  }, 300); // 300ms debounce
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ SOQL OFFSET Cliff: Why cursor pagination beats OFFSET at scale</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>OFFSET 5000</code> in SOQL forces the database to scan and discard 5,000 rows before
+              returning results — query time grows linearly with offset. Cursor-based pagination
+              (<code>WHERE Id > :lastId</code>) uses an indexed seek and performs identically at page 1 or
+              page 10,000. Salesforce also enforces a maximum OFFSET of 2,000 in SOQL — cursor pagination
+              is the only way past this limit.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q13 — APP BUILDER + FLOW DUAL TARGET
+           ============================================================ -->
+      <section id="q13">
+        <h2>Q13: Make a single LWC component available in both App Builder and Flow.</h2>
+
+        <pre class="language-xml" data-lang="XML"><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+    &lt;apiVersion&gt;61.0&lt;/apiVersion&gt;
+    &lt;isExposed&gt;true&lt;/isExposed&gt;
+
+    &lt;targets&gt;
+        &lt;!-- App Builder targets --&gt;
+        &lt;target&gt;lightning__AppPage&lt;/target&gt;
+        &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+        &lt;target&gt;lightning__HomePage&lt;/target&gt;
+        &lt;!-- Flow target --&gt;
+        &lt;target&gt;lightning__FlowScreen&lt;/target&gt;
+    &lt;/targets&gt;
+
+    &lt;targetConfigs&gt;
+        &lt;!-- App Builder: designer configures a static label --&gt;
+        &lt;targetConfig targets="lightning__AppPage,lightning__RecordPage"&gt;
+            &lt;property name="title"
+                      type="String"
+                      label="Section Title"
+                      description="Heading displayed at the top of the component" /&gt;
+        &lt;/targetConfig&gt;
+
+        &lt;!-- Flow: the component acts as a screen element with input/output --&gt;
+        &lt;targetConfig targets="lightning__FlowScreen"&gt;
+            &lt;!-- inputOnly: Flow builder can SET this property --&gt;
+            &lt;property name="selectedAccountId"
+                      type="String"
+                      role="inputOnly"
+                      label="Pre-selected Account ID" /&gt;
+            &lt;!-- outputOnly: Flow can READ this property after the screen step --&gt;
+            &lt;property name="chosenRecordId"
+                      type="String"
+                      role="outputOnly"
+                      label="User-selected Record ID" /&gt;
+        &lt;/targetConfig&gt;
+    &lt;/targetConfigs&gt;
+&lt;/LightningComponentBundle&gt;</code></pre>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// component.js
+import { LightningElement, api, track } from 'lwc';
+
+export default class RecordPicker extends LightningElement {
+  // App Builder / Flow INPUT property
+  @api selectedAccountId;
+
+  // Flow OUTPUT property — must be @api to be readable by Flow
+  @api chosenRecordId = null;
+
+  // When user makes a selection, write to the OUTPUT property
+  handleSelection(event) {
+    // Flow reads @api property values after the screen step completes
+    this.chosenRecordId = event.detail.recordId;
+  }
+
+  // Flow calls validate() before advancing — implement to block progression
+  @api
+  validate() {
+    if (!this.chosenRecordId) {
+      return {
+        isValid: false,
+        errorMessage: 'Please select a record before continuing.'
+      };
+    }
+    return { isValid: true };
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: validate() method contract</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Flow calls the <code>validate()</code> method on the component when the user clicks Next.
+              The method <em>must</em> be decorated with <code>@api</code> (it's called externally by the
+              Flow runtime). It must return a plain object with <code>isValid: boolean</code> and
+              <code>errorMessage: string</code>. If you omit <code>validate()</code>, Flow always treats
+              the screen as valid. You cannot perform async Apex calls inside <code>validate()</code> — it
+              must be synchronous. Defer async validation to a separate step or use a before-save flow.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q14 — SESSION EXPIRY HANDLING
+           ============================================================ -->
+      <section id="q14">
+        <h2>Q14: Handle session expiry in an LWC component gracefully.</h2>
+        <p>
+          A long-running component (e.g., an empApi subscriber or a timed auto-save) may be on screen
+          when the Salesforce session expires. API calls will return 401 Unauthorized. The user should
+          be redirected or shown a clear message rather than seeing cryptic errors.
+        </p>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
+import doSomething from '@salesforce/apex/MyService.doSomething';
+
+export default class SessionAwareComponent extends NavigationMixin(LightningElement) {
+
+  async handleAction() {
+    try {
+      await doSomething();
+    } catch (error) {
+      if (this._isSessionExpiry(error)) {
+        this._redirectToLogin();
+      } else {
+        // handle other errors normally
+        this.dispatchEvent(new CustomEvent('apierror', { detail: error }));
+      }
+    }
+  }
+
+  _isSessionExpiry(error) {
+    // Apex wire/imperative errors have { body: { statusCode, message } }
+    const statusCode = error?.body?.statusCode || error?.status;
+    return statusCode === 401 || statusCode === 403 ||
+           (error?.body?.message || '').includes('SESSION_EXPIRED');
+  }
+
+  _redirectToLogin() {
+    // NavigationMixin to the standard login page
+    this[NavigationMixin.Navigate]({
+      type: 'standard__namedPage',
+      attributes: { pageName: 'login' }
+    });
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: empApi streaming and session expiry</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              EmpApi (CometD streaming) has a separate session handshake. When the Salesforce session expires,
+              CometD receives a <code>/meta/connect</code> error with advice to reconnect. The
+              <code>onError</code> handler registered via <code>empApi</code> fires with a
+              <code>type: 'DISCONNECT'</code> message. Listen for this and surface an appropriate UI
+              prompt rather than silently losing real-time updates.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q15 — CUSTOM WIRE ADAPTER
+           ============================================================ -->
+      <section id="q15">
+        <h2>Q15: Write a custom wire adapter for a third-party API.</h2>
+        <p>
+          <strong>Scenario:</strong> You have a REST endpoint that returns currency exchange rates.
+          You want components to consume it as <code>@wire(getExchangeRate, { baseCurrency: '$base' })</code>
+          with automatic reactivity and caching.
+        </p>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// exchangeRateAdapter.js — a custom wire adapter module
+import { register, ValueChangedEvent } from '@lwc/wire-service';
+
+// The wire adapter identifier — this function reference is used as the
+// first argument to @wire() in consuming components.
+export function getExchangeRate(config) {} // function body intentionally empty
+
+// Register the wire adapter implementation
+register(getExchangeRate, function wireAdapterFactory(wireEventTarget) {
+  let baseCurrency;
+  let cacheEntry = null;
+  const CACHE_TTL = 60_000; // 1 minute cache
+
+  function fetchRates(base) {
+    const now = Date.now();
+    if (cacheEntry && cacheEntry.base === base && (now - cacheEntry.ts) < CACHE_TTL) {
+      // Serve from cache — emitting a ValueChangedEvent triggers re-render in the consumer
+      wireEventTarget.emit({ data: cacheEntry.data, error: undefined });
+      return;
+    }
+
+    // Emit loading state (data: undefined signals "loading" to consumers)
+    wireEventTarget.emit({ data: undefined, error: undefined });
+
+    // Call your actual API (via Apex as a proxy for CSP compliance)
+    import('@salesforce/apex/ExchangeRateProxy.getRates')
+      .then(mod => mod.default({ baseCurrency: base }))
+      .then(data => {
+        cacheEntry = { base, data, ts: Date.now() };
+        wireEventTarget.emit({ data, error: undefined });
+      })
+      .catch(error => {
+        wireEventTarget.emit({ data: undefined, error });
+      });
+  }
+
+  // Called when the component's @wire reactive parameters change
+  wireEventTarget.addEventListener('config', (newConfig) => {
+    baseCurrency = newConfig.baseCurrency;
+    if (baseCurrency) {
+      fetchRates(baseCurrency);
+    }
+  });
+
+  // Called when the component disconnects — clean up subscriptions
+  wireEventTarget.addEventListener('disconnect', () => {
+    // cancel pending requests if needed
+  });
+});</code></pre>
+
+        <pre class="language-javascript" data-lang="Consumer JS"><code class="language-javascript">// Consuming component
+import { LightningElement, wire } from 'lwc';
+import { getExchangeRate } from 'c/exchangeRateAdapter';
+
+export default class CurrencyWidget extends LightningElement {
+  baseCurrency = 'USD';
+
+  @wire(getExchangeRate, { baseCurrency: '$baseCurrency' })
+  rates; // { data, error } shape
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           Q16 — AURA → LWC MIGRATION
+           ============================================================ -->
+      <section id="q16">
+        <h2>Q16: Walk through a step-by-step Aura to LWC migration.</h2>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Step</th><th>Action</th><th>Watch out for</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>Audit: list all Aura attributes, events, component methods, helper methods</td>
+                <td>Identify any <code>$A.util</code>, <code>v.*</code>, <code>c.*</code> usage</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>Map Aura concepts to LWC equivalents</td>
+                <td>See table below</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>Create the LWC bundle and migrate the template</td>
+                <td>No <code>{!v.attr}</code> syntax — use <code>{attr}</code></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>Migrate JS: replace Aura patterns with LWC decorators/APIs</td>
+                <td><code>init</code> → <code>connectedCallback</code></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>Replace all <code>$A.enqueueAction</code> with <code>@wire</code> or imperative Apex</td>
+                <td>Remove <code>setStorable</code> / <code>setBackground</code> — use <code>cacheable=true</code></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>Replace Aura events with CustomEvents + LMS</td>
+                <td>Aura application events → LMS; Aura component events → CustomEvent</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>Replace <code>force:navigateToSObject</code> etc. with NavigationMixin</td>
+                <td>All navigation calls</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>Replace <code>ltng:require</code> with <code>platformResourceLoader</code></td>
+                <td>Static resource must be a zip or single file</td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td>Write Jest tests for the new component</td>
+                <td>Aura had no official unit testing — start from scratch</td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>Deploy side-by-side; switch page assignments; retire Aura component</td>
+                <td>Aura-in-LWC interop is one-directional (LWC inside Aura works; reverse does not)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: Aura slots vs LWC slots</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Aura's <code>{!v.body}</code> (default slot) maps to LWC's unnamed <code>&lt;slot&gt;</code>.
+              Aura's <code>aura:set attribute="header"</code> maps to LWC's named slot
+              <code>&lt;slot name="header"&gt;</code>. The key difference: in Aura the slotted content is
+              owned by the <em>consumer</em> and can reference the consumer's controller. In LWC's Shadow
+              DOM, slotted content is scoped to the <em>slotter</em> (the parent), not the child — a
+              subtler behaviour that becomes important when slotted content contains its own event handlers.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q17 — WORKS IN SCRATCH, FAILS IN PROD
+           ============================================================ -->
+      <section id="q17">
+        <h2>Q17: Debug an LWC that works in scratch org but fails in production.</h2>
+
+        <h3>Systematic Diagnosis Checklist</h3>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 1: API version difference</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Your scratch org is on the latest release; production may be one or two releases behind
+              (especially before a scheduled upgrade). New LWC features like <code>lwc:ref</code>,
+              <code>lwc:spread</code>, <code>lwc:component</code> have minimum API version requirements.
+              Check the <code>apiVersion</code> in <code>js-meta.xml</code> — it must match a version
+              available in the target org.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 2: Lightning Web Security vs Lightning Locker behaviour</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Scratch orgs have LWS enabled by default. Older orgs may still use the legacy Locker Service.
+              LWS and Locker impose different restrictions on APIs like
+              <code>document.createElement</code>, <code>window</code> globals, and cross-component
+              <code>querySelector</code>. A component that accesses a global variable directly may work in
+              LWS (which uses per-namespace isolation via JS realms) but be blocked by Locker's
+              proxy-based sandbox.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 3: FLS / CRUD / Sharing differences</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Scratch org sysadmin profile has all permissions. Production users may lack FLS on specific
+              fields. An <code>@wire(getRecord, { fields: ['Account.AnnualRevenue'] })</code> silently
+              returns no data (not an error) when the running user lacks FLS on AnnualRevenue.
+              Always test with a profile-matched user in a full sandbox before production deployment.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Cause 4: CSP policy differences</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Production orgs may have "Stricter CSP" enabled. This blocks inline <code>&lt;script&gt;</code>
+              tags, <code>eval()</code>, and external script sources not in the trusted list. Scratch orgs
+              may not have Stricter CSP enabled by default. If your component uses a third-party inline
+              script or <code>new Function()</code>, it will fail silently in production.
+            </p>
+          </div>
+        </div>
+
+        <h3>Debugging Workflow</h3>
+        <pre class="language-javascript" data-lang="Checklist"><code class="language-javascript">// 1. Enable Debug Mode in Setup → Lightning Components → Debug Mode Users
+//    This serves unminified LWC code with human-readable errors
+// 2. Open Chrome DevTools → Console → look for [LWC error] or [LWS error] messages
+// 3. Use Salesforce Lightning Inspector Chrome extension to inspect:
+//    - Wire service calls and their responses
+//    - Component tree and property states
+//    - Performance profiling (render times)
+// 4. If issue is FLS-related: temporarily test as System Admin in prod,
+//    if it works → FLS problem; if it doesn't → code problem
+// 5. Enable Stricter CSP in scratch org and re-test to reproduce CSP issues locally</code></pre>
+      </section>
+
+      <!-- ============================================================
+           Q18 — MULTI-STEP FORM
+           ============================================================ -->
+      <section id="q18">
+        <h2>Q18: Implement a multi-step form with state preserved across steps.</h2>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// multiStepForm.js — orchestrator component
+import { LightningElement, track } from 'lwc';
+
+const STEPS = ['personalInfo', 'companyInfo', 'reviewSubmit'];
+
+export default class MultiStepForm extends LightningElement {
+  @track currentStepIndex = 0;
+
+  // Centralised form state — passed down to each step via @api
+  // Each step mutates this via events dispatched upward
+  @track formData = {
+    firstName: '', lastName: '', email: '',
+    companyName: '', industry: '', revenue: null
+  };
+
+  get currentStep() { return STEPS[this.currentStepIndex]; }
+  get isFirst()     { return this.currentStepIndex === 0; }
+  get isLast()      { return this.currentStepIndex === STEPS.length - 1; }
+  get progressPct() { return Math.round(((this.currentStepIndex) / (STEPS.length - 1)) * 100); }
+
+  get isPersonalInfo() { return this.currentStep === 'personalInfo'; }
+  get isCompanyInfo()  { return this.currentStep === 'companyInfo'; }
+  get isReview()       { return this.currentStep === 'reviewSubmit'; }
+
+  // Each step dispatches 'datachange' with its partial form data
+  handleDataChange(event) {
+    // Merge step data into the centralised state (immutable update)
+    this.formData = { ...this.formData, ...event.detail };
+  }
+
+  handleNext() {
+    // Validate the current step before advancing
+    const stepComponent = this.template.querySelector('[data-step]');
+    if (stepComponent && !stepComponent.validate()) return;
+    this.currentStepIndex++;
+  }
+
+  handleBack() {
+    if (!this.isFirst) this.currentStepIndex--;
+  }
+
+  async handleSubmit() {
+    try {
+      await submitForm({ formData: JSON.stringify(this.formData) });
+      this.dispatchEvent(new CustomEvent('success'));
+    } catch (error) {
+      this.dispatchEvent(new CustomEvent('formsubmiterror', { detail: error }));
+    }
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: Why not use Flow for multi-step forms?</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Flow is the right tool for <em>admin-configured</em> multi-step processes with branching
+              logic. Use a custom LWC multi-step form when: (a) the UX requirements are too complex for
+              Flow's screen components, (b) you need custom validation logic that can't be expressed in
+              formulas, (c) the form must work offline or within a mobile container where Flow has
+              limitations, or (d) the process involves file uploads with chunking (which Flow's file
+              upload component handles differently). In most enterprise cases, LWC-in-Flow-screen is the
+              hybrid answer — the LWC component handles the UX, Flow handles the process orchestration.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q19 — ACCESSIBLE CUSTOM DROPDOWN
+           ============================================================ -->
+      <section id="q19">
+        <h2>Q19: Build an accessible custom dropdown (ARIA + keyboard + Shadow DOM).</h2>
+
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;template&gt;
+  &lt;!-- The combobox wrapper has role="combobox" and controls the listbox --&gt;
+  &lt;div class="dropdown-wrapper"
+       role="combobox"
+       aria-expanded={isOpen}
+       aria-haspopup="listbox"
+       aria-owns="dropdown-listbox"&gt;
+
+    &lt;!-- Trigger button: visible label + hidden state for screen readers --&gt;
+    &lt;button class="dropdown-trigger"
+            aria-label={triggerLabel}
+            aria-controls="dropdown-listbox"
+            onclick={toggleOpen}
+            onkeydown={handleTriggerKeydown}&gt;
+      {selectedLabel}
+      &lt;span aria-hidden="true"&gt;▾&lt;/span&gt;
+    &lt;/button&gt;
+
+    &lt;lwc:if isTrue={isOpen}&gt;
+      &lt;!-- Listbox: role=listbox, NOT ul/li — screen readers announce options --&gt;
+      &lt;ul role="listbox"
+          id="dropdown-listbox"
+          tabindex="-1"
+          aria-activedescendant={activeOptionId}
+          onkeydown={handleListKeydown}&gt;
+        &lt;template for:each={options} for:item="opt"&gt;
+          &lt;li key={opt.value}
+              role="option"
+              id={opt.id}
+              aria-selected={opt.isSelected}
+              data-value={opt.value}
+              onclick={handleOptionClick}&gt;
+            {opt.label}
+          &lt;/li&gt;
+        &lt;/template&gt;
+      &lt;/ul&gt;
+    &lt;/lwc:if&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">import { LightningElement, api, track } from 'lwc';
+
+export default class AccessibleDropdown extends LightningElement {
+  @api options = []; // [{ label, value }]
+  @api value;
+  @track isOpen = false;
+  @track activeIndex = -1;
+
+  get activeOptionId() {
+    return this.activeIndex >= 0
+      ? `opt-${this.options[this.activeIndex].value}`
+      : null;
+  }
+
+  get triggerLabel() {
+    const sel = this.options.find(o => o.value === this.value);
+    return sel ? sel.label : 'Select an option';
+  }
+
+  toggleOpen() { this.isOpen = !this.isOpen; }
+
+  // Keyboard on the trigger button
+  handleTriggerKeydown(event) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.isOpen = true;
+      this.activeIndex = 0;
+      this._focusList();
+    } else if (event.key === 'Escape') {
+      this.isOpen = false;
+    }
+  }
+
+  // Keyboard inside the listbox
+  handleListKeydown(event) {
+    const max = this.options.length - 1;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.activeIndex = Math.min(this.activeIndex + 1, max);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.activeIndex = Math.max(this.activeIndex - 1, 0);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this._selectOption(this.options[this.activeIndex]);
+    } else if (event.key === 'Escape' || event.key === 'Tab') {
+      this.isOpen = false;
+      this.template.querySelector('.dropdown-trigger').focus();
+    }
+  }
+
+  handleOptionClick(event) {
+    const val = event.currentTarget.dataset.value;
+    this._selectOption(this.options.find(o => o.value === val));
+  }
+
+  _selectOption(option) {
+    this.value = option.value;
+    this.isOpen = false;
+    this.dispatchEvent(new CustomEvent('change', { detail: { value: option.value } }));
+    this.template.querySelector('.dropdown-trigger').focus();
+  }
+
+  _focusList() {
+    // After re-render, move focus to the listbox
+    Promise.resolve().then(() => {
+      const list = this.template.querySelector('[role="listbox"]');
+      if (list) list.focus();
+    });
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: aria-activedescendant vs focus management</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>aria-activedescendant</code> pattern keeps keyboard focus on the listbox container
+              while visually styling the "active" option — the screen reader announces the option pointed
+              to by <code>aria-activedescendant</code> without the DOM focus changing. This is important in
+              Shadow DOM because if you moved DOM focus to each individual <code>&lt;li&gt;</code>, events
+              would need to cross the shadow boundary, and Salesforce's synthetic shadow could interfere
+              with event.target reporting. The <code>aria-activedescendant</code> approach keeps focus
+              management inside a single shadow tree.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           Q20 — CODE REVIEW CHECKLIST
+           ============================================================ -->
+      <section id="q20">
+        <h2>Q20: What is your code review checklist for a production LWC pull request?</h2>
+        <p>
+          A expert architect reviews for correctness, security, performance, accessibility, and
+          testability — not just functional behaviour.
+        </p>
+
+        <h3>Category 1: Correctness</h3>
+        <ul>
+          <li>Are <code>@api</code> properties treated as immutable inside the component? No direct property mutation on <code>@api</code> objects.</li>
+          <li>Are all <code>@wire</code> reactive parameters prefixed with <code>$</code>? Are they initialised (not <code>undefined</code>)?</li>
+          <li>Are wire and imperative results null-checked before accessing <code>.data</code>?</li>
+          <li>Does <code>refreshApex</code> receive the wire result object (not <code>.data</code>)?</li>
+          <li>Are all LMS subscriptions unsubscribed in <code>disconnectedCallback</code>?</li>
+          <li>Are all <code>IntersectionObserver</code> instances disconnected on component removal?</li>
+          <li>Does <code>renderedCallback</code> guard against re-entrant calls with a boolean flag?</li>
+          <li>Are all async operations in event handlers wrapped in try-catch with error dispatching?</li>
+        </ul>
+
+        <h3>Category 2: Security</h3>
+        <ul>
+          <li>No <code>innerHTML</code> assignment. No <code>eval()</code> or <code>new Function()</code>.</li>
+          <li>No CDN URLs in static resource imports or <code>loadScript</code> calls.</li>
+          <li>No user-supplied values passed directly to SOQL without server-side sanitisation.</li>
+          <li>Apex methods called with DML use <code>with sharing</code> unless there is an explicit, documented reason not to.</li>
+          <li>File upload endpoints validate MIME type and file size on the server, not just client-side.</li>
+        </ul>
+
+        <h3>Category 3: Performance</h3>
+        <ul>
+          <li>List items have a unique, stable <code>key</code> (not array index).</li>
+          <li>Getters that perform computation are memoised when called repeatedly.</li>
+          <li>Long lists use server-side pagination or virtual scrolling, not loading all records at once.</li>
+          <li>Search/filter inputs are debounced (≥ 300ms).</li>
+          <li>Heavy third-party libraries are lazy-loaded, not bundled in <code>connectedCallback</code>.</li>
+          <li>No new object/array literals created in getter bodies (causes infinite re-render loop).</li>
+        </ul>
+
+        <h3>Category 4: Accessibility</h3>
+        <ul>
+          <li>All interactive elements have accessible names (<code>aria-label</code> or visible text).</li>
+          <li>Custom interactive controls implement keyboard navigation (Enter, Space, Escape, Arrows).</li>
+          <li>Modals trap focus and return focus to trigger on close.</li>
+          <li>Dynamic content changes are announced via <code>aria-live</code> regions.</li>
+          <li>Color is not the only means of conveying information (sufficient contrast ratio ≥ 4.5:1).</li>
+        </ul>
+
+        <h3>Category 5: Testability</h3>
+        <ul>
+          <li>Every public <code>@api</code> property and method has at least one Jest test.</li>
+          <li>Wire adapters are tested using the correct adapter type (<code>registerApexTestWireAdapter</code> vs <code>registerLdsTestWireAdapter</code>).</li>
+          <li>Error paths (wire error, Apex rejection) have dedicated test cases.</li>
+          <li>Event dispatch is asserted using <code>jest.fn()</code> listeners, not just snapshot tests.</li>
+          <li>Component cleanup (<code>afterEach(() => document.body.removeChild(element))</code>) is in every test file.</li>
+        </ul>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Expert Nuance: The "unnecessary Apex" smell</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The most common senior-level code review finding is an Apex call that should have been
+              an LDS wire adapter. Fetching a single record with a SOQL query in Apex instead of
+              <code>@wire(getRecord)</code> bypasses the LDS cache entirely — every render triggers
+              a server round-trip instead of using the shared page-level cache. The expert architect
+              asks: "Does LDS support this data access pattern?" before reaching for Apex.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>Quick Recall Card</h2>
+        <div class="recall-card">
+          <h3>📋 Expert Scenario Patterns — Key Points</h3>
+          <ul>
+            <li><strong>LDS + Apex DML</strong>: Always call <code>notifyRecordUpdateAvailable([{recordId}])</code> after imperative Apex DML to keep LDS cache in sync.</li>
+            <li><strong>@api mutation</strong>: Clone in the setter — <code>this._data = { ...value }</code> — to prevent shared-reference side-effects.</li>
+            <li><strong>Sibling communication</strong>: LMS is the production standard; <code>APPLICATION_SCOPE</code> for cross-panel; always <code>unsubscribe</code> in <code>disconnectedCallback</code>.</li>
+            <li><strong>@wire not reacting</strong>: Check: $ prefix, param not undefined/null, cacheable=true on Apex, primitive (not object property) used as reactive param.</li>
+            <li><strong>errorCallback</strong>: Catches child <em>lifecycle and render</em> errors — NOT event handler errors or promise rejections.</li>
+            <li><strong>Lazy loading</strong>: IntersectionObserver → <code>loadScript()</code> → <code>renderedCallback</code> with <code>_initialized</code> guard.</li>
+            <li><strong>Large lists</strong>: Cursor pagination beats OFFSET; SOQL max OFFSET = 2,000; cursor pagination uses indexed seek.</li>
+            <li><strong>Flow screen component</strong>: <code>@api validate()</code> must return <code>{ isValid, errorMessage }</code>; output properties must be <code>@api</code>.</li>
+            <li><strong>Platform Events vs LMS</strong>: Platform Events = server-sourced, durable, async. LMS = client-sourced, synchronous, page-scoped.</li>
+            <li><strong>Accessible dropdown</strong>: <code>role="combobox"</code> + <code>role="listbox"</code> + <code>aria-activedescendant</code> pattern; Arrow keys navigate; Escape closes.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Cross-links -->
+      <section>
+        <h2>Related Articles</h2>
+        <ul>
+          <li><a href="04-decorators.html">Article 04 — Decorators: @api, @track, @wire</a></li>
+          <li><a href="05-lifecycle-hooks.html">Article 05 — Lifecycle Hooks</a></li>
+          <li><a href="08-component-communication.html">Article 08 — Component Communication</a></li>
+          <li><a href="09-salesforce-data.html">Article 09 — Working with Salesforce Data</a></li>
+          <li><a href="15-error-handling.html">Article 15 — Error Handling</a></li>
+          <li><a href="16-accessibility.html">Article 16 — Accessibility</a></li>
+          <li><a href="17-jest-testing.html">Article 17 — Jest Unit Testing</a></li>
+          <li><a href="19-advanced-patterns.html">Article 19 — Advanced Patterns</a></li>
+          <li><a href="21-study-resources.html">Article 21 — Study Resources &amp; Learning Roadmap</a></li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="19-advanced-patterns.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">19. Advanced Patterns</span>
+        </a>
+        <a href="21-study-resources.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">21. Study Resources &amp; Learning Roadmap</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a> •
+      <a href="https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_lwc.htm" target="_blank" rel="noopener noreferrer">LWC Metadata API</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle    = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html      = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId  = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : '☐ Mark as Read';
+        btn.classList.toggle('is-read', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+      const headings = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active = headings[0];
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) { active = heading; } else { break; }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

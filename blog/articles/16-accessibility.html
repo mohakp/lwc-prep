@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>16. Accessibility — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC accessibility: WCAG 2.1 principles, the accessibility tree, ARIA roles/states/properties, keyboard navigation, focus management for modals, aria-live regions, and LWC-specific shadow DOM considerations.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/16-accessibility.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Accessibility Matters</a></li>
+          <li><a href="#wcag">2. WCAG 2.1 Principles</a></li>
+          <li class="level-3"><a href="#pour">POUR: The Four Pillars</a></li>
+          <li class="level-3"><a href="#conformance">Conformance Levels (A, AA, AAA)</a></li>
+          <li><a href="#accessibility-tree">3. The Accessibility Tree</a></li>
+          <li class="level-3"><a href="#how-tree-built">How Browsers Build It</a></li>
+          <li class="level-3"><a href="#semantic-html">Semantic HTML First Rule</a></li>
+          <li><a href="#aria">4. ARIA: Roles, States &amp; Properties</a></li>
+          <li class="level-3"><a href="#aria-roles">ARIA Roles</a></li>
+          <li class="level-3"><a href="#aria-states">States and Properties</a></li>
+          <li class="level-3"><a href="#aria-rules">The Five ARIA Rules</a></li>
+          <li><a href="#tabindex">5. tabindex &amp; Focus Order</a></li>
+          <li class="level-3"><a href="#tabindex-values">Values: 0, -1, Positive</a></li>
+          <li class="level-3"><a href="#focus-order">Logical Focus Order</a></li>
+          <li><a href="#keyboard">6. Keyboard Navigation Patterns</a></li>
+          <li class="level-3"><a href="#key-bindings">Standard Key Bindings</a></li>
+          <li class="level-3"><a href="#roving-tabindex">Roving tabindex Pattern</a></li>
+          <li class="level-3"><a href="#keyboard-lwc">Implementing in LWC</a></li>
+          <li><a href="#focus-management">7. Focus Management</a></li>
+          <li class="level-3"><a href="#modal-focus">Modal Dialogs</a></li>
+          <li class="level-3"><a href="#focus-trap">Focus Trap Implementation</a></li>
+          <li class="level-3"><a href="#dynamic-content">Dynamic Content &amp; Conditional Rendering</a></li>
+          <li><a href="#aria-live">8. aria-live Regions</a></li>
+          <li class="level-3"><a href="#polite-assertive">polite vs assertive</a></li>
+          <li class="level-3"><a href="#live-lwc">Live Regions in LWC</a></li>
+          <li><a href="#color-contrast">9. Color Contrast</a></li>
+          <li><a href="#base-components">10. Base LWC Components &amp; Accessibility</a></li>
+          <li><a href="#custom-components">11. When You Go Custom</a></li>
+          <li class="level-3"><a href="#shadow-aria">ARIA Across Shadow Boundaries</a></li>
+          <li class="level-3"><a href="#id-scoping">id Scoping in LWC Templates</a></li>
+          <li><a href="#screen-readers">12. Screen Reader Testing</a></li>
+          <li><a href="#pitfalls">13. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">14. Expert Insight</a></li>
+          <li><a href="#recall">15. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 16</div>
+        <h1>Accessibility</h1>
+        <div class="article-meta">
+          <span>⏱ 25 min read</span>
+          <span class="tags">
+            <span class="tag">#accessibility</span>
+            <span class="tag">#WCAG</span>
+            <span class="tag">#ARIA</span>
+            <span class="tag">#keyboard</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="16"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Accessibility Matters</h2>
+        <p>
+          Over one billion people worldwide live with some form of disability. In enterprise software,
+          accessibility is not optional — regulated industries (government, healthcare, finance) must
+          meet WCAG standards by law. Salesforce components deployed inside a company's Salesforce org
+          are tools that employees use every day; those employees include people with visual impairments,
+          motor disabilities, cognitive differences, and temporary situational constraints (bright
+          sunlight on mobile, one-handed use, noisy environments requiring screen readers).
+        </p>
+        <p>
+          Beyond legal compliance and inclusivity, accessible components are better components: they
+          are more semantic, more keyboard-operable, and more predictable — qualities that also improve
+          automated test reliability, SEO, and maintenance.
+        </p>
+        <p>
+          For LWC specifically, accessibility has a structural dimension: the Shadow DOM creates
+          encapsulation boundaries that break some native ARIA cross-referencing assumptions. Building
+          accessible LWC requires understanding both the browser's accessibility model <em>and</em>
+          LWC's synthetic Shadow DOM constraints.
+        </p>
+        <p>This article covers the full stack: WCAG → accessibility tree → ARIA → keyboard patterns
+          → focus management → live regions → LWC-specific constraints.</p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — WCAG 2.1 PRINCIPLES
+           ============================================================ -->
+      <section id="wcag">
+        <h2>2. WCAG 2.1 Principles</h2>
+        <p>
+          The <strong>Web Content Accessibility Guidelines (WCAG)</strong> are published by the W3C
+          and define the international standard for web accessibility. Version 2.1 is the current
+          baseline; WCAG 2.2 added a handful of new criteria in 2023.
+        </p>
+
+        <h3 id="pour">POUR: The Four Pillars</h3>
+        <p>
+          Every WCAG success criterion maps to one of four principles, abbreviated <strong>POUR</strong>:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Principle</th>
+              <th>Core Question</th>
+              <th>Example Criteria</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Perceivable</strong></td>
+              <td>Can users receive the information at all?</td>
+              <td>Alt text on images (1.1.1), captions on video (1.2.2), sufficient color contrast (1.4.3)</td>
+            </tr>
+            <tr>
+              <td><strong>Operable</strong></td>
+              <td>Can users interact with all functionality?</td>
+              <td>Keyboard accessible (2.1.1), no seizure-inducing flashing (2.3.1), focus visible (2.4.7)</td>
+            </tr>
+            <tr>
+              <td><strong>Understandable</strong></td>
+              <td>Can users understand the content and UI?</td>
+              <td>Language of page (3.1.1), error identification (3.3.1), labels for inputs (3.3.2)</td>
+            </tr>
+            <tr>
+              <td><strong>Robust</strong></td>
+              <td>Can assistive technologies interpret the content?</td>
+              <td>Valid HTML (4.1.1), name/role/value (4.1.2), status messages (4.1.3)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="conformance">Conformance Levels (A, AA, AAA)</h3>
+        <p>
+          WCAG criteria are tiered into three levels:
+        </p>
+        <ul>
+          <li><strong>Level A</strong> — Minimum. Failure is a barrier for some users. (~25 criteria)</li>
+          <li><strong>Level AA</strong> — Standard. The legally required level in most jurisdictions. Salesforce SLDS targets AA. (~13 additional criteria)</li>
+          <li><strong>Level AAA</strong> — Enhanced. Difficult or impossible to meet universally — typically applied selectively. (~23 additional criteria)</li>
+        </ul>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Key Reference</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <a href="https://www.w3.org/WAI/WCAG21/quickref/" target="_blank" rel="noopener noreferrer">WCAG 2.1 Quick Reference</a>
+              is the most useful daily tool. For LWC, focus on criteria 1.3 (Adaptable), 1.4 (Distinguishable),
+              2.1 (Keyboard Accessible), 2.4 (Navigable), 3.3 (Input Assistance), and 4.1 (Compatible).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — ACCESSIBILITY TREE
+           ============================================================ -->
+      <section id="accessibility-tree">
+        <h2>3. The Accessibility Tree</h2>
+
+        <h3 id="how-tree-built">How Browsers Build It</h3>
+        <p>
+          The browser maintains two parallel trees from your HTML: the <strong>DOM tree</strong> (for
+          rendering) and the <strong>accessibility tree</strong> (for assistive technology). The
+          accessibility tree is constructed from DOM nodes that have accessible roles — either via
+          implicit HTML semantics or explicit ARIA attributes.
+        </p>
+        <p>
+          Each node in the accessibility tree has four key properties that assistive technology
+          (screen readers, voice control software) reads:
+        </p>
+        <ul>
+          <li><strong>Role</strong> — what kind of element is it (button, checkbox, dialog, heading)?</li>
+          <li><strong>Name</strong> — the accessible label (from <code>aria-label</code>, <code>aria-labelledby</code>, content, or <code>alt</code>)</li>
+          <li><strong>Description</strong> — additional context (from <code>aria-describedby</code>)</li>
+          <li><strong>State/Value</strong> — current state (checked, expanded, selected) or current value</li>
+        </ul>
+        <p>
+          The accessibility tree <em>omits</em> purely presentational nodes (those with
+          <code>role="presentation"</code> or <code>aria-hidden="true"</code>) and elements hidden with
+          <code>display: none</code> or <code>visibility: hidden</code>.
+        </p>
+
+        <h3 id="semantic-html">Semantic HTML First Rule</h3>
+        <p>
+          Native HTML elements carry built-in ARIA roles, states, and keyboard behaviour. Use them
+          before reaching for ARIA. The first rule of ARIA is: <em>"do not use ARIA if a native
+          HTML element or attribute already provides the correct semantics."</em>
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Do This</th>
+              <th>Not This</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>&lt;button&gt;</code></td>
+              <td><code>&lt;div role="button"&gt;</code></td>
+              <td>Native button gets keyboard, focus, click — ARIA div requires manual keyboard handling</td>
+            </tr>
+            <tr>
+              <td><code>&lt;input type="checkbox"&gt;</code></td>
+              <td><code>&lt;div role="checkbox"&gt;</code></td>
+              <td>Native checkbox manages aria-checked state automatically</td>
+            </tr>
+            <tr>
+              <td><code>&lt;nav&gt;</code></td>
+              <td><code>&lt;div role="navigation"&gt;</code></td>
+              <td>Equivalent, but native is less code and more resilient</td>
+            </tr>
+            <tr>
+              <td><code>&lt;h2&gt;</code></td>
+              <td><code>&lt;div role="heading" aria-level="2"&gt;</code></td>
+              <td>Native heading is indexed by screen readers' heading navigation</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — ARIA
+           ============================================================ -->
+      <section id="aria">
+        <h2>4. ARIA: Roles, States &amp; Properties</h2>
+        <p>
+          <strong>ARIA (Accessible Rich Internet Applications)</strong> is a W3C specification that
+          adds semantic meaning to elements the accessibility tree cannot infer from HTML alone.
+          Custom interactive widgets — dropdowns, tabs, comboboxes, tree views — need ARIA to
+          communicate their purpose and state to assistive technology.
+        </p>
+
+        <h3 id="aria-roles">ARIA Roles</h3>
+        <p>
+          Roles fall into six categories:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Examples</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Widget</td>
+              <td><code>button</code>, <code>checkbox</code>, <code>combobox</code>, <code>slider</code>, <code>tab</code>, <code>treeitem</code></td>
+              <td>Interactive controls</td>
+            </tr>
+            <tr>
+              <td>Composite</td>
+              <td><code>listbox</code>, <code>menu</code>, <code>tablist</code>, <code>tree</code></td>
+              <td>Containers managing child widgets</td>
+            </tr>
+            <tr>
+              <td>Document Structure</td>
+              <td><code>article</code>, <code>heading</code>, <code>list</code>, <code>row</code></td>
+              <td>Content organisation</td>
+            </tr>
+            <tr>
+              <td>Landmark</td>
+              <td><code>banner</code>, <code>main</code>, <code>navigation</code>, <code>complementary</code></td>
+              <td>Page region navigation (screen reader shortcuts)</td>
+            </tr>
+            <tr>
+              <td>Live Region</td>
+              <td><code>alert</code>, <code>status</code>, <code>log</code>, <code>timer</code></td>
+              <td>Announce dynamic content changes</td>
+            </tr>
+            <tr>
+              <td>Window</td>
+              <td><code>dialog</code>, <code>alertdialog</code></td>
+              <td>Modal and non-modal dialogs</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="aria-states">States and Properties</h3>
+        <p>
+          ARIA <strong>states</strong> change during user interaction; ARIA <strong>properties</strong>
+          are more stable metadata. The distinction is blurry — in practice, both are set with
+          <code>aria-*</code> attributes.
+        </p>
+
+        <p><strong>Commonly used states:</strong></p>
+        <pre><code class="language-html">&lt;!-- Expanded/collapsed state on a disclosure button --&gt;
+&lt;button aria-expanded="false" aria-controls="panelId"&gt;Show Details&lt;/button&gt;
+&lt;div id="panelId" hidden&gt;...&lt;/div&gt;
+
+&lt;!-- Checked state on a custom checkbox --&gt;
+&lt;div role="checkbox" aria-checked="false" tabindex="0"&gt;Accept Terms&lt;/div&gt;
+
+&lt;!-- Selected state in a listbox --&gt;
+&lt;li role="option" aria-selected="true"&gt;Option A&lt;/li&gt;
+
+&lt;!-- Disabled state --&gt;
+&lt;button aria-disabled="true"&gt;Submit&lt;/button&gt;
+
+&lt;!-- Invalid input state --&gt;
+&lt;input aria-invalid="true" aria-describedby="emailErr" /&gt;
+&lt;span id="emailErr"&gt;Enter a valid email address&lt;/span&gt;</code></pre>
+
+        <p><strong>Commonly used properties:</strong></p>
+        <pre><code class="language-html">&lt;!-- Label an element without visible text --&gt;
+&lt;button aria-label="Close dialog"&gt;&lt;span aria-hidden="true"&gt;✕&lt;/span&gt;&lt;/button&gt;
+
+&lt;!-- Label from another element --&gt;
+&lt;h2 id="dlgTitle"&gt;Confirm Delete&lt;/h2&gt;
+&lt;div role="dialog" aria-labelledby="dlgTitle" aria-describedby="dlgDesc"&gt;
+  &lt;p id="dlgDesc"&gt;This action cannot be undone.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;!-- Mark content as decorative --&gt;
+&lt;img src="divider.png" alt="" aria-hidden="true" /&gt;
+
+&lt;!-- Mark container as live region --&gt;
+&lt;div aria-live="polite" aria-atomic="true"&gt;Search results: 5 found&lt;/div&gt;</code></pre>
+
+        <h3 id="aria-rules">The Five ARIA Rules</h3>
+        <ol>
+          <li><strong>Don't use ARIA if native HTML suffices.</strong> Native elements have built-in keyboard behaviour, focus management, and accessibility tree presence.</li>
+          <li><strong>Don't change native semantics.</strong> Don't add <code>role="heading"</code> to a <code>&lt;button&gt;</code>. Change the element instead.</li>
+          <li><strong>All interactive ARIA controls must be keyboard operable.</strong> Adding <code>role="button"</code> to a <code>&lt;div&gt;</code> requires you to implement Enter/Space key handling.</li>
+          <li><strong>Don't use <code>role="presentation"</code> or <code>aria-hidden="true"</code> on a focusable element.</strong> This creates "ghost" elements that keyboard users navigate to but screen readers ignore.</li>
+          <li><strong>All interactive elements must have an accessible name.</strong> A button with no text and no <code>aria-label</code> is inaccessible.</li>
+        </ol>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — TABINDEX
+           ============================================================ -->
+      <section id="tabindex">
+        <h2>5. tabindex &amp; Focus Order</h2>
+
+        <h3 id="tabindex-values">Values: 0, -1, Positive</h3>
+        <p>
+          The <code>tabindex</code> attribute controls whether an element is part of the keyboard Tab
+          sequence and at what position.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th>Behaviour</th>
+              <th>When to Use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>tabindex="0"</code></td>
+              <td>Element enters Tab sequence in DOM order. Focusable via Tab and programmatically.</td>
+              <td>Making a non-interactive element focusable (e.g., a custom widget container)</td>
+            </tr>
+            <tr>
+              <td><code>tabindex="-1"</code></td>
+              <td>Removed from Tab sequence but programmatically focusable via <code>.focus()</code>.</td>
+              <td>Elements that receive focus only via JavaScript (modal focus trap, roving tabindex items)</td>
+            </tr>
+            <tr>
+              <td><code>tabindex="N"</code> (N > 0)</td>
+              <td>Creates a priority focus order before natural Tab order.</td>
+              <td><strong>Avoid.</strong> Positive values are an anti-pattern — they break natural DOM flow and are hard to maintain.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall: Never Use tabindex > 0</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Positive <code>tabindex</code> values create focus order that diverges from visual order. All
+              positive-tabindex elements are focused first (in ascending numerical order), then
+              <code>tabindex="0"</code> elements, then naturally focusable elements. Maintenance is
+              nightmarish. Use CSS to rearrange visual order instead; let Tab follow DOM order.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="focus-order">Logical Focus Order</h3>
+        <p>
+          WCAG 2.4.3 (Level A) requires that if a Web page can be navigated sequentially and
+          navigation sequences affect meaning or operation, focusable components must receive focus
+          in an order that preserves meaning. In practice: Tab order must match visual reading order
+          (typically left-to-right, top-to-bottom).
+        </p>
+        <p>
+          LWC pitfall: using CSS <code>order</code> in flexbox or CSS Grid to visually reorder elements
+          <em>without</em> reordering the DOM. The Tab sequence follows the DOM, not the visual
+          position. Always align DOM order with visual order.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — KEYBOARD NAVIGATION PATTERNS
+           ============================================================ -->
+      <section id="keyboard">
+        <h2>6. Keyboard Navigation Patterns</h2>
+
+        <h3 id="key-bindings">Standard Key Bindings</h3>
+        <p>
+          The W3C ARIA Authoring Practices Guide (APG) defines keyboard interaction models for common
+          widget patterns. Implementing these is a <em>promise to your users</em> that comes with
+          specifying a role.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Widget</th>
+              <th>Key</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Button</td>
+              <td>Enter / Space</td>
+              <td>Activate</td>
+            </tr>
+            <tr>
+              <td>Checkbox / Radio</td>
+              <td>Space</td>
+              <td>Toggle / Select</td>
+            </tr>
+            <tr>
+              <td>Select / Listbox</td>
+              <td>↑ ↓ Arrow keys</td>
+              <td>Move between options</td>
+            </tr>
+            <tr>
+              <td>Menu / Menu Item</td>
+              <td>↑ ↓ to move, Enter to select, Escape to close</td>
+              <td>Traverse and activate menu items</td>
+            </tr>
+            <tr>
+              <td>Tab / Tabpanel</td>
+              <td>← → Arrow keys between tabs</td>
+              <td>Switch active tab</td>
+            </tr>
+            <tr>
+              <td>Dialog</td>
+              <td>Escape</td>
+              <td>Close dialog, return focus to trigger</td>
+            </tr>
+            <tr>
+              <td>Tree</td>
+              <td>↑ ↓ to move, → to expand, ← to collapse</td>
+              <td>Tree node navigation</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="roving-tabindex">Roving tabindex Pattern</h3>
+        <p>
+          For composite widgets (listbox, toolbar, tabs, radiogroup), use the <strong>roving
+          tabindex</strong> pattern: only one item in the group is in the Tab sequence at any time
+          (<code>tabindex="0"</code>); all others have <code>tabindex="-1"</code>. Arrow keys move
+          focus within the group.
+        </p>
+        <pre><code class="language-javascript">// Pattern: only the "active" tab has tabindex=0
+// Arrow keys change which tab is active
+
+handleKeydown(event) {
+  const tabs = this.template.querySelectorAll('[role="tab"]');
+  const currentIdx = [...tabs].indexOf(event.target);
+
+  let nextIdx;
+  if (event.key === 'ArrowRight') {
+    nextIdx = (currentIdx + 1) % tabs.length;
+  } else if (event.key === 'ArrowLeft') {
+    nextIdx = (currentIdx - 1 + tabs.length) % tabs.length;
+  } else {
+    return; // Do nothing for other keys
+  }
+
+  event.preventDefault();
+
+  // Update roving tabindex
+  tabs.forEach((tab, i) => {
+    tab.setAttribute('tabindex', i === nextIdx ? '0' : '-1');
+  });
+
+  // Move focus
+  tabs[nextIdx].focus();
+
+  // Activate the selected tab
+  this.activeTabId = tabs[nextIdx].dataset.tabId;
+}</code></pre>
+
+        <h3 id="keyboard-lwc">Implementing in LWC</h3>
+        <p>
+          In LWC, keyboard event handling uses the standard <code>onkeydown</code> event binding
+          in the template, or event listeners in <code>connectedCallback</code>.
+        </p>
+        <pre><code class="language-html">&lt;!-- myTabBar.html --&gt;
+&lt;template&gt;
+  &lt;div role="tablist" aria-label="Account sections"&gt;
+    &lt;template for:each={tabs} for:item="tab"&gt;
+      &lt;button
+        key={tab.id}
+        role="tab"
+        id={tab.id}
+        aria-selected={tab.isActive}
+        aria-controls={tab.panelId}
+        tabindex={tab.tabindex}
+        data-tab-id={tab.id}
+        onclick={handleTabClick}
+        onkeydown={handleKeydown}
+        class={tab.cssClass}
+      &gt;
+        {tab.label}
+      &lt;/button&gt;
+    &lt;/template&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-javascript">// myTabBar.js — key navigation wiring
+import { LightningElement, track } from 'lwc';
+
+export default class MyTabBar extends LightningElement {
+  @track tabs = [
+    { id: 'tab-details', label: 'Details', panelId: 'panel-details', isActive: true,  tabindex: '0' },
+    { id: 'tab-related', label: 'Related',  panelId: 'panel-related', isActive: false, tabindex: '-1' },
+    { id: 'tab-history', label: 'History',  panelId: 'panel-history', isActive: false, tabindex: '-1' },
+  ];
+
+  handleTabClick(event) {
+    this.activateTab(event.currentTarget.dataset.tabId);
+  }
+
+  handleKeydown(event) {
+    const tabs = this.template.querySelectorAll('[role="tab"]');
+    const idx = [...tabs].indexOf(event.currentTarget);
+    let nextIdx;
+
+    if (event.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'Home') nextIdx = 0;
+    else if (event.key === 'End') nextIdx = tabs.length - 1;
+    else return;
+
+    event.preventDefault();
+    this.activateTab(tabs[nextIdx].dataset.tabId);
+    tabs[nextIdx].focus();
+  }
+
+  activateTab(id) {
+    this.tabs = this.tabs.map(t => ({
+      ...t,
+      isActive: t.id === id,
+      tabindex: t.id === id ? '0' : '-1',
+      cssClass: t.id === id ? 'tab tab--active' : 'tab',
+    }));
+    this.dispatchEvent(new CustomEvent('tabchange', { detail: { tabId: id } }));
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — FOCUS MANAGEMENT
+           ============================================================ -->
+      <section id="focus-management">
+        <h2>7. Focus Management</h2>
+
+        <h3 id="modal-focus">Modal Dialogs</h3>
+        <p>
+          When a modal dialog opens, focus must move into it. When it closes, focus must return to
+          the element that triggered it. This is both a WCAG requirement (2.4.3 Focus Order) and
+          essential for screen reader usability — without focus management, screen readers remain
+          in the background content while the modal is open.
+        </p>
+        <p>
+          The correct pattern for a modal:
+        </p>
+        <ol>
+          <li>On open: save the trigger element reference (<code>this._triggerElement</code>), then focus the first focusable element inside the dialog (or the dialog container itself).</li>
+          <li>While open: trap focus within the dialog using a focus trap.</li>
+          <li>On close: restore focus to <code>this._triggerElement</code>.</li>
+        </ol>
+        <pre><code class="language-javascript">// myModal.js
+import { LightningElement, api } from 'lwc';
+
+export default class MyModal extends LightningElement {
+  _triggerElement = null;
+
+  @api
+  open(triggerElement) {
+    this._triggerElement = triggerElement;
+    this.template.host.removeAttribute('hidden');
+
+    // Move focus into modal — use setTimeout to ensure render is complete
+    // In LWC, renderedCallback is safer, but setTimeout(fn,0) also works
+    // after dynamic open
+    // eslint-disable-next-line @lwc/lwc/no-async-operation
+    setTimeout(() => {
+      const firstFocusable = this.template.querySelector(
+        'button, [href], input, select, textarea, [tabindex="0"]'
+      );
+      if (firstFocusable) firstFocusable.focus();
+    }, 0);
+  }
+
+  @api
+  close() {
+    this.template.host.setAttribute('hidden', '');
+    if (this._triggerElement) {
+      this._triggerElement.focus();
+      this._triggerElement = null;
+    }
+  }
+
+  handleKeydown(event) {
+    if (event.key === 'Escape') {
+      this.close();
+    }
+  }
+}</code></pre>
+
+        <h3 id="focus-trap">Focus Trap Implementation</h3>
+        <p>
+          While a modal is open, pressing Tab should cycle through focusable elements inside the
+          dialog only — it must not reach background content. This is called a <strong>focus
+          trap</strong>.
+        </p>
+        <pre><code class="language-javascript">// Focus trap: Tab wraps inside the modal
+trapFocus(event) {
+  if (event.key !== 'Tab') return;
+
+  const focusable = [
+    ...this.template.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+      'textarea:not([disabled]), [tabindex="0"]'
+    )
+  ];
+
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last  = focusable[focusable.length - 1];
+
+  if (event.shiftKey) {
+    // Shift+Tab: going backwards — if at first, jump to last
+    if (document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  } else {
+    // Tab: going forwards — if at last, jump to first
+    if (document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+}</code></pre>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>LWC Note: document.activeElement in Synthetic Shadow DOM</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In LWC's synthetic Shadow DOM, <code>document.activeElement</code> returns the LWC
+              host element, not the element inside the shadow root. To get the actually-focused
+              element, use <code>this.template.activeElement</code> (available in LWC) or compare
+              against <code>this.template.querySelector(':focus')</code>.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="dynamic-content">Dynamic Content &amp; Conditional Rendering</h3>
+        <p>
+          When <code>lwc:if</code> adds new interactive content to the DOM, focus does not move
+          automatically. You must programmatically move focus after the render cycle completes.
+          The correct hook is <code>renderedCallback</code> with a guard:
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, track } from 'lwc';
+
+export default class MyForm extends LightningElement {
+  @track showConfirmation = false;
+  _focusConfirmation = false;  // guard flag
+
+  handleSubmit() {
+    this.showConfirmation = true;
+    this._focusConfirmation = true;  // signal to renderedCallback
+  }
+
+  renderedCallback() {
+    if (this._focusConfirmation) {
+      this._focusConfirmation = false;  // reset guard immediately
+
+      const heading = this.template.querySelector('.confirmation-heading');
+      if (heading) {
+        // tabindex="-1" lets headings receive programmatic focus
+        heading.setAttribute('tabindex', '-1');
+        heading.focus();
+      }
+    }
+  }
+}</code></pre>
+        <p>
+          The <code>tabindex="-1"</code> on a heading is deliberate: headings are not naturally
+          focusable, but adding <code>tabindex="-1"</code> makes them programmatically focusable
+          without adding them to the Tab sequence.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — ARIA-LIVE REGIONS
+           ============================================================ -->
+      <section id="aria-live">
+        <h2>8. aria-live Regions</h2>
+        <p>
+          Screen readers typically speak content only when a user navigates to it. When content
+          changes dynamically without user navigation — search results appearing, form validation
+          errors, status updates — the screen reader is silent by default. <strong>aria-live
+          regions</strong> tell the screen reader to announce content changes automatically.
+        </p>
+
+        <h3 id="polite-assertive">polite vs assertive</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th>When It Announces</th>
+              <th>Use Case</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>aria-live="polite"</code></td>
+              <td>After the user finishes typing / speaking / after current utterance</td>
+              <td>Search results count, non-urgent status messages, auto-save confirmation</td>
+            </tr>
+            <tr>
+              <td><code>aria-live="assertive"</code></td>
+              <td>Immediately, interrupting any current speech</td>
+              <td>Critical errors, session timeout warning. Use sparingly — interruptions are disruptive.</td>
+            </tr>
+            <tr>
+              <td><code>aria-live="off"</code></td>
+              <td>Never (default)</td>
+              <td>Disabling live announcements on a container</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Supporting attributes:
+        </p>
+        <ul>
+          <li><code>aria-atomic="true"</code> — announce the entire region when any part changes (not just the changed part). Use for status messages so the screen reader reads the full sentence.</li>
+          <li><code>aria-relevant="additions text"</code> — what changes trigger an announcement. Default is <code>additions text</code>. <code>removals</code> is rarely useful (very noisy).</li>
+        </ul>
+        <p>
+          Role shorthand: <code>role="status"</code> equals <code>aria-live="polite" aria-atomic="true"</code>.
+          <code>role="alert"</code> equals <code>aria-live="assertive" aria-atomic="true"</code>.
+        </p>
+
+        <h3 id="live-lwc">Live Regions in LWC</h3>
+        <p>
+          The key rule: the live region container must exist in the DOM <em>before</em> content is
+          injected into it. Creating a live region and immediately populating it in one operation
+          may not trigger an announcement in all screen readers.
+        </p>
+        <pre><code class="language-html">&lt;!-- mySearchResults.html --&gt;
+&lt;template&gt;
+  &lt;lightning-input
+    label="Search accounts"
+    onchange={handleSearch}
+    type="search"
+  &gt;&lt;/lightning-input&gt;
+
+  &lt;!-- Live region exists in DOM from the start --&gt;
+  &lt;div
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+    class="slds-assistive-text"
+  &gt;
+    &lt;template lwc:if={searchStatus}&gt;
+      {searchStatus}
+    &lt;/template&gt;
+  &lt;/div&gt;
+
+  &lt;!-- Results list --&gt;
+  &lt;ul&gt;
+    &lt;template for:each={results} for:item="acc"&gt;
+      &lt;li key={acc.Id}&gt;{acc.Name}&lt;/li&gt;
+    &lt;/template&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-javascript">// mySearchResults.js
+import { LightningElement, track } from 'lwc';
+import searchAccounts from '@salesforce/apex/AccountSearch.search';
+
+export default class MySearchResults extends LightningElement {
+  @track results = [];
+  @track searchStatus = '';
+
+  async handleSearch(event) {
+    const term = event.detail.value;
+    if (!term || term.length < 2) {
+      this.results = [];
+      this.searchStatus = '';
+      return;
+    }
+
+    this.searchStatus = 'Searching...';
+
+    try {
+      this.results = await searchAccounts({ searchTerm: term });
+      // Update live region AFTER results render
+      this.searchStatus = `${this.results.length} result${this.results.length !== 1 ? 's' : ''} found`;
+    } catch (error) {
+      this.searchStatus = 'Search failed. Please try again.';
+    }
+  }
+}</code></pre>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall: Creating Live Region Dynamically</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Do not use <code>lwc:if</code> to toggle the live region container in and out. When the
+              region is removed and re-added, many screen readers miss the announcement. Keep the
+              container in the DOM at all times; update only its <em>content</em>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — COLOR CONTRAST
+           ============================================================ -->
+      <section id="color-contrast">
+        <h2>9. Color Contrast</h2>
+        <p>
+          WCAG 1.4.3 (Level AA) requires a contrast ratio of at least <strong>4.5:1</strong> for
+          normal text and <strong>3:1</strong> for large text (18pt / 14pt bold or larger). WCAG
+          1.4.11 (Level AA) extends this to UI components and graphical objects.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Required Ratio (AA)</th>
+              <th>Required Ratio (AAA)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Normal text (under 18pt)</td>
+              <td>4.5:1</td>
+              <td>7:1</td>
+            </tr>
+            <tr>
+              <td>Large text (18pt+ or 14pt+ bold)</td>
+              <td>3:1</td>
+              <td>4.5:1</td>
+            </tr>
+            <tr>
+              <td>UI components (borders, icons, focus indicators)</td>
+              <td>3:1</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          SLDS design tokens are calibrated to meet AA contrast ratios for standard themes.
+          When you deviate from SLDS tokens (custom brand colours, bespoke components), you must
+          verify contrast manually with tools like the
+          <a href="https://webaim.org/resources/contrastchecker/" target="_blank" rel="noopener noreferrer">WebAIM Contrast Checker</a>
+          or browser DevTools accessibility panel.
+        </p>
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Note: Focus Indicators</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              WCAG 2.4.11 (AA, added in WCAG 2.2) requires that focus indicators have a minimum
+              contrast and area. Many teams override <code>outline: none</code> on focused elements
+              for aesthetics, then fail to provide a custom focus indicator. Never remove the default
+              outline without replacing it — use <code>:focus-visible</code> for an approach that
+              only shows the outline during keyboard navigation, not mouse clicks.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — BASE LWC COMPONENTS
+           ============================================================ -->
+      <section id="base-components">
+        <h2>10. Base LWC Components &amp; Accessibility</h2>
+        <p>
+          Salesforce's <code>lightning-*</code> base components implement SLDS ARIA blueprints.
+          They handle:
+        </p>
+        <ul>
+          <li>Correct ARIA roles and states for their widget type</li>
+          <li>Keyboard interaction patterns per ARIA APG</li>
+          <li>WCAG AA colour contrast compliance via SLDS tokens</li>
+          <li>Label / description association via <code>label</code> and <code>field-level-help</code> props</li>
+          <li>Error state announcements via <code>aria-invalid</code> and error message IDs</li>
+        </ul>
+        <pre><code class="language-html">&lt;!-- Base components handle accessibility for you --&gt;
+&lt;lightning-input
+  label="Account Name"
+  type="text"
+  required
+  value={name}
+  onchange={handleNameChange}
+  field-level-help="Official registered company name"
+  message-when-value-missing="Account name is required"
+&gt;&lt;/lightning-input&gt;
+
+&lt;!-- The base component renders something like this internally:
+  &lt;label for="input-id"&gt;Account Name *&lt;/label&gt;
+  &lt;input
+    id="input-id"
+    type="text"
+    aria-required="true"
+    aria-describedby="help-id error-id"
+  /&gt;
+  &lt;span id="help-id"&gt;Official registered company name&lt;/span&gt;
+  &lt;span id="error-id" aria-live="assertive"&gt;...&lt;/span&gt;
+--&gt;</code></pre>
+        <p>
+          Choosing base components over custom elements is not just a productivity choice — it is an
+          accessibility choice. Every custom element you build requires you to replicate what base
+          components provide for free.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — CUSTOM COMPONENTS
+           ============================================================ -->
+      <section id="custom-components">
+        <h2>11. When You Go Custom</h2>
+        <p>
+          When base components cannot meet your design requirements and you must build a custom
+          interactive component, you inherit full accessibility responsibility.
+        </p>
+
+        <h3 id="shadow-aria">ARIA Across Shadow Boundaries</h3>
+        <p>
+          The most significant LWC-specific accessibility challenge: <code>aria-labelledby</code>
+          and <code>aria-describedby</code> reference elements by ID. In standard HTML, an
+          <code>id</code> is global-scoped — any element on the page can reference it. In LWC's
+          shadow DOM, IDs are scoped to the shadow root. An <code>aria-labelledby</code> in one
+          component <strong>cannot</strong> reference an <code>id</code> in a different
+          component's shadow root.
+        </p>
+        <pre><code class="language-html">&lt;!-- This WILL NOT work across shadow boundaries in LWC --&gt;
+&lt;!-- parentComponent.html --&gt;
+&lt;c-label-component&gt;&lt;/c-label-component&gt;  &lt;!-- contains: &lt;span id="myLabel"&gt;Name&lt;/span&gt; --&gt;
+&lt;c-input-component&gt;&lt;/c-input-component&gt;  &lt;!-- contains: &lt;input aria-labelledby="myLabel"&gt; --&gt;
+&lt;!-- BROKEN: aria-labelledby="myLabel" can't find the span across shadow roots --&gt;
+
+&lt;!-- CORRECT: keep label and input in the same component --&gt;
+&lt;!-- myLabeledInput.html --&gt;
+&lt;template&gt;
+  &lt;span id="myLabel"&gt;{label}&lt;/span&gt;
+  &lt;input aria-labelledby="myLabel" /&gt;
+  &lt;!-- Same shadow root — ID reference works --&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          As a workaround for cross-component ARIA, use <code>aria-label</code> (which contains the
+          label text directly, not a reference) instead of <code>aria-labelledby</code> when the
+          label element is in a different component.
+        </p>
+
+        <h3 id="id-scoping">id Scoping in LWC Templates</h3>
+        <p>
+          LWC automatically scopes <code>id</code> attributes in templates to prevent collisions.
+          At runtime, <code>id="myLabel"</code> in your template may become
+          <code>id="myLabel-123"</code> (with a generated suffix). LWC also rewrites
+          <code>aria-labelledby</code>, <code>aria-describedby</code>, <code>aria-controls</code>,
+          and <code>for</code> attributes to use the scoped IDs — but only within the same template.
+        </p>
+        <pre><code class="language-html">&lt;!-- myInput.html — LWC rewrites these IDs automatically --&gt;
+&lt;template&gt;
+  &lt;label for="nameInput"&gt;{label}&lt;/label&gt;
+  &lt;input id="nameInput" type="text" /&gt;
+  &lt;!-- At runtime: for="nameInput-xyz" and id="nameInput-xyz" — both rewritten to match --&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          This automatic rewriting means you can safely use static IDs in your template — LWC
+          handles the uniqueness. <strong>However</strong>, if you try to reference an ID from a
+          different template or from JavaScript (e.g., <code>document.getElementById('nameInput')</code>),
+          you will get the un-scoped name and the lookup will fail. Use
+          <code>this.template.querySelector</code> instead.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — SCREEN READER TESTING
+           ============================================================ -->
+      <section id="screen-readers">
+        <h2>12. Screen Reader Testing</h2>
+        <p>
+          Automated tools (axe-core, Salesforce Accessibility Checker, WAVE) catch roughly 30–40%
+          of WCAG issues. The rest require manual testing with real assistive technology.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Screen Reader</th>
+              <th>Platform</th>
+              <th>Paired Browser</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>NVDA</td>
+              <td>Windows</td>
+              <td>Chrome or Firefox</td>
+              <td>Free, open source. Most common in enterprise environments.</td>
+            </tr>
+            <tr>
+              <td>JAWS</td>
+              <td>Windows</td>
+              <td>Chrome or IE</td>
+              <td>Enterprise standard, commercial. Often the requirement in regulated industries.</td>
+            </tr>
+            <tr>
+              <td>VoiceOver</td>
+              <td>macOS / iOS</td>
+              <td>Safari</td>
+              <td>Built-in, free. Required for iOS mobile accessibility.</td>
+            </tr>
+            <tr>
+              <td>TalkBack</td>
+              <td>Android</td>
+              <td>Chrome</td>
+              <td>Built-in. Use for Salesforce Mobile app testing.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p><strong>Testing checklist:</strong></p>
+        <ol>
+          <li>Navigate the entire page using only the keyboard (no mouse).</li>
+          <li>Verify every interactive element has a visible focus indicator.</li>
+          <li>Turn on NVDA/VoiceOver and navigate with headings (H key), landmarks (D key), and form fields (F key).</li>
+          <li>Activate every button, link, and form control with Enter/Space; verify correct action.</li>
+          <li>Open any modal dialogs; verify focus moves inside and returns on close.</li>
+          <li>Trigger form validation errors; verify errors are announced.</li>
+          <li>Trigger live region updates (search results, status messages); verify announcements.</li>
+          <li>Navigate the page with images off; verify alt text is meaningful.</li>
+        </ol>
+
+        <p>
+          <strong>Salesforce tools:</strong>
+        </p>
+        <ul>
+          <li>
+            <a href="https://help.salesforce.com/s/articleView?id=release-notes.rn_accessibility_checker.htm" target="_blank" rel="noopener noreferrer">
+              Salesforce Accessibility Checker</a> — built into Lightning Experience; scans the page DOM with axe-core rules.
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/tools/vscode/en/accessibility/overview" target="_blank" rel="noopener noreferrer">
+              VS Code Accessibility Extension</a> — highlights issues during development.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>13. Pitfall Catalogue</h2>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 1: Removing the Focus Outline</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>:focus { outline: none; }</code> is the single most common accessibility bug.
+              It removes the only visible indication of keyboard focus. Replace with a custom
+              <code>:focus-visible</code> style that matches your design system instead of deleting
+              the indicator entirely.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 2: Icon-Only Buttons Without Labels</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>&lt;button&gt;&lt;lightning-icon icon-name="utility:edit"&gt;&lt;/lightning-icon&gt;&lt;/button&gt;</code>
+              has no accessible name. The screen reader reads "button" with no context.
+              Fix: add <code>aria-label="Edit record"</code> or an <code>slds-assistive-text</code>
+              span inside the button.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 3: Using colour alone to convey meaning</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Red text for errors or green text for success is invisible to colour-blind users
+              (roughly 8% of males). Always pair colour with text, icons, or patterns. A status
+              badge that is "red" must also say "Error" or include an error icon.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 4: Dynamic Live Region Creation</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Adding a live region and immediately setting its text content in the same operation
+              (or in the same re-render tick) often fails to announce. The region must exist in
+              the DOM first; then update its content. Use <code>lwc:if</code> to show/hide the
+              region's content, never the region container itself.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 5: Cross-Shadow aria-labelledby</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Referencing an <code>id</code> in a different LWC component's shadow root via
+              <code>aria-labelledby</code> silently fails. The ARIA relationship is not established
+              and no error is thrown. Design components so that elements that must share ARIA
+              relationships live in the same template.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 6: Positive tabindex Values</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>tabindex="2"</code> does not mean "second in Tab order." It means "before
+              all <code>tabindex="0"</code> elements." Every <code>tabindex > 0</code> element gets
+              focused before the natural DOM order. This creates deeply confusing Tab behaviour.
+              Never use positive tabindex.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 7: Empty Alt Text on Informational Images</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>alt=""</code> marks an image as decorative (hidden from accessibility tree).
+              Informational images — charts, diagrams, screenshots — must have descriptive alt text
+              that conveys the same information the image conveys. An empty alt on a chart deprives
+              screen reader users of the data.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 14 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>14. Expert Insight</h2>
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>The ARIA Shadow Boundary Problem — What Architects Must Know</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LWC's synthetic Shadow DOM is the most important constraint for enterprise-scale
+              accessible components. Because IDs are shadow-scoped, ARIA relationships built on
+              <code>aria-labelledby</code>, <code>aria-describedby</code>, and
+              <code>aria-controls</code> only work within a single component template.
+            </p>
+            <p>
+              The architectural implication: when designing a complex widget (e.g., a multi-column
+              data entry form with shared labels, or a combobox where input and listbox are in
+              separate components), keep the ARIA-coupled elements in the same template. Do not
+              split them into separate child components for "modularity" if they require cross-ARIA
+              relationships.
+            </p>
+            <p>
+              Salesforce is actively working on <strong>ARIA Reflection API</strong> support to
+              resolve this — it allows ARIA properties to accept DOM element references instead of
+              ID strings, which works across shadow boundaries. As of Spring '25, this is available
+              under the <code>ariaActiveDescendantElement</code>,
+              <code>ariaControlsElements</code>, etc. properties on DOM elements, but browser
+              support is still maturing.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Light DOM as an Accessibility Escape Hatch</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              For components that <em>must</em> use cross-component ARIA (e.g., a complex
+              combobox split across multiple LWC components), enabling
+              <code>static renderMode = 'light'</code> removes shadow encapsulation. IDs are
+              globally scoped in light DOM mode, restoring normal ARIA ID referencing. The trade-off
+              is losing CSS and DOM isolation. This is a legitimate, deliberate architectural choice
+              for accessibility-critical composite widgets.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Accessibility as Architecture Quality Signal</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              At expert level, accessibility is not a bolt-on checklist — it is a structural quality.
+              Components with clear ARIA semantics are easier to test (axe rules catch regressions),
+              more stable under LWC upgrades, and more predictable for consuming developers.
+              The same discipline that produces accessible code — explicit contracts, semantic
+              structure, clear state representation — produces maintainable code.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 15 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>15. Quick Recall Card</h2>
+        <div class="recall-card">
+          <table>
+            <tbody>
+              <tr>
+                <td><strong>WCAG 2.1 target</strong></td>
+                <td>Level AA (SLDS compliant)</td>
+              </tr>
+              <tr>
+                <td><strong>POUR</strong></td>
+                <td>Perceivable, Operable, Understandable, Robust</td>
+              </tr>
+              <tr>
+                <td><strong>Accessibility tree node properties</strong></td>
+                <td>Role, Name, Description, State/Value</td>
+              </tr>
+              <tr>
+                <td><strong>First rule of ARIA</strong></td>
+                <td>Don't use ARIA if native HTML provides the semantics</td>
+              </tr>
+              <tr>
+                <td><strong>tabindex="0"</strong></td>
+                <td>Adds to Tab sequence (DOM order)</td>
+              </tr>
+              <tr>
+                <td><strong>tabindex="-1"</strong></td>
+                <td>Programmatically focusable; not in Tab sequence</td>
+              </tr>
+              <tr>
+                <td><strong>Roving tabindex</strong></td>
+                <td>One item has tabindex="0"; rest have "-1"; arrows move focus</td>
+              </tr>
+              <tr>
+                <td><strong>Modal focus pattern</strong></td>
+                <td>Save trigger → focus first focusable in dialog → trap Tab → restore on close</td>
+              </tr>
+              <tr>
+                <td><strong>aria-live="polite"</strong></td>
+                <td>Announces after current utterance (search results, status)</td>
+              </tr>
+              <tr>
+                <td><strong>aria-live="assertive"</strong></td>
+                <td>Interrupts immediately (critical errors only)</td>
+              </tr>
+              <tr>
+                <td><strong>Live region rule</strong></td>
+                <td>Region must exist in DOM before content is injected</td>
+              </tr>
+              <tr>
+                <td><strong>Cross-shadow ARIA IDs</strong></td>
+                <td>Broken in Shadow DOM — keep ARIA-coupled elements in same template</td>
+              </tr>
+              <tr>
+                <td><strong>LWC ID scoping</strong></td>
+                <td>LWC auto-rewrites IDs and aria-* ID attributes within same template</td>
+              </tr>
+              <tr>
+                <td><strong>Light DOM escape hatch</strong></td>
+                <td>renderMode="light" restores global ID scope for complex ARIA</td>
+              </tr>
+              <tr>
+                <td><strong>Color contrast AA</strong></td>
+                <td>4.5:1 normal text, 3:1 large text, 3:1 UI components</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>References</h3>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-components-accessibility-attributes.html"
+               target="_blank" rel="noopener noreferrer">
+              Accessibility Attributes — LWC Developer Guide (Salesforce)
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/base-components-accessibility.html"
+               target="_blank" rel="noopener noreferrer">
+              Base Components Accessibility — LWC Developer Guide (Salesforce)
+            </a>
+          </li>
+          <li>
+            <a href="https://www.lwc.dev/guide/accessibility"
+               target="_blank" rel="noopener noreferrer">
+              Accessibility — lwc.dev (Open Source LWC)
+            </a>
+          </li>
+          <li>
+            <a href="https://www.w3.org/WAI/WCAG21/quickref/"
+               target="_blank" rel="noopener noreferrer">
+              WCAG 2.1 Quick Reference — W3C
+            </a>
+          </li>
+          <li>
+            <a href="https://www.w3.org/WAI/ARIA/apg/"
+               target="_blank" rel="noopener noreferrer">
+              ARIA Authoring Practices Guide (APG) — W3C
+            </a>
+          </li>
+          <li>
+            <a href="https://trailhead.salesforce.com/content/learn/modules/coding-for-web-accessibility/write-accessible-components"
+               target="_blank" rel="noopener noreferrer">
+              Creating Accessible Components — Salesforce Trailhead
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="15-error-handling.html" class="nav-prev">
+          ← Article 15: Error Handling
+        </a>
+        <a href="17-jest-testing.html" class="nav-next">
+          Article 17: Jest Unit Testing →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level LWC Mastery</p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const STORE_KEY = 'lwc-theme';
+      const html      = document.documentElement;
+      const btn       = document.getElementById('themeToggle');
+      const label     = document.getElementById('themeLabel');
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      if (btn) btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

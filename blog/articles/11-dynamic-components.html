@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>11. Dynamic Components — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC dynamic components: TC39 dynamic import(), lwc:component + lwc:is, statically analyzable imports, platformResourceLoader, static resources, and third-party library patterns.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/11-dynamic-components.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. The Problem: Why Dynamic?</a></li>
+          <li><a href="#mental-model">2. Static vs Dynamic Imports</a></li>
+          <li class="level-3"><a href="#static-imports">Static import()</a></li>
+          <li class="level-3"><a href="#dynamic-imports">Dynamic import()</a></li>
+          <li class="level-3"><a href="#code-splitting">Code Splitting Benefits</a></li>
+          <li><a href="#lwc-dynamic">3. lwc:component + lwc:is</a></li>
+          <li class="level-3"><a href="#lwc-is-anatomy">Anatomy of lwc:is</a></li>
+          <li class="level-3"><a href="#async-loading">Async Loading Pattern</a></li>
+          <li class="level-3"><a href="#loading-errors">Loading States &amp; Errors</a></li>
+          <li class="level-3"><a href="#passing-props">Passing Properties Dynamically</a></li>
+          <li><a href="#statically-analyzable">4. Statically Analyzable Imports</a></li>
+          <li class="level-3"><a href="#why-enforced">Why the Compiler Enforces This</a></li>
+          <li class="level-3"><a href="#allowed-patterns">Allowed Patterns</a></li>
+          <li class="level-3"><a href="#disallowed-patterns">Disallowed Patterns</a></li>
+          <li><a href="#dynamic-capability">5. lightning__dynamicComponent Capability</a></li>
+          <li><a href="#platform-resource-loader">6. platformResourceLoader</a></li>
+          <li class="level-3"><a href="#loadScript">loadScript</a></li>
+          <li class="level-3"><a href="#loadStyle">loadStyle</a></li>
+          <li class="level-3"><a href="#promise-chains">Promise Chains</a></li>
+          <li><a href="#static-resources">7. Static Resources</a></li>
+          <li class="level-3"><a href="#uploading">Uploading &amp; Referencing</a></li>
+          <li class="level-3"><a href="#resourceUrl">@salesforce/resourceUrl Syntax</a></li>
+          <li class="level-3"><a href="#versioning">Versioned Static Resources</a></li>
+          <li><a href="#third-party">8. Third-Party Library Patterns</a></li>
+          <li class="level-3"><a href="#initialized-guard">The _initialized Guard</a></li>
+          <li class="level-3"><a href="#renderedcallback-timing">renderedCallback Timing</a></li>
+          <li><a href="#pitfalls">9. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">10. Expert Insight</a></li>
+          <li><a href="#recall">11. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 11</div>
+        <h1>Dynamic Components</h1>
+        <div class="article-meta">
+          <span>⏱ 20 min read</span>
+          <span class="tags">
+            <span class="tag">#advanced-components</span>
+            <span class="tag">#dynamic-import</span>
+            <span class="tag">#static-resources</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="11"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. The Problem: Why Dynamic?</h2>
+        <p>
+          Every LWC component you write is compiled, bundled, and delivered to the browser when
+          the page loads. For small pages with a handful of components this is fine. But consider
+          a complex app page with 15 components, three of which are heavy charting libraries that
+          are only visible to users who click a specific tab. Right now, all 15 components —
+          including those three heavy ones — are loaded on page open, blocking the initial render
+          even though most users will never click that tab.
+        </p>
+        <p>
+          Dynamic components solve this by deferring the download and instantiation of a component
+          until it is actually needed. They also enable a class of patterns that simply cannot be
+          expressed with static component tags: choosing which component to render at runtime based
+          on data from the server, A/B testing different UI variants, building plugin systems where
+          the available components are determined by installed packages.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Two Distinct Concepts</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              "Dynamic components" in LWC covers two related but distinct concepts:
+            </p>
+            <ol>
+              <li>
+                <strong><code>&lt;lwc:component lwc:is&gt;</code></strong> — rendering a component
+                whose <em>type</em> is determined at runtime by a JavaScript constructor reference.
+              </li>
+              <li>
+                <strong><code>platformResourceLoader</code></strong> — loading external JavaScript
+                or CSS (third-party libraries, charts, maps) from Salesforce Static Resources at
+                runtime, after the component is already in the DOM.
+              </li>
+            </ol>
+            <p>Both are covered in this article.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — MENTAL MODEL: STATIC VS DYNAMIC IMPORTS
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. Static vs Dynamic Imports</h2>
+        <p>
+          Before LWC specifics, let's understand the JavaScript primitives that make dynamic
+          components possible: the difference between static and dynamic module imports.
+        </p>
+
+        <h3 id="static-imports">Static <code>import</code></h3>
+        <p>
+          The <code>import</code> statement you use every day is <em>static</em>. The module
+          path must be a string literal, known at parse time:
+        </p>
+        <pre><code class="language-javascript">// Static import — path is a fixed string literal
+import { LightningElement } from 'lwc';
+import myHelper from 'c/myHelper';
+
+// ❌ This is a SyntaxError — you cannot use a variable
+import something from someVariable;
+// ❌ This is a SyntaxError — you cannot use template literals
+import something from `c/${componentName}`;</code></pre>
+        <p>
+          Static imports are resolved when the JavaScript engine builds the <em>module graph</em>
+          — a directed acyclic graph of all modules a file depends on. The browser (or the
+          Salesforce platform compiler) can follow the entire dependency chain, tree-shake unused
+          exports, and bundle everything before the first line of application code runs. This is
+          why static imports must be at the top level and must use literal strings.
+        </p>
+
+        <h3 id="dynamic-imports">Dynamic <code>import()</code></h3>
+        <p>
+          Dynamic <code>import()</code> (TC39 proposal, now part of ES2020) is a <em>function-like
+          expression</em> that returns a <code>Promise</code> resolving to the module's namespace
+          object. Unlike the static keyword, it can be called anywhere in code and can accept
+          a variable:
+        </p>
+        <pre><code class="language-javascript">// Dynamic import — called at runtime, returns a Promise
+async function loadModule(name) {
+  // 'name' can be a variable — resolved at call time, not parse time
+  const module = await import(`./components/${name}.js`);
+  return module.default;
+}
+
+// Can be called conditionally — the module is only downloaded if reached
+async function handleTabClick(tab) {
+  if (tab === 'chart') {
+    const { ChartComponent } = await import('./chartComponent.js');
+    // ChartComponent is now available — its JS was just downloaded
+    renderChart(ChartComponent);
+  }
+}</code></pre>
+        <p>
+          The network request to download the module JavaScript file only happens when
+          <code>import()</code> is called. If the user never clicks the chart tab, that chunk
+          of JavaScript is never downloaded. This is the basis of <strong>code splitting</strong>.
+        </p>
+
+        <h3 id="code-splitting">Code Splitting Benefits</h3>
+        <p>
+          In a typical web application, dynamic imports give you:
+        </p>
+        <ul>
+          <li><strong>Reduced initial load time</strong> — only the code needed for the initial
+          view is downloaded. Heavy libraries are deferred.</li>
+          <li><strong>Parallel loading</strong> — when multiple dynamic imports are triggered
+          simultaneously, the browser can download them in parallel.</li>
+          <li><strong>Conditional loading</strong> — components used only in specific user flows
+          (admin panels, report builders) are never downloaded for users who never reach them.</li>
+        </ul>
+        <p>
+          Salesforce applies these same principles to LWC's dynamic component system, but with
+          one critical constraint discussed in Section 4: imports must remain
+          <em>statically analyzable</em>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — lwc:component + lwc:is
+           ============================================================ -->
+      <section id="lwc-dynamic">
+        <h2>3. <code>lwc:component</code> + <code>lwc:is</code></h2>
+        <p>
+          LWC's dynamic component feature uses two special template attributes working together:
+          <code>&lt;lwc:component&gt;</code> is a managed placeholder element, and
+          <code>lwc:is</code> is bound to a JavaScript constructor reference that determines
+          which component to render.
+        </p>
+
+        <h3 id="lwc-is-anatomy">Anatomy of <code>lwc:is</code></h3>
+        <pre><code class="language-html">&lt;!-- dynamicHost.html --&gt;
+&lt;template&gt;
+  &lt;!-- lwc:component renders whichever constructor is in {currentComponent} --&gt;
+  &lt;!-- When currentComponent is null/undefined, nothing is rendered --&gt;
+  &lt;lwc:component lwc:is={currentComponent}&gt;&lt;/lwc:component&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-javascript">// dynamicHost.js
+import { LightningElement } from 'lwc';
+
+export default class DynamicHost extends LightningElement {
+  // This property holds a component CONSTRUCTOR (a class reference)
+  // Not a string — not an element — a constructor.
+  currentComponent = null;
+
+  async connectedCallback() {
+    // Dynamically import the component module
+    const { default: ctor } = await import('c/myTargetComponent');
+    // Assign the constructor to trigger re-render
+    this.currentComponent = ctor;
+  }
+}</code></pre>
+        <p>
+          When <code>currentComponent</code> changes from <code>null</code> to a constructor,
+          LWC's reactive system detects the change, and the <code>&lt;lwc:component&gt;</code>
+          placeholder is replaced by a live instance of the dynamically loaded component. When
+          <code>currentComponent</code> is set back to <code>null</code>, the instance is
+          destroyed and the placeholder is empty.
+        </p>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Constructor, Not a String</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              A very common mistake is to set <code>lwc:is</code> to a component name string like
+              <code>'c/myComponent'</code>. This will not work. <code>lwc:is</code> must receive
+              the actual JavaScript constructor class exported as <code>default</code> from the
+              component's JS file. You get this by <code>await import('c/myComponent')</code>
+              and extracting <code>.default</code>.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="async-loading">Async Loading Pattern</h3>
+        <p>
+          The full pattern for conditionally loading a component — for example, only when a user
+          clicks a button — looks like this:
+        </p>
+        <pre><code class="language-html">&lt;!-- tabContainer.html --&gt;
+&lt;template&gt;
+  &lt;button onclick={handleLoadChart}&gt;Show Chart&lt;/button&gt;
+
+  &lt;template lwc:if={isLoading}&gt;
+    &lt;div class="loading-spinner"&gt;Loading chart...&lt;/div&gt;
+  &lt;/template&gt;
+
+  &lt;template lwc:if={loadError}&gt;
+    &lt;div class="error-message"&gt;Failed to load: {loadError}&lt;/div&gt;
+  &lt;/template&gt;
+
+  &lt;!-- Only rendered when chartCtor is non-null --&gt;
+  &lt;lwc:component lwc:is={chartCtor}&gt;&lt;/lwc:component&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-javascript">// tabContainer.js
+import { LightningElement, track } from 'lwc';
+
+export default class TabContainer extends LightningElement {
+  chartCtor = null;
+  isLoading = false;
+  loadError = null;
+
+  // Called once when the button is clicked
+  async handleLoadChart() {
+    // Prevent double-loading
+    if (this.chartCtor) return;
+
+    this.isLoading = true;
+    this.loadError = null;
+
+    try {
+      // Dynamic import — network request happens here
+      const { default: ctor } = await import('c/chartComponent');
+      this.chartCtor = ctor;       // triggers re-render with the component
+    } catch (err) {
+      this.loadError = err.message || 'Unknown error';
+    } finally {
+      this.isLoading = false;      // hide spinner regardless
+    }
+  }
+}</code></pre>
+        <p>
+          Notice the use of <code>finally</code> to always clear the loading state, even if the
+          import fails. This is critical for UX — a stuck spinner is worse than an error message.
+        </p>
+
+        <h3 id="loading-errors">Loading States &amp; Errors</h3>
+        <p>
+          Dynamic imports can fail for several reasons: network errors, the component module
+          itself throwing during initialization, permission issues in LWS. You must always
+          wrap dynamic imports in <code>try/catch</code>:
+        </p>
+        <pre><code class="language-javascript">try {
+  const { default: ctor } = await import('c/heavyDataTable');
+  this.tableCtor = ctor;
+} catch (error) {
+  // error.message will describe why the load failed
+  // Common reasons:
+  //   - Module not found (deployment issue)
+  //   - LWS blocked the import (security namespace issue)
+  //   - Syntax error in the target component
+  this.loadError = `Could not load component: ${error.message}`;
+}</code></pre>
+
+        <h3 id="passing-props">Passing Properties Dynamically</h3>
+        <p>
+          You cannot statically bind properties to <code>&lt;lwc:component&gt;</code> because
+          the target component's API is unknown at compile time. Instead, use the
+          <code>lwc:spread</code> directive to spread a properties object onto the dynamic
+          component:
+        </p>
+        <pre><code class="language-html">&lt;template&gt;
+  &lt;!-- Spread a dynamic props object — keys must match @api properties of the target --&gt;
+  &lt;lwc:component lwc:is={currentCtor} lwc:spread={componentProps}&gt;&lt;/lwc:component&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+
+export default class DynamicHost extends LightningElement {
+  currentCtor = null;
+
+  // These will be spread as @api properties onto the dynamic component
+  componentProps = {
+    recordId: '001xxxxxxxxxxxx',
+    objectApiName: 'Account',
+    mode: 'view'
+  };
+
+  async connectedCallback() {
+    const { default: ctor } = await import('c/recordDetail');
+    this.currentCtor = ctor;
+    // After this, <lwc:component> renders and receives componentProps
+    // as if you had written: &lt;c-record-detail record-id=... object-api-name=... mode=...&gt;
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Key Reconciliation and Identity</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When you change <code>currentCtor</code> from one constructor to another, LWC
+              destroys the old component instance (calls <code>disconnectedCallback</code>) and
+              creates a new one (calls <code>constructor</code>, <code>connectedCallback</code>).
+              There is no diff-patching between different component types — a complete teardown
+              and reinstantiation occurs. This means any local state in the old component is lost.
+              Design accordingly: pass all necessary state through <code>lwc:spread</code> props,
+              not internal component state.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — STATICALLY ANALYZABLE IMPORTS
+           ============================================================ -->
+      <section id="statically-analyzable">
+        <h2>4. Statically Analyzable Imports</h2>
+        <p>
+          Here is where LWC's dynamic import system diverges from vanilla JavaScript's
+          <code>import()</code>: Salesforce requires that all <code>import()</code> calls in
+          LWC components be <em>statically analyzable</em>. This is a compiler-level enforcement,
+          not just a linting recommendation.
+        </p>
+
+        <h3 id="why-enforced">Why the Compiler Enforces This</h3>
+        <p>
+          The Salesforce platform needs to know at <em>deployment time</em> which components a
+          given component might ever need to load. This knowledge is required for:
+        </p>
+        <ul>
+          <li><strong>Security</strong>: The platform must verify that a component only loads
+          other components it has permission to access. Arbitrary string-based imports would
+          create a security bypass vector.</li>
+          <li><strong>Packaging</strong>: Managed packages need a complete dependency graph at
+          packaging time. If a component could load any string-named module at runtime, the
+          packager cannot know what to include.</li>
+          <li><strong>CSP Compliance</strong>: Content Security Policy restricts what scripts
+          can be loaded. Knowing the import graph at compile time lets Salesforce pre-authorize
+          only the necessary modules.</li>
+          <li><strong>Performance</strong>: The platform can pre-fetch components that are likely
+          to be needed, since it knows the complete set of possible dynamic imports.</li>
+        </ul>
+
+        <h3 id="allowed-patterns">Allowed Patterns</h3>
+        <pre><code class="language-javascript">// ✅ ALLOWED: String literal — statically analyzable
+const { default: ctor } = await import('c/myComponent');
+
+// ✅ ALLOWED: String literal in conditional — still analyzable
+async handleClick() {
+  if (this.showAdvanced) {
+    const { default: ctor } = await import('c/advancedView');
+    this.currentCtor = ctor;
+  } else {
+    const { default: ctor } = await import('c/simpleView');
+    this.currentCtor = ctor;
+  }
+}
+
+// ✅ ALLOWED: Multiple imports in different code paths — all literals
+async loadByType(type) {
+  const modules = {
+    account: () => import('c/accountCard'),
+    contact: () => import('c/contactCard'),
+    opportunity: () => import('c/opportunityCard')
+  };
+  // Each import() call uses a literal string — analyzable
+  const loader = modules[type];
+  if (loader) {
+    const { default: ctor } = await loader();
+    this.currentCtor = ctor;
+  }
+}</code></pre>
+        <p>
+          In the map pattern above, every <code>import()</code> call uses a string literal. The
+          compiler can enumerate all possible module references even though the selection logic
+          is dynamic. This is the recommended pattern for choosing between a known set of
+          components at runtime.
+        </p>
+
+        <h3 id="disallowed-patterns">Disallowed Patterns</h3>
+        <pre><code class="language-javascript">// ❌ NOT ALLOWED: Variable as module specifier
+const componentName = 'c/' + this.type;
+await import(componentName);           // compile error
+
+// ❌ NOT ALLOWED: Template literal with variable
+await import(`c/${this.componentType}`);  // compile error
+
+// ❌ NOT ALLOWED: Computed from function call
+await import(getComponentName(this.record));  // compile error
+
+// ❌ NOT ALLOWED: External URL (also blocked by CSP)
+await import('https://example.com/myComponent.js'); // compile error</code></pre>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">The Lookup Table Pattern Is Your Friend</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When you need to select a component dynamically based on runtime data (e.g., an
+              SObject type, a configuration field, a user role), use the <strong>lookup table
+              pattern</strong>: create an object where each key maps to a lazy
+              <code>() => import('c/...')</code> arrow function. All the import strings are
+              literals — the compiler can analyze them. Only the selection logic is dynamic.
+            </p>
+            <pre><code class="language-javascript">const COMPONENT_MAP = {
+  Account:     () => import('c/accountDetail'),
+  Contact:     () => import('c/contactDetail'),
+  Opportunity: () => import('c/opportunityDetail'),
+  Default:     () => import('c/genericDetail')
+};
+
+async connectedCallback() {
+  const loader = COMPONENT_MAP[this.objectApiName] || COMPONENT_MAP.Default;
+  const { default: ctor } = await loader();
+  this.currentCtor = ctor;
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — lightning__dynamicComponent CAPABILITY
+           ============================================================ -->
+      <section id="dynamic-capability">
+        <h2>5. <code>lightning__dynamicComponent</code> Capability</h2>
+        <p>
+          To use <code>&lt;lwc:component lwc:is&gt;</code> in your component, you must declare
+          the <code>lightning__dynamicComponent</code> capability in your component's
+          <code>js-meta.xml</code> file. Without this capability declaration, LWS will block the
+          dynamic import at runtime.
+        </p>
+        <pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+  &lt;apiVersion&gt;59.0&lt;/apiVersion&gt;
+  &lt;isExposed&gt;true&lt;/isExposed&gt;
+
+  &lt;!-- Required to use lwc:component / lwc:is --&gt;
+  &lt;capabilities&gt;
+    &lt;capability&gt;lightning__dynamicComponent&lt;/capability&gt;
+  &lt;/capabilities&gt;
+
+  &lt;targets&gt;
+    &lt;target&gt;lightning__AppPage&lt;/target&gt;
+    &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+  &lt;/targets&gt;
+&lt;/LightningComponentBundle&gt;</code></pre>
+        <p>
+          The <code>lightning__dynamicComponent</code> capability is also a prerequisite for
+          Lightning Web Security (LWS). This is because LWS needs to know that a component
+          will be making dynamic module requests so it can set up the appropriate JavaScript
+          realm isolation. If LWS is not yet enabled in your org (older orgs may still use
+          Locker Service), dynamic components are not available.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">LWS Requirement</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Dynamic components require <strong>Lightning Web Security (LWS)</strong>, not the
+              older Lightning Locker Service. If your org has Locker Service enabled (you can
+              check in Setup → Security → Session Settings), you must enable LWS before you can
+              use <code>lwc:component</code> / <code>lwc:is</code>. LWS is enabled by default
+              in all orgs on API version 59.0+.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — platformResourceLoader
+           ============================================================ -->
+      <section id="platform-resource-loader">
+        <h2>6. <code>platformResourceLoader</code></h2>
+        <p>
+          <code>lightning/platformResourceLoader</code> is LWC's mechanism for loading
+          third-party JavaScript libraries and CSS files from Salesforce Static Resources into
+          a component at runtime. It is conceptually different from <code>lwc:is</code>: instead
+          of loading another LWC component, you are loading raw JS/CSS assets (Chart.js, D3,
+          Google Maps API wrapper, etc.) that are stored as Static Resources in Salesforce.
+        </p>
+
+        <h3 id="loadScript"><code>loadScript</code></h3>
+        <p>
+          <code>loadScript(self, url)</code> injects a <code>&lt;script&gt;</code> tag into the
+          page's <code>&lt;head&gt;</code>, pointing at the provided URL. It returns a
+          <code>Promise</code> that resolves when the script has loaded and executed, or rejects
+          if loading fails.
+        </p>
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+import { loadScript } from 'lightning/platformResourceLoader';
+import chartjsResource from '@salesforce/resourceUrl/chartjs';
+
+export default class ChartWrapper extends LightningElement {
+  async connectedCallback() {
+    try {
+      // chartjsResource resolves to the Static Resource's URL at runtime
+      await loadScript(this, chartjsResource + '/Chart.min.js');
+      // Chart.js is now loaded and window.Chart is available
+      this.initChart();
+    } catch (error) {
+      console.error('Failed to load Chart.js', error);
+    }
+  }
+
+  initChart() {
+    // Chart.js is a global — it attaches window.Chart
+    const ctx = this.template.querySelector('canvas');
+    new window.Chart(ctx, {
+      type: 'bar',
+      data: { /* ... */ }
+    });
+  }
+}</code></pre>
+
+        <h3 id="loadStyle"><code>loadStyle</code></h3>
+        <p>
+          <code>loadStyle(self, url)</code> injects a <code>&lt;link rel="stylesheet"&gt;</code>
+          tag into the page's <code>&lt;head&gt;</code>. It also returns a <code>Promise</code>.
+        </p>
+        <pre><code class="language-javascript">import { loadScript, loadStyle } from 'lightning/platformResourceLoader';
+import leafletResource from '@salesforce/resourceUrl/leaflet';
+
+async connectedCallback() {
+  // Load both JS and CSS in parallel
+  await Promise.all([
+    loadScript(this, leafletResource + '/leaflet.js'),
+    loadStyle(this, leafletResource + '/leaflet.css')
+  ]);
+  // Both are ready — initialize the map
+  this.initMap();
+}</code></pre>
+
+        <h3 id="promise-chains">Promise Chains for Multiple Assets</h3>
+        <p>
+          Some libraries have dependencies: you must load a base library before a plugin that
+          extends it. Use sequential <code>await</code> for dependent loads:
+        </p>
+        <pre><code class="language-javascript">// Load jQuery first, then a jQuery plugin that depends on it
+await loadScript(this, jqueryResource + '/jquery.min.js');
+// jQuery is now available as window.$ / window.jQuery
+await loadScript(this, jqueryPluginResource + '/plugin.min.js');
+// Plugin is now registered on jQuery</code></pre>
+        <p>
+          For independent assets, use <code>Promise.all()</code> to load in parallel and minimize
+          total load time:
+        </p>
+        <pre><code class="language-javascript">// Load three independent scripts in parallel
+await Promise.all([
+  loadScript(this, momentResource + '/moment.min.js'),
+  loadStyle(this, bootstrapResource + '/bootstrap.min.css'),
+  loadScript(this, lodashResource + '/lodash.min.js')
+]);</code></pre>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">loadScript Injects into &lt;head&gt;, Not Shadow DOM</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Scripts loaded via <code>loadScript</code> are injected into the page's
+              <code>&lt;head&gt;</code>, not inside your component's shadow root. This means they
+              run in the global scope and attach their exports to <code>window</code>. If two
+              components on the same page load the same library, the second call is a no-op —
+              the script tag is added once. This is by design for performance, but it means you
+              cannot have two different versions of the same library on a single page.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — STATIC RESOURCES
+           ============================================================ -->
+      <section id="static-resources">
+        <h2>7. Static Resources</h2>
+        <p>
+          Static Resources are Salesforce's mechanism for hosting arbitrary files (JS, CSS,
+          images, fonts, zip archives) within the platform. They are served from the Salesforce
+          domain, making them CSP-compliant without needing to whitelist external CDN domains.
+        </p>
+
+        <h3 id="uploading">Uploading &amp; Referencing</h3>
+        <p>
+          You can upload a Static Resource via Setup → Static Resources, or by including it in
+          your SFDX project under <code>force-app/main/default/staticresources/</code>. A
+          Static Resource can be a single file (e.g., <code>chartjs.js</code>) or a zip archive
+          containing multiple files (e.g., <code>leaflet.zip</code> containing
+          <code>leaflet.js</code> and <code>leaflet.css</code>).
+        </p>
+        <p>
+          The SFDX metadata format for a static resource requires two files:
+        </p>
+        <pre><code class="language-bash">force-app/main/default/staticresources/
+├── chartjs.js                    # The actual file
+└── chartjs.resource-meta.xml     # Metadata descriptor</code></pre>
+
+        <pre><code class="language-xml">&lt;!-- chartjs.resource-meta.xml --&gt;
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;StaticResource xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+  &lt;cacheControl&gt;Public&lt;/cacheControl&gt;
+  &lt;contentType&gt;application/javascript&lt;/contentType&gt;
+  &lt;description&gt;Chart.js 4.4 — charting library&lt;/description&gt;
+&lt;/StaticResource&gt;</code></pre>
+
+        <p>For a zip archive containing multiple files:</p>
+        <pre><code class="language-bash">force-app/main/default/staticresources/
+├── leaflet.zip                        # Zip containing leaflet.js + leaflet.css
+└── leaflet.resource-meta.xml</code></pre>
+        <pre><code class="language-xml">&lt;!-- leaflet.resource-meta.xml --&gt;
+&lt;StaticResource xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+  &lt;cacheControl&gt;Public&lt;/cacheControl&gt;
+  &lt;contentType&gt;application/zip&lt;/contentType&gt;
+&lt;/StaticResource&gt;</code></pre>
+
+        <h3 id="resourceUrl"><code>@salesforce/resourceUrl</code> Syntax</h3>
+        <p>
+          In LWC, you reference a Static Resource via a scoped import. This import resolves to
+          the runtime URL of the static resource, including cache-busting version parameters:
+        </p>
+        <pre><code class="language-javascript">// Single-file resource — import gives you the full URL directly
+import chartjsUrl from '@salesforce/resourceUrl/chartjs';
+// chartjsUrl is something like: /resource/1687345678000/chartjs
+
+// Zip resource — import gives you the base URL, append the file path
+import leafletBaseUrl from '@salesforce/resourceUrl/leaflet';
+// leafletBaseUrl is: /resource/1687345678000/leaflet
+// Then reference files inside the zip:
+const jsUrl  = leafletBaseUrl + '/leaflet.js';
+const cssUrl = leafletBaseUrl + '/leaflet.css';</code></pre>
+
+        <h3 id="versioning">Versioned Static Resources &amp; Cache Busting</h3>
+        <p>
+          Every time you deploy an updated Static Resource, Salesforce changes the version
+          timestamp in the URL path (the number between <code>/resource/</code> and the
+          resource name). This means browser caches automatically bust when you deploy a new
+          version — browsers see a new URL and re-fetch the file.
+        </p>
+        <p>
+          This is why you must <strong>always</strong> use the <code>@salesforce/resourceUrl</code>
+          import instead of hard-coding URLs. Hard-coded URLs:
+        </p>
+        <ul>
+          <li>Break when the resource version changes after deployment.</li>
+          <li>Bypass Salesforce's cache-busting mechanism.</li>
+          <li>May not work correctly across sandboxes and production (different org IDs in URLs).</li>
+        </ul>
+        <pre><code class="language-javascript">// ✅ CORRECT: Always use the imported URL
+import chartjsUrl from '@salesforce/resourceUrl/chartjs';
+await loadScript(this, chartjsUrl);
+
+// ❌ INCORRECT: Hard-coded URL breaks on redeployment and cross-environment
+await loadScript(this, '/resource/1687345678000/chartjs');</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — THIRD-PARTY LIBRARY PATTERNS
+           ============================================================ -->
+      <section id="third-party">
+        <h2>8. Third-Party Library Patterns</h2>
+        <p>
+          Integrating third-party JavaScript libraries into LWC requires understanding two
+          timing-sensitive patterns that are unique to component-based architectures.
+        </p>
+
+        <h3 id="initialized-guard">The <code>_initialized</code> Guard</h3>
+        <p>
+          Most third-party libraries need a DOM element to mount into. In LWC, the DOM element
+          is only available after the component renders. <code>connectedCallback</code> fires
+          before the first render, and <code>renderedCallback</code> fires after every render.
+          This creates a problem: if you initialize the library in <code>renderedCallback</code>,
+          it will be called on <em>every</em> re-render, potentially creating duplicate library
+          instances (two charts in the same canvas, multiple map instances).
+        </p>
+        <p>
+          The solution is the <code>_initialized</code> guard — a boolean flag that ensures
+          initialization only happens once:
+        </p>
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+import { loadScript, loadStyle } from 'lightning/platformResourceLoader';
+import chartjsUrl from '@salesforce/resourceUrl/chartjs';
+
+export default class ChartWrapper extends LightningElement {
+  // Guard: prevents re-initialization on subsequent renders
+  _chartInitialized = false;
+  _chart = null;   // Keep reference for later updates
+
+  async renderedCallback() {
+    // Guard: only run once
+    if (this._chartInitialized) return;
+    this._chartInitialized = true;
+
+    try {
+      await loadScript(this, chartjsUrl);
+      this._initChart();
+    } catch (error) {
+      // Reset guard so a retry is possible after error recovery
+      this._chartInitialized = false;
+      console.error('Chart.js load error:', error);
+    }
+  }
+
+  _initChart() {
+    const canvas = this.template.querySelector('canvas.chart');
+    if (!canvas) return;
+
+    this._chart = new window.Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Red', 'Blue', 'Yellow'],
+        datasets: [{ data: [300, 50, 100] }]
+      }
+    });
+  }
+
+  // Update chart data reactively without re-initializing
+  set chartData(newData) {
+    if (this._chart) {
+      this._chart.data = newData;
+      this._chart.update();
+    }
+  }
+
+  disconnectedCallback() {
+    // Clean up the library instance to prevent memory leaks
+    if (this._chart) {
+      this._chart.destroy();
+      this._chart = null;
+    }
+  }
+}</code></pre>
+
+        <h3 id="renderedcallback-timing"><code>renderedCallback</code> Timing</h3>
+        <p>
+          Why use <code>renderedCallback</code> instead of <code>connectedCallback</code> for
+          library initialization? Because <code>connectedCallback</code> fires when the component
+          is attached to the DOM <em>but before the shadow root's children have been rendered</em>.
+          You cannot <code>querySelector</code> for a <code>&lt;canvas&gt;</code> in
+          <code>connectedCallback</code> because it does not exist yet. After the first render
+          completes, <code>renderedCallback</code> fires and the full shadow DOM is available.
+        </p>
+        <pre><code class="language-javascript">// Timing comparison:
+connectedCallback() {
+  // Component is in the DOM, but shadow root children may not be rendered yet
+  const canvas = this.template.querySelector('canvas'); // null — not rendered yet!
+}
+
+renderedCallback() {
+  // Component AND its template contents are fully rendered
+  const canvas = this.template.querySelector('canvas'); // &lt;canvas&gt; element — OK!
+}</code></pre>
+
+        <p>A complete pattern combining all concerns:</p>
+        <pre><code class="language-javascript">import { LightningElement, api } from 'lwc';
+import { loadScript, loadStyle } from 'lightning/platformResourceLoader';
+import d3Resource from '@salesforce/resourceUrl/d3';
+
+export default class D3Chart extends LightningElement {
+  @api chartData = [];
+
+  _initialized = false;
+  _svg = null;
+
+  renderedCallback() {
+    if (this._initialized) return;
+    this._initialized = true;
+    this._loadD3();
+  }
+
+  async _loadD3() {
+    try {
+      await loadScript(this, d3Resource + '/d3.v7.min.js');
+      this._drawChart();
+    } catch (e) {
+      this._initialized = false;
+      this.dispatchEvent(new CustomEvent('loaderror', { detail: e.message }));
+    }
+  }
+
+  _drawChart() {
+    const container = this.template.querySelector('div.chart-container');
+    if (!container) return;
+
+    this._svg = window.d3
+      .select(container)
+      .append('svg')
+      .attr('width', 400)
+      .attr('height', 300);
+
+    // ... draw chart using this.chartData
+  }
+
+  disconnectedCallback() {
+    if (this._svg) {
+      this._svg.remove();
+      this._svg = null;
+    }
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>9. Pitfall Catalogue</h2>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 1: Setting lwc:is to a String Name</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ WRONG — lwc:is needs a constructor, not a string
+this.currentCtor = 'c/myComponent';
+
+// ✅ CORRECT — import it and use the default export
+const { default: ctor } = await import('c/myComponent');
+this.currentCtor = ctor;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 2: Missing lightning__dynamicComponent Capability</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              If you use <code>lwc:component lwc:is</code> without declaring
+              <code>lightning__dynamicComponent</code> in <code>js-meta.xml</code>, LWS will
+              throw a runtime error. The component will deploy fine but fail at runtime. Always
+              add the capability declaration.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 3: No _initialized Guard in renderedCallback</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Without the <code>_initialized</code> guard, every re-render (triggered by any
+              property change) re-initializes the third-party library. A chart component without
+              the guard creates a new <code>Chart</code> instance on every render — you end up
+              with dozens of overlapping chart instances in the canvas, each consuming memory.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 4: Trying to loadScript from an External CDN URL</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ BLOCKED by CSP — external URLs not allowed
+await loadScript(this, 'https://cdn.jsdelivr.net/npm/chart.js');
+
+// ✅ CORRECT — always use a Static Resource
+import chartjsUrl from '@salesforce/resourceUrl/chartjs';
+await loadScript(this, chartjsUrl);</code></pre>
+            <p>
+              Salesforce's Content Security Policy explicitly blocks loading scripts from
+              non-Salesforce domains. Even if <code>loadScript</code> technically accepts a
+              string URL, attempting to load from an external CDN will fail with a CSP violation
+              error in the browser console.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 5: Forgetting to Clean Up in disconnectedCallback</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Third-party libraries often hold references to DOM elements and attach global event
+              listeners. When the component is destroyed (navigating away, conditional rendering),
+              these references are not automatically cleaned up. Always implement
+              <code>disconnectedCallback</code> to call the library's <code>destroy()</code>
+              method (Chart.js, Leaflet, D3 selections all support this), remove global event
+              listeners, and null out any cached references.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 6: Variable Module Specifiers in Dynamic import()</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ COMPILER ERROR — specifier must be a string literal
+const name = 'c/' + this.componentType;
+await import(name);
+
+// ✅ CORRECT — use a lookup table with literal string imports
+const LOADERS = {
+  account:  () => import('c/accountView'),
+  contact:  () => import('c/contactView'),
+};
+const loader = LOADERS[this.componentType];
+if (loader) {
+  const { default: ctor } = await loader();
+  this.currentCtor = ctor;
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 7: Blocking the Main Thread with loadScript</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>loadScript</code> is async — it returns a Promise and doesn't block
+              rendering. However, very large libraries (D3 full bundle, moment-timezone with all
+              locale data) can take significant parse and execution time on first load. When the
+              script executes, it runs synchronously on the main thread. Prefer minified,
+              tree-shaken bundles. For very heavy libraries, show a loading indicator while the
+              Promise is pending.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>10. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">The Plugin Architecture Pattern</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Dynamic components enable a genuine <strong>plugin architecture</strong> in LWC.
+              Consider a record detail page where different SObject types render different card
+              components. With static imports, you'd need to pre-import every possible component
+              and use conditional rendering — even object types the current user might never
+              encounter get loaded. With the lookup table + <code>lwc:is</code> pattern, only the
+              specific component for the current record type is ever downloaded.
+            </p>
+            <pre><code class="language-javascript">// Record type → component mapping
+const DETAIL_COMPONENTS = {
+  Account:     () => import('c/accountDetailCard'),
+  Contact:     () => import('c/contactDetailCard'),
+  Lead:        () => import('c/leadDetailCard'),
+  Opportunity: () => import('c/opportunityDetailCard'),
+  // Add new object types without changing the host component
+};
+
+@wire(getRecord, { recordId: '$recordId', fields: ['...' ] })
+async wiredRecord({ data, error }) {
+  if (!data) return;
+  const objectType = data.apiName;
+  const loader = DETAIL_COMPONENTS[objectType];
+  if (loader) {
+    const { default: ctor } = await loader();
+    this.detailCtor = ctor;
+  }
+}</code></pre>
+            <p>
+              This architecture is <strong>open for extension, closed for modification</strong>
+              (Open/Closed Principle). Adding support for a new SObject type only requires
+              adding an entry to the lookup table and creating a new component — the host
+              component code stays unchanged.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">State Preservation Across Component Swaps</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When <code>lwc:is</code> changes from one constructor to another, the old instance
+              is destroyed and a new one is created. Local state (private properties) in the old
+              component is lost. If you need to preserve state across swaps (e.g., the user had
+              filled out a form), you have three options:
+            </p>
+            <ol>
+              <li><strong>Lift state to the host component</strong> and pass it back as props via
+              <code>lwc:spread</code>. The host manages the canonical state; the dynamic component
+              is stateless.</li>
+              <li><strong>Use LMS or a service component</strong> to hold shared state outside the
+              component tree. Both the old and new components subscribe to the same channel.</li>
+              <li><strong>Re-use the same constructor</strong> by checking if the desired
+              constructor equals the current one before replacing — skip the swap if it's the
+              same component type.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Viewport-Triggered Loading with IntersectionObserver</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              A powerful optimization pattern: only load a heavy component (or a third-party
+              library) when it actually enters the user's viewport. This is especially useful for
+              below-the-fold content on long record pages.
+            </p>
+            <pre><code class="language-javascript">connectedCallback() {
+  // Set up IntersectionObserver on the host element
+  this._observer = new IntersectionObserver(
+    async ([entry]) => {
+      if (entry.isIntersecting && !this._initialized) {
+        this._initialized = true;
+        this._observer.disconnect(); // Only trigger once
+
+        // Now load the heavy component / library
+        const { default: ctor } = await import('c/heavyChartComponent');
+        this.chartCtor = ctor;
+      }
+    },
+    { threshold: 0.1 } // trigger when 10% of the element is visible
+  );
+
+  this._observer.observe(this.template.host);
+}
+
+disconnectedCallback() {
+  if (this._observer) this._observer.disconnect();
+}</code></pre>
+            <p>
+              This pattern guarantees that resources for off-screen components are never loaded
+              unless the user actually scrolls to them. On pages with multiple charts or maps,
+              this can reduce initial page load time by 60–80%.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Managed Package Implications</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In managed packages, the lookup table pattern has an additional benefit: it
+              provides an extension point for subscriber orgs. If you define a default set of
+              dynamic component mappings but expose an <code>@api</code> property that allows
+              the host to pass additional mappings, subscriber developers can extend your
+              component's behavior without modifying your managed code. This is the LWC-native
+              equivalent of a plugin registry pattern.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>11. Quick Recall Card</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Concept</th>
+              <th>Key Point</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>lwc:component lwc:is={ctor}</code></td>
+              <td>Renders the component whose constructor is in <code>ctor</code>. Null = nothing rendered.</td>
+            </tr>
+            <tr>
+              <td>Constructor, not string</td>
+              <td><code>lwc:is</code> needs the <code>.default</code> class from <code>await import()</code>, never a string name.</td>
+            </tr>
+            <tr>
+              <td>Statically analyzable</td>
+              <td>All <code>import()</code> specifiers must be string literals. Use a lookup table for runtime selection.</td>
+            </tr>
+            <tr>
+              <td><code>lightning__dynamicComponent</code></td>
+              <td>Must declare in <code>js-meta.xml</code> capabilities. Requires LWS (not Locker Service).</td>
+            </tr>
+            <tr>
+              <td><code>lwc:spread</code> for props</td>
+              <td>Pass properties to dynamic component via a props object; cannot use static attribute binding.</td>
+            </tr>
+            <tr>
+              <td>Constructor swap = full teardown</td>
+              <td>Changing <code>lwc:is</code> to a different constructor destroys old instance, creates new one — local state lost.</td>
+            </tr>
+            <tr>
+              <td><code>platformResourceLoader</code></td>
+              <td>Use <code>loadScript</code> / <code>loadStyle</code> to load third-party assets from Static Resources.</td>
+            </tr>
+            <tr>
+              <td><code>@salesforce/resourceUrl/name</code></td>
+              <td>Always import Static Resource URLs this way — includes version timestamp for cache busting.</td>
+            </tr>
+            <tr>
+              <td><code>_initialized</code> guard</td>
+              <td>In <code>renderedCallback</code>, check and set this flag to prevent library re-initialization on every render.</td>
+            </tr>
+            <tr>
+              <td><code>disconnectedCallback</code></td>
+              <td>Always destroy library instances (<code>chart.destroy()</code>) and remove observers to prevent memory leaks.</td>
+            </tr>
+            <tr>
+              <td>CSP blocks CDN URLs</td>
+              <td>Cannot load scripts from external CDNs. Always host libraries as Static Resources.</td>
+            </tr>
+            <tr>
+              <td><code>renderedCallback</code> vs <code>connectedCallback</code></td>
+              <td>Use <code>renderedCallback</code> + guard for DOM-dependent initialization; shadow root children aren't available in <code>connectedCallback</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Cross-links</h3>
+        <ul>
+          <li><a href="04-decorators.html">Article 04 — Decorators (@api, @track, @wire)</a> — wire adapters complement dynamic components for data loading.</li>
+          <li><a href="05-lifecycle-hooks.html">Article 05 — Lifecycle Hooks</a> — <code>connectedCallback</code>, <code>renderedCallback</code>, <code>disconnectedCallback</code> timing rules.</li>
+          <li><a href="13-security.html">Article 13 — Security (LWS, Locker Service &amp; CSP)</a> — why LWS is required and how CSP blocks CDN imports.</li>
+          <li><a href="14-performance.html">Article 14 — Performance Optimization</a> — IntersectionObserver, lazy loading strategies.</li>
+        </ul>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="10-navigation.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">10. Navigation Service (NavigationMixin)</span>
+        </a>
+        <a href="12-slds-styling.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">12. Styling with SLDS</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme') || 'light';
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read (localStorage)
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      const articleId = btn ? btn.getAttribute('data-article-id') : null;
+      const key       = articleId ? `lwc_read_${articleId}` : null;
+
+      function syncBtn(read) {
+        if (!btn) return;
+        btn.textContent    = read ? '✓ Read' : 'Mark as Read';
+        btn.setAttribute('aria-pressed', read ? 'true' : 'false');
+        btn.classList.toggle('mark-read-btn--done', read);
+      }
+
+      if (key) {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          syncBtn(wasRead);
+        } catch { /* */ }
+
+        btn.addEventListener('click', () => {
+          try {
+            const wasRead = localStorage.getItem(key) === 'true';
+            localStorage.setItem(key, (!wasRead).toString());
+            syncBtn(!wasRead);
+          } catch { /* */ }
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = Array.from(document.querySelectorAll('.toc-list a'));
+      const headings = tocLinks
+        .map(a => document.querySelector(a.getAttribute('href')))
+        .filter(Boolean);
+
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active    = headings[0];
+        for (const h of headings) {
+          if (h.offsetTop <= scrollY) active = h;
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

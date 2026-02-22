@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>19. Advanced Patterns — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into advanced LWC patterns: mixin factory pattern, service components, recursive components, compound components, and a Expert anti-pattern catalogue with 10 real-world examples.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/19-advanced-patterns.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Patterns Matter at Expert</a></li>
+          <li><a href="#composition-vs-inheritance">2. Composition vs Inheritance</a></li>
+          <li class="level-3"><a href="#the-problem-with-inheritance">The Inheritance Problem</a></li>
+          <li class="level-3"><a href="#composition-solution">Composition as the Solution</a></li>
+          <li><a href="#mixin-pattern">3. The Mixin Factory Pattern</a></li>
+          <li class="level-3"><a href="#mixin-mechanics">How Mixins Work in JS</a></li>
+          <li class="level-3"><a href="#mixin-ordering">Mixin Ordering Matters</a></li>
+          <li class="level-3"><a href="#loading-mixin">LoadingMixin</a></li>
+          <li class="level-3"><a href="#validation-mixin">ValidationMixin</a></li>
+          <li class="level-3"><a href="#subscription-mixin">SubscriptionMixin</a></li>
+          <li class="level-3"><a href="#logging-mixin">LoggingMixin</a></li>
+          <li><a href="#getter-setter-pattern">4. @api Getter/Setter Contract</a></li>
+          <li class="level-3"><a href="#getter-not-setter">Annotate Getter, Not Setter</a></li>
+          <li class="level-3"><a href="#getter-setter-validation">Validation &amp; Transformation</a></li>
+          <li class="level-3"><a href="#getter-side-effects">Side Effects via Setters</a></li>
+          <li><a href="#service-component">5. Service Component Pattern</a></li>
+          <li class="level-3"><a href="#headless-component">Headless Components</a></li>
+          <li class="level-3"><a href="#service-real-example">Real Implementation</a></li>
+          <li class="level-3"><a href="#lazy-service-loading">Lazy Service Loading</a></li>
+          <li><a href="#compound-component">6. Slot Composition &amp; Compound Components</a></li>
+          <li class="level-3"><a href="#compound-pattern">The Compound Pattern</a></li>
+          <li class="level-3"><a href="#provider-consumer">Provider / Consumer via LMS</a></li>
+          <li><a href="#recursive-components">7. Recursive Components</a></li>
+          <li class="level-3"><a href="#recursive-mechanics">How Self-Referencing Works</a></li>
+          <li class="level-3"><a href="#recursive-circular">Circular Reference Risk</a></li>
+          <li><a href="#module-pattern">8. Shared Utility Modules</a></li>
+          <li><a href="#antipatterns">9. Anti-Pattern Catalogue</a></li>
+          <li><a href="#p3-insight">10. Expert Insight</a></li>
+          <li><a href="#recall">11. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 19</div>
+        <h1>Advanced Patterns in LWC</h1>
+        <div class="article-meta">
+          <span>⏱ 38 min read</span>
+          <span class="tags">
+            <span class="tag">#advanced-components</span>
+            <span class="tag">#patterns</span>
+            <span class="tag">#mixins</span>
+            <span class="tag">#architecture</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="19"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Patterns Matter at Expert</h2>
+        <p>
+          At P1 level you write components that work. At P2 level you write components that are
+          maintainable. At <strong>expert level</strong> you design component architectures that scale
+          — across dozens of components, across teams, across releases.
+        </p>
+        <p>
+          That distinction lives entirely in your choice of <em>patterns</em>. A expert developer
+          looks at a screen with six LWC components and immediately identifies the right
+          communication topology, the right reuse strategy, and the three anti-patterns already
+          baked in that will cause production bugs in six months.
+        </p>
+        <p>
+          This article covers the patterns that separate senior LWC architects from capable
+          developers:
+        </p>
+        <ul>
+          <li><strong>Mixin factory pattern</strong> — horizontal behaviour reuse without inheritance chains</li>
+          <li><strong><code>@api</code> getter/setter contract</strong> — controlled property access with side effects</li>
+          <li><strong>Service component pattern</strong> — headless components as shared services</li>
+          <li><strong>Compound component pattern</strong> — slot composition for flexible UIs</li>
+          <li><strong>Provider/Consumer pattern</strong> — decoupled state sharing via LMS</li>
+          <li><strong>Recursive components</strong> — tree rendering and circular reference risks</li>
+          <li><strong>Shared utility modules</strong> — non-component JS for cross-cutting concerns</li>
+          <li><strong>Anti-pattern catalogue</strong> — 10 patterns that look fine and quietly destroy maintainability</li>
+        </ul>
+        <p>
+          The Gang of Four design patterns (Decorator, Observer, Factory, Composite, etc.) do not
+          map 1:1 to LWC, but every pattern in this article is rooted in classic software
+          engineering thinking applied to the LWC runtime constraints.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — COMPOSITION VS INHERITANCE
+           ============================================================ -->
+      <section id="composition-vs-inheritance">
+        <h2>2. Composition vs Inheritance</h2>
+
+        <h3 id="the-problem-with-inheritance">The Inheritance Problem</h3>
+        <p>
+          JavaScript classes support single inheritance via <code>extends</code>. In theory you
+          could build a deep hierarchy:
+        </p>
+        <pre><code class="language-js">// ❌ Fragile hierarchy — do not do this
+class BaseComponent extends LightningElement { /* shared methods */ }
+class FormComponent  extends BaseComponent   { /* form logic */ }
+class AccountForm    extends FormComponent   { /* account-specific */ }
+</code></pre>
+        <p>
+          This looks clean. It breaks for three reasons:
+        </p>
+        <ol>
+          <li>
+            <strong>The platform does not support class inheritance for LWC components.</strong>
+            LWC components must directly extend <code>LightningElement</code>. You cannot
+            extend a custom base class that itself extends <code>LightningElement</code> — the
+            compiler will reject it.
+          </li>
+          <li>
+            <strong>Even if it worked, deep hierarchies create fragile coupling.</strong> The
+            "fragile base class" problem means a change to <code>BaseComponent</code> can
+            silently break <code>AccountForm</code> three levels down.
+          </li>
+          <li>
+            <strong>Behaviour cannot be composed.</strong> A component that needs both form
+            validation logic AND loading state logic AND LMS subscription management cannot
+            inherit all three.
+          </li>
+        </ol>
+
+        <h3 id="composition-solution">Composition as the Solution</h3>
+        <p>
+          Composition means building complex behaviour by <em>combining</em> simple, independent
+          units — not stacking class layers. In LWC, composition surfaces in two forms:
+        </p>
+        <ul>
+          <li><strong>Component composition</strong> — nesting child components in a template (slots, property binding)</li>
+          <li><strong>Mixin composition</strong> — injecting behaviour directly into a component class at definition time</li>
+        </ul>
+        <p>
+          The rest of this section covers the mixin approach, which is uniquely powerful for
+          cross-cutting concerns that do not map cleanly to child components.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — MIXIN FACTORY PATTERN
+           ============================================================ -->
+      <section id="mixin-pattern">
+        <h2>3. The Mixin Factory Pattern</h2>
+
+        <h3 id="mixin-mechanics">How Mixins Work in JavaScript</h3>
+        <p>
+          A <strong>mixin</strong> is a function that accepts a class, extends it with additional
+          behaviour, and returns the extended class. The result is a new class that has all the
+          original class's behaviour plus the mixin's additions.
+        </p>
+        <pre><code class="language-js">// Mixin factory — takes a base class, returns an enriched class
+const MyMixin = (Base) => class extends Base {
+  myMethod() {
+    // new behaviour injected into whatever Base is
+  }
+};
+
+// Usage: apply mixin to LightningElement
+export default class MyComponent extends MyMixin(LightningElement) {
+  // MyComponent now has both LightningElement AND MyMixin behaviour
+}
+</code></pre>
+        <p>
+          Because the mixin wraps the base class with <code>class extends Base</code>, the
+          resulting chain is:
+          <code>MyComponent → MyMixin → LightningElement</code>. The prototype chain is linear —
+          no multiple inheritance — so the platform's single-inheritance constraint is satisfied.
+        </p>
+        <p>
+          Multiple mixins compose from right to left:
+        </p>
+        <pre><code class="language-js">export default class AccountForm
+  extends ValidationMixin(LoadingMixin(SubscriptionMixin(LightningElement))) {
+  // prototype chain:
+  // AccountForm → ValidationMixin → LoadingMixin → SubscriptionMixin → LightningElement
+}
+</code></pre>
+
+        <h3 id="mixin-ordering">Mixin Ordering Matters</h3>
+        <p>
+          Because each mixin can override lifecycle hooks (e.g. <code>connectedCallback</code>),
+          the <em>order</em> of mixin application determines which lifecycle call runs first.
+          Always call <code>super.connectedCallback()</code> inside a mixin's
+          <code>connectedCallback</code> to preserve the chain:
+        </p>
+        <pre><code class="language-js">// ✅ Always call super to preserve the mixin chain
+const LoggingMixin = (Base) => class extends Base {
+  connectedCallback() {
+    super.connectedCallback?.();  // optional chaining — safe if Base doesn't define it
+    console.log(`[LoggingMixin] ${this.constructor.name} connected`);
+  }
+  disconnectedCallback() {
+    super.disconnectedCallback?.();
+    console.log(`[LoggingMixin] ${this.constructor.name} disconnected`);
+  }
+};
+</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" tabindex="0">
+            ⚠️ Pitfall: forgetting <code>super</code> in mixin lifecycle hooks
+          </div>
+          <div class="callout__body">
+            <p>
+              If a mixin's <code>connectedCallback</code> does <em>not</em> call
+              <code>super.connectedCallback()</code>, every mixin to its left in the chain is
+              silently skipped. A <code>SubscriptionMixin</code> that never subscribes and never
+              cleans up is a memory leak waiting to happen.
+            </p>
+            <p>
+              Rule: every lifecycle hook override in a mixin <strong>must</strong> call
+              <code>super.hookName?.()</code> — use optional chaining to handle the case where
+              <code>LightningElement</code> (at the bottom of the chain) does not define the hook.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="loading-mixin">LoadingMixin</h3>
+        <p>
+          Adds a tracked <code>isLoading</code> property and helper methods. Any component that
+          does async operations can extend this mixin and get consistent loading state management
+          without duplicating the pattern.
+        </p>
+        <pre><code class="language-js">// mixins/loadingMixin.js
+import { track } from 'lwc';
+
+const LoadingMixin = (Base) => class extends Base {
+  _isLoading = false;
+
+  get isLoading() {
+    return this._isLoading;
+  }
+
+  startLoading() {
+    this._isLoading = true;
+  }
+
+  stopLoading() {
+    this._isLoading = false;
+  }
+};
+
+export { LoadingMixin };
+</code></pre>
+        <p>
+          Since Spring '20, LWC tracks plain class fields reactively by default — no
+          <code>@track</code> needed. The <code>_isLoading</code> field will trigger a re-render
+          when changed via <code>startLoading()</code> / <code>stopLoading()</code>.
+        </p>
+        <pre><code class="language-html">&lt;!-- component template --&gt;
+&lt;template&gt;
+  &lt;template lwc:if={isLoading}&gt;
+    &lt;lightning-spinner&gt;&lt;/lightning-spinner&gt;
+  &lt;/template&gt;
+  &lt;template lwc:else&gt;
+    &lt;!-- main content --&gt;
+  &lt;/template&gt;
+&lt;/template&gt;
+</code></pre>
+
+        <h3 id="validation-mixin">ValidationMixin</h3>
+        <p>
+          Standardises form validation across many form components:
+        </p>
+        <pre><code class="language-js">// mixins/validationMixin.js
+const ValidationMixin = (Base) => class extends Base {
+  // Validates all lightning-input, lightning-combobox, etc. in this shadow
+  checkAllValidity() {
+    const inputs = this.template.querySelectorAll(
+      'lightning-input, lightning-combobox, lightning-textarea'
+    );
+    return [...inputs].reduce((valid, el) => el.reportValidity() &amp;&amp; valid, true);
+  }
+
+  resetAllValidity() {
+    this.template.querySelectorAll(
+      'lightning-input, lightning-combobox, lightning-textarea'
+    ).forEach(el => {
+      el.setCustomValidity('');
+      el.reportValidity();
+    });
+  }
+};
+
+export { ValidationMixin };
+</code></pre>
+
+        <h3 id="subscription-mixin">SubscriptionMixin</h3>
+        <p>
+          The most valuable mixin for event-heavy applications: auto-manages LMS subscriptions
+          so individual components never need to manually call <code>unsubscribe</code>:
+        </p>
+        <pre><code class="language-js">// mixins/subscriptionMixin.js
+import { subscribe, unsubscribe } from 'lightning/messageService';
+
+const SubscriptionMixin = (Base) => class extends Base {
+  _subscriptions = [];
+
+  // Convenience wrapper: subscribe and track the subscription handle
+  addSubscription(messageContext, messageChannel, handler, options) {
+    const sub = subscribe(messageContext, messageChannel, handler, options);
+    this._subscriptions.push(sub);
+    return sub;
+  }
+
+  // Auto-unsubscribe all tracked subscriptions on disconnect
+  disconnectedCallback() {
+    super.disconnectedCallback?.();
+    this._subscriptions.forEach(sub => {
+      try { unsubscribe(sub); } catch { /* already gone */ }
+    });
+    this._subscriptions = [];
+  }
+};
+
+export { SubscriptionMixin };
+</code></pre>
+
+        <h3 id="logging-mixin">LoggingMixin</h3>
+        <p>
+          Provides scoped logging that can be enabled/disabled per namespace, making production
+          debugging manageable:
+        </p>
+        <pre><code class="language-js">// mixins/loggingMixin.js
+const LoggingMixin = (Base) => class extends Base {
+  _logPrefix = '';
+
+  connectedCallback() {
+    super.connectedCallback?.();
+    this._logPrefix = `[${this.constructor.name}]`;
+  }
+
+  log(...args)  { console.log(this._logPrefix, ...args); }
+  warn(...args) { console.warn(this._logPrefix, ...args); }
+  error(...args){ console.error(this._logPrefix, ...args); }
+};
+
+export { LoggingMixin };
+</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — @api GETTER/SETTER CONTRACT
+           ============================================================ -->
+      <section id="getter-setter-pattern">
+        <h2>4. The <code>@api</code> Getter/Setter Contract</h2>
+        <p>
+          A plain <code>@api value</code> property declaration is a passive data pipe: the parent
+          sets it, LWC propagates it, the child reads it. A <strong>getter/setter pair with
+          <code>@api</code> on the getter</strong> transforms that pipe into an active contract
+          with validation, transformation, and side effects.
+        </p>
+
+        <h3 id="getter-not-setter">Annotate the Getter, Not the Setter</h3>
+        <p>
+          This is a common mistake. The <code>@api</code> decorator marks a property as publicly
+          accessible. For getter/setter pairs, apply it to the getter:
+        </p>
+        <pre><code class="language-js">import { LightningElement, api } from 'lwc';
+
+export default class RatingDisplay extends LightningElement {
+  _rating = 0;
+
+  // ✅ @api on the getter — this is the public surface
+  @api
+  get rating() {
+    return this._rating;
+  }
+
+  // ❌ Do NOT put @api on the setter
+  set rating(value) {
+    this._rating = Math.max(0, Math.min(5, Number(value) || 0));
+  }
+}
+</code></pre>
+        <p>
+          The setter is implicitly public when the getter is <code>@api</code>. Decorating the
+          setter separately throws a compile-time error.
+        </p>
+
+        <h3 id="getter-setter-validation">Validation &amp; Transformation</h3>
+        <p>
+          The setter is the ideal place to enforce invariants that the parent might violate:
+        </p>
+        <pre><code class="language-js">@api
+get variant() {
+  return this._variant;
+}
+set variant(val) {
+  const ALLOWED = ['base', 'brand', 'destructive', 'neutral', 'success', 'warning'];
+  if (!ALLOWED.includes(val)) {
+    // Warn in development; silently fall back in production
+    console.warn(`&lt;my-button&gt; invalid variant "${val}", defaulting to "base"`);
+    this._variant = 'base';
+  } else {
+    this._variant = val;
+  }
+}
+</code></pre>
+
+        <h3 id="getter-side-effects">Side Effects via Setters</h3>
+        <p>
+          Sometimes a property change must trigger secondary work — resetting state, cancelling
+          an in-flight request, or re-initialising a third-party library. The setter handles this
+          cleanly:
+        </p>
+        <pre><code class="language-js">@api
+get recordId() {
+  return this._recordId;
+}
+set recordId(value) {
+  if (value !== this._recordId) {
+    this._recordId = value;
+    this._resetState();   // clear cached data, reset pagination, etc.
+  }
+}
+
+_resetState() {
+  this._records = [];
+  this._page = 1;
+  this._error = null;
+  // trigger re-fetch if already connected
+  if (this.isConnected) this._loadRecords();
+}
+</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" tabindex="0">
+            💡 Expert Insight: setter timing in <code>constructor</code>
+          </div>
+          <div class="callout__body">
+            <p>
+              The setter runs as soon as the parent binds a value — potentially <em>before</em>
+              <code>connectedCallback</code>. If your setter calls <code>this.template.querySelector()</code>
+              or accesses <code>this.isConnected</code>, it will be operating on an unconnected,
+              un-rendered component. Guard with <code>if (this.isConnected)</code> or defer
+              side-effectful work to <code>connectedCallback</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — SERVICE COMPONENT PATTERN
+           ============================================================ -->
+      <section id="service-component">
+        <h2>5. Service Component Pattern</h2>
+
+        <h3 id="headless-component">Headless Components</h3>
+        <p>
+          Not every LWC needs to render UI. A <strong>service component</strong> (also called a
+          <strong>headless component</strong>) is an LWC with an empty HTML template whose entire
+          purpose is to expose an <code>@api</code> method surface. Parent components slot it in
+          to gain access to shared logic without prop-drilling.
+        </p>
+        <pre><code class="language-html">&lt;!-- service-logger/serviceLogger.html --&gt;
+&lt;template&gt;&lt;/template&gt;
+</code></pre>
+        <pre><code class="language-js">// service-logger/serviceLogger.js
+import { LightningElement, api } from 'lwc';
+import logError from '@salesforce/apex/LogController.logError';
+
+export default class ServiceLogger extends LightningElement {
+  @api
+  async log(level, message, context) {
+    try {
+      await logError({ level, message, context: JSON.stringify(context) });
+    } catch (e) {
+      console.error('[ServiceLogger] Failed to log:', e);
+    }
+  }
+}
+</code></pre>
+        <p>
+          The parent component uses <code>lwc:ref</code> to get a reference to the service
+          component and call its methods:
+        </p>
+        <pre><code class="language-html">&lt;!-- parent component template --&gt;
+&lt;template&gt;
+  &lt;c-service-logger lwc:ref="logger"&gt;&lt;/c-service-logger&gt;
+  &lt;lightning-button label="Save" onclick={handleSave}&gt;&lt;/lightning-button&gt;
+&lt;/template&gt;
+</code></pre>
+        <pre><code class="language-js">// parent component JS
+import { LightningElement } from 'lwc';
+import saveRecord from '@salesforce/apex/RecordController.save';
+
+export default class ParentComponent extends LightningElement {
+  async handleSave() {
+    try {
+      await saveRecord({ ... });
+    } catch (error) {
+      this.refs.logger.log('ERROR', 'Save failed', { error });
+    }
+  }
+}
+</code></pre>
+
+        <h3 id="service-real-example">Real-World Service Components</h3>
+        <p>
+          Common candidates for the service component pattern:
+        </p>
+        <ul>
+          <li><strong>Error Logger</strong> — persists errors to a custom object via Apex</li>
+          <li><strong>Analytics Tracker</strong> — fires custom events to an analytics endpoint</li>
+          <li><strong>Toast Service</strong> — centralises <code>ShowToastEvent</code> dispatch with standard formats</li>
+          <li><strong>Permission Checker</strong> — wires custom permissions and exposes an <code>@api hasPermission(name)</code> method</li>
+          <li><strong>Clipboard Service</strong> — wraps <code>navigator.clipboard.writeText()</code> with LWS-safe patterns</li>
+        </ul>
+
+        <h3 id="lazy-service-loading">Lazy Service Loading</h3>
+        <p>
+          If a service is needed on many pages but is expensive to initialise, load it once at
+          the application level (e.g. in the App Page's root component) rather than in every
+          consuming component. Consumers communicate with it via LMS rather than direct DOM
+          references — this makes the service location-independent:
+        </p>
+        <pre><code class="language-js">// app-root.js — instantiates service once
+// app-root.html — &lt;c-analytics-service lwc:ref="analytics"&gt;&lt;/c-analytics-service&gt;
+
+// Individual leaf components publish LMS messages
+// Analytics service subscribes at APPLICATION_SCOPE and batches/flushes to server
+</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — COMPOUND COMPONENT PATTERN
+           ============================================================ -->
+      <section id="compound-component">
+        <h2>6. Slot Composition &amp; Compound Components</h2>
+
+        <p>
+          A <strong>compound component</strong> is a set of closely related LWC components
+          designed to work together, where the parent component uses named slots to let consumers
+          plug in any of the sub-components in any combination. This mirrors patterns like React's
+          <code>&lt;Select&gt;</code> + <code>&lt;Option&gt;</code>, or HTML's
+          <code>&lt;table&gt;</code> + <code>&lt;tr&gt;</code> + <code>&lt;td&gt;</code>.
+        </p>
+
+        <h3 id="compound-pattern">The Compound Pattern in Practice</h3>
+        <p>
+          Example: a data panel composed of a header, a body, and a footer:
+        </p>
+        <pre><code class="language-html">&lt;!-- data-panel/dataPanel.html --&gt;
+&lt;template&gt;
+  &lt;div class="panel"&gt;
+    &lt;div class="panel__header"&gt;
+      &lt;slot name="header"&gt;&lt;!-- fallback header --&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+    &lt;div class="panel__body"&gt;
+      &lt;slot&gt;&lt;!-- default slot for body content --&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+    &lt;div class="panel__footer"&gt;
+      &lt;slot name="actions"&gt;&lt;!-- optional action buttons --&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+</code></pre>
+        <pre><code class="language-html">&lt;!-- consumer --&gt;
+&lt;c-data-panel&gt;
+  &lt;span slot="header"&gt;Account Summary&lt;/span&gt;
+
+  &lt;!-- default slot: can be any content --&gt;
+  &lt;c-account-stats record-id={recordId}&gt;&lt;/c-account-stats&gt;
+
+  &lt;lightning-button slot="actions" label="Edit" onclick={handleEdit}&gt;&lt;/lightning-button&gt;
+&lt;/c-data-panel&gt;
+</code></pre>
+        <p>
+          The key benefit: <code>c-data-panel</code> does not need to know anything about
+          <code>c-account-stats</code>. It is a layout shell. This makes the panel reusable across
+          dozens of record types without a single line of change.
+        </p>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" tabindex="0">
+            ⚠️ Pitfall: Trying to style slotted content from the host
+          </div>
+          <div class="callout__body">
+            <p>
+              Slotted content lives in the <em>parent's</em> shadow tree, not the host component's
+              shadow tree. CSS rules inside <code>dataPanel.css</code> cannot directly style
+              slotted elements — you must use the <code>::slotted()</code> pseudo-element or
+              CSS custom properties (styling hooks) to reach across the shadow boundary.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="provider-consumer">Provider / Consumer Pattern via LMS</h3>
+        <p>
+          In situations where multiple deeply-nested consumers need the same shared state (e.g.
+          a currently selected record, user preferences, theme settings), prop-drilling becomes
+          unmanageable. The Provider/Consumer pattern solves this using LMS as the bus:
+        </p>
+        <pre><code class="language-js">// provider component — owns and publishes state
+import { LightningElement, track } from 'lwc';
+import { publish, MessageContext } from 'lightning/messageService';
+import { wire } from 'lwc';
+import SELECTED_RECORD_CHANNEL from '@salesforce/messageChannel/SelectedRecord__c';
+
+export default class RecordProvider extends LightningElement {
+  @wire(MessageContext) messageContext;
+
+  _selectedId = null;
+
+  @api
+  selectRecord(id) {
+    this._selectedId = id;
+    publish(this.messageContext, SELECTED_RECORD_CHANNEL, { recordId: id });
+  }
+}
+</code></pre>
+        <pre><code class="language-js">// consumer component — subscribes to state changes
+import { LightningElement, wire } from 'lwc';
+import { subscribe, MessageContext, APPLICATION_SCOPE } from 'lightning/messageService';
+import SELECTED_RECORD_CHANNEL from '@salesforce/messageChannel/SelectedRecord__c';
+
+export default class RecordConsumer extends LightningElement {
+  @wire(MessageContext) messageContext;
+  recordId;
+
+  connectedCallback() {
+    this._sub = subscribe(
+      this.messageContext,
+      SELECTED_RECORD_CHANNEL,
+      ({ recordId }) => { this.recordId = recordId; },
+      { scope: APPLICATION_SCOPE }
+    );
+  }
+
+  disconnectedCallback() {
+    if (this._sub) {
+      import('lightning/messageService').then(({ unsubscribe }) => unsubscribe(this._sub));
+    }
+  }
+}
+</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — RECURSIVE COMPONENTS
+           ============================================================ -->
+      <section id="recursive-components">
+        <h2>7. Recursive Components</h2>
+
+        <h3 id="recursive-mechanics">How Self-Referencing Works</h3>
+        <p>
+          A recursive component is one that renders instances of itself in its own template —
+          classically used to render tree structures like folder hierarchies, org charts, nested
+          menus, or comment threads.
+        </p>
+        <pre><code class="language-html">&lt;!-- tree-node/treeNode.html --&gt;
+&lt;template&gt;
+  &lt;li class="tree-node"&gt;
+    &lt;span&gt;{node.label}&lt;/span&gt;
+    &lt;ul lwc:if={hasChildren}&gt;
+      &lt;template for:each={node.children} for:item="child"&gt;
+        &lt;!-- Self-reference: renders another c-tree-node for each child --&gt;
+        &lt;c-tree-node key={child.id} node={child}&gt;&lt;/c-tree-node&gt;
+      &lt;/template&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/template&gt;
+</code></pre>
+        <pre><code class="language-js">// tree-node/treeNode.js
+import { LightningElement, api } from 'lwc';
+
+export default class TreeNode extends LightningElement {
+  @api node; // { id, label, children: [] }
+
+  get hasChildren() {
+    return this.node?.children?.length &gt; 0;
+  }
+}
+</code></pre>
+        <p>
+          LWC handles recursive self-reference correctly because the component is only instantiated
+          when <code>node.children</code> is non-empty — the recursion terminates naturally at
+          leaf nodes where <code>hasChildren</code> is false.
+        </p>
+
+        <h3 id="recursive-circular">Circular Reference Risk</h3>
+        <p>
+          The risk is not in the component definition, but in the <strong>data</strong> passed
+          to it. If the tree data structure contains a cycle (node A is a child of node B which
+          is a child of node A), the component will render in an infinite loop until the browser
+          tab crashes from stack overflow.
+        </p>
+        <p>
+          Always sanitise tree data on the server (Apex) or in a utility function before binding
+          to a recursive component:
+        </p>
+        <pre><code class="language-js">// Utility to detect cycles before binding to recursive component
+function detectCycle(nodes, visited = new Set()) {
+  for (const node of nodes) {
+    if (visited.has(node.id)) {
+      throw new Error(`Cycle detected at node: ${node.id}`);
+    }
+    const childVisited = new Set(visited).add(node.id);
+    if (node.children?.length) detectCycle(node.children, childVisited);
+  }
+}
+</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" tabindex="0">
+            💡 Expert Insight: depth limits for recursive components
+          </div>
+          <div class="callout__body">
+            <p>
+              Even without cycles, unbounded recursion is dangerous. Pass a
+              <code>depth</code> prop down the tree and stop rendering children when it exceeds
+              a threshold (e.g. 10 levels). Display a "show more" affordance to lazy-load deeper
+              levels on demand. This protects against both accidental cycles and genuinely deep
+              data that would cause performance problems.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — SHARED UTILITY MODULES
+           ============================================================ -->
+      <section id="module-pattern">
+        <h2>8. Shared Utility Modules</h2>
+        <p>
+          Not all JavaScript in an LWC project needs to be a component. Any
+          <code>.js</code> file placed under a folder in the <code>lwc/</code> directory (without
+          an accompanying <code>.html</code> file) can be imported as a plain ES module by any
+          LWC component in the same namespace. These are sometimes called
+          <strong>service modules</strong> or <strong>utility modules</strong>.
+        </p>
+        <pre><code class="language-text">lwc/
+  errorUtils/
+    errorUtils.js       ← plain JS module, no HTML
+  dateUtils/
+    dateUtils.js
+  myComponent/
+    myComponent.js
+    myComponent.html
+    myComponent.css
+</code></pre>
+        <pre><code class="language-js">// errorUtils/errorUtils.js — no LightningElement, just a JS module
+/**
+ * Normalises every error shape LWC components can receive into
+ * a consistent array of { title, detail } objects.
+ */
+function reduceErrors(errors) {
+  const errorsArray = Array.isArray(errors) ? errors : [errors];
+
+  return errorsArray
+    .filter(Boolean)
+    .map(error =&gt; {
+      // UI API / wire error
+      if (Array.isArray(error.body)) {
+        return error.body.map(e =&gt; ({ title: e.errorCode, detail: e.message }));
+      }
+      // AuraHandledException / Apex
+      if (error.body?.message) {
+        return [{ title: 'Error', detail: error.body.message }];
+      }
+      // JS Error object
+      if (error.message) {
+        return [{ title: error.name || 'Error', detail: error.message }];
+      }
+      // Unknown shape
+      return [{ title: 'Unknown Error', detail: JSON.stringify(error) }];
+    })
+    .flat();
+}
+
+export { reduceErrors };
+</code></pre>
+        <pre><code class="language-js">// myComponent.js — imports the utility module
+import { LightningElement } from 'lwc';
+import { reduceErrors } from 'c/errorUtils';  // namespace/module-name
+
+export default class MyComponent extends LightningElement {
+  errorMessages = [];
+
+  handleError(error) {
+    this.errorMessages = reduceErrors(error);
+  }
+}
+</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" tabindex="0">
+            💡 Expert Insight: utility modules vs service components
+          </div>
+          <div class="callout__body">
+            <p>
+              Choose a <strong>utility module</strong> (plain JS) when the logic is purely
+              functional — no LWC lifecycle, no reactive state, no DOM interaction. Choose a
+              <strong>service component</strong> (headless LWC) when the logic requires LWC
+              features: reactive properties, wire adapters, LMS subscriptions, or Apex wiring.
+              A common mistake is wrapping pure functions in a component unnecessarily, which
+              adds lifecycle overhead with no benefit.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — ANTI-PATTERN CATALOGUE
+           ============================================================ -->
+      <section id="antipatterns">
+        <h2>9. Anti-Pattern Catalogue</h2>
+        <p>
+          Each anti-pattern below looks harmless or even clever in small components. At scale,
+          they become the source of production incidents, performance bugs, and test failures.
+        </p>
+
+        <h3>Anti-Pattern 1: Mutating an <code>@api</code> Object Directly</h3>
+        <pre><code class="language-js">// ❌ WRONG — mutates the parent's object reference directly
+@api record;
+
+handleChange() {
+  this.record.name = 'New Name';  // mutates parent's object
+}
+</code></pre>
+        <pre><code class="language-js">// ✅ CORRECT — fire an event, let the parent decide
+handleChange() {
+  this.dispatchEvent(new CustomEvent('recordchange', {
+    detail: { ...this.record, name: 'New Name' }
+  }));
+}
+</code></pre>
+        <p>
+          Direct mutation of <code>@api</code> objects breaks the data-down/events-up contract,
+          bypasses change detection in some configurations, and creates debugging nightmares where
+          state changes have no traceable origin.
+        </p>
+
+        <h3>Anti-Pattern 2: Calling <code>this.template.querySelector</code> in <code>constructor</code></h3>
+        <pre><code class="language-js">// ❌ WRONG — template is not rendered during constructor
+constructor() {
+  super();
+  const input = this.template.querySelector('lightning-input'); // returns null
+  input.focus(); // TypeError: Cannot read property 'focus' of null
+}
+</code></pre>
+        <p>
+          The DOM is not available until after the first <code>renderedCallback</code>. Use
+          <code>renderedCallback</code> with an <code>_initialized</code> guard, or
+          <code>connectedCallback</code> with <code>setTimeout(() =&gt; ..., 0)</code> for focus
+          management.
+        </p>
+
+        <h3>Anti-Pattern 3: <code>document.addEventListener</code> in LWC</h3>
+        <pre><code class="language-js">// ❌ WRONG — attaches to the global document, never cleans up
+connectedCallback() {
+  document.addEventListener('click', this.handleClick.bind(this));
+}
+// No disconnectedCallback cleanup — memory leak
+</code></pre>
+        <pre><code class="language-js">// ✅ CORRECT — store bound reference, clean up on disconnect
+connectedCallback() {
+  this._clickHandler = this.handleClick.bind(this);
+  document.addEventListener('click', this._clickHandler);
+}
+
+disconnectedCallback() {
+  document.removeEventListener('click', this._clickHandler);
+}
+</code></pre>
+        <p>
+          Listeners on <code>document</code> or <code>window</code> survive component unmounting
+          and accumulate across re-renders. Prefer component-scoped event handlers on
+          <code>this.template</code> wherever possible.
+        </p>
+
+        <h3>Anti-Pattern 4: Returning New Objects from Getters</h3>
+        <pre><code class="language-js">// ❌ WRONG — returns a new array reference on every render
+get filteredRecords() {
+  return this.records.filter(r =&gt; r.active); // new array every time
+}
+</code></pre>
+        <pre><code class="language-js">// ✅ CORRECT — memoize with a dirty flag
+_filteredRecords = null;
+
+get filteredRecords() {
+  if (!this._filteredRecords) {
+    this._filteredRecords = this.records.filter(r =&gt; r.active);
+  }
+  return this._filteredRecords;
+}
+
+set records(value) {
+  this._records = value;
+  this._filteredRecords = null; // invalidate cache
+}
+</code></pre>
+        <p>
+          LWC evaluates getter expressions during rendering. If a getter returns a new object
+          reference every time (new array, new object literal), LWC sees the reference as
+          "changed" and may trigger unnecessary re-renders of child components that receive
+          the getter value as an <code>@api</code> property.
+        </p>
+
+        <h3>Anti-Pattern 5: Infinite Re-render via <code>renderedCallback</code></h3>
+        <pre><code class="language-js">// ❌ WRONG — modifying reactive state unconditionally triggers another render
+renderedCallback() {
+  this.counter++; // triggers re-render → renderedCallback fires again → infinite loop
+}
+</code></pre>
+        <pre><code class="language-js">// ✅ CORRECT — guard with a flag
+_rendered = false;
+renderedCallback() {
+  if (this._rendered) return;
+  this._rendered = true;
+  this._initThirdPartyChart(); // runs only once
+}
+</code></pre>
+
+        <h3>Anti-Pattern 6: Pub-Sub for Same-Page Sibling Communication</h3>
+        <p>
+          The home-grown pub-sub module stores listeners in a module-level Map. Because ES
+          modules are singletons, that Map is shared across all tabs in the same browsing
+          context. Multiple instances of the same page (multiple tabs) receive each other's
+          events. Use LMS with component scope (not <code>APPLICATION_SCOPE</code>) for
+          sibling communication that must remain tab-isolated.
+        </p>
+
+        <h3>Anti-Pattern 7: Querying Across Shadow Boundaries</h3>
+        <pre><code class="language-js">// ❌ WRONG — crosses the shadow boundary into a child component's DOM
+const input = this.template.querySelector('c-my-child lightning-input');
+</code></pre>
+        <p>
+          Shadow DOM encapsulation means you cannot pierce into a child's shadow. Use
+          <code>@api</code> methods or properties on the child component to interact with its
+          internals, or use <code>lwc:ref</code> to get the child element and call its
+          <code>@api</code> methods.
+        </p>
+
+        <h3>Anti-Pattern 8: Using <code>@track</code> on Primitive Values Post-Spring '20</h3>
+        <pre><code class="language-js">// ❌ Unnecessary — primitives are always reactive since Spring '20
+@track isLoading = false;
+@track count = 0;
+</code></pre>
+        <p>
+          Since the Spring '20 release, all plain class fields trigger re-renders when
+          reassigned. <code>@track</code> is still needed for one case: when you mutate a nested
+          property of an object without reassigning the top-level reference
+          (<code>obj.nested.value = newVal</code>). For everything else, it is noise.
+        </p>
+
+        <h3>Anti-Pattern 9: Ignoring the <code>key</code> Directive in Lists</h3>
+        <pre><code class="language-html">&lt;!-- ❌ WRONG — key is missing or uses array index --&gt;
+&lt;template for:each={items} for:item="item"&gt;
+  &lt;li key={item.index}&gt;{item.label}&lt;/li&gt;
+&lt;/template&gt;
+</code></pre>
+        <p>
+          Using array index as a key means every item in the list has a "stable" key even when
+          items are reordered, inserted, or removed. The reconciliation algorithm keeps DOM nodes
+          in place and only patches text content — this causes visual artifacts, incorrect focus
+          management, and animation glitches. Use a stable, unique business identifier (record
+          Id, UUID) as the key.
+        </p>
+
+        <h3>Anti-Pattern 10: Tight Coupling via Parent Querying Child Internals</h3>
+        <pre><code class="language-js">// ❌ WRONG — parent inspects child's internal state
+const childCmp = this.template.querySelector('c-child');
+if (childCmp.shadowRoot.querySelector('.internal-flag').textContent === 'true') {
+  // ...
+}
+</code></pre>
+        <p>
+          This is the Shadow DOM equivalent of reaching into a black box with a crowbar. It
+          breaks whenever the child component's internal markup changes, creates an invisible
+          coupling contract, and does not work with native Shadow DOM at all (synthetic shadow
+          is more permissive, but never rely on that). Design a clean <code>@api</code> surface
+          on the child and communicate through it.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>10. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" tabindex="0">
+            💡 Choosing the Right Pattern for the Right Problem
+          </div>
+          <div class="callout__body">
+            <p>
+              expert assessors do not just want you to know these patterns — they want you to
+              demonstrate judgment about <em>when</em> to apply each one. A quick decision
+              framework:
+            </p>
+            <ul>
+              <li>
+                <strong>Behaviour shared by 3+ unrelated components with no DOM?</strong>
+                → Utility module (plain JS file)
+              </li>
+              <li>
+                <strong>Behaviour shared by 3+ components that needs LWC lifecycle / @wire?</strong>
+                → Mixin factory
+              </li>
+              <li>
+                <strong>Shared service with Apex calls, LMS subscriptions, or DOM side effects?</strong>
+                → Service component (headless LWC)
+              </li>
+              <li>
+                <strong>Flexible layout shell with pluggable regions?</strong>
+                → Compound component with named slots
+              </li>
+              <li>
+                <strong>State shared by many deeply-nested components on the same page?</strong>
+                → Provider/Consumer via LMS
+              </li>
+              <li>
+                <strong>Rendering a tree or deeply hierarchical data?</strong>
+                → Recursive component with depth guard and cycle detection
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <p>
+          A critical expert skill is also <strong>identifying when a pattern is being
+          over-applied</strong>. A mixin that is used by exactly one component adds complexity
+          with no benefit — just put the logic in the component. A service component that wraps
+          a single utility function adds a lifecycle and shadow DOM boundary where none is needed.
+          Architecture is about appropriate complexity, not pattern collection.
+        </p>
+
+        <h4>References</h4>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.js_props_accessor" target="_blank" rel="noopener noreferrer">
+              Salesforce Docs: LWC Property Accessors (getter/setter with @api)
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.create_components_html_slots" target="_blank" rel="noopener noreferrer">
+              Salesforce Docs: Slots in LWC
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.js_share_code" target="_blank" rel="noopener noreferrer">
+              Salesforce Docs: Share JavaScript Code (utility modules)
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.reference_directives_lwc_ref" target="_blank" rel="noopener noreferrer">
+              Salesforce Docs: lwc:ref Directive
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/blogs/2021/05/advanced-lwc-patterns-mixin-factories" target="_blank" rel="noopener noreferrer">
+              Salesforce Blog: Advanced LWC Patterns — Mixin Factories
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/trailheadapps/lwc-recipes" target="_blank" rel="noopener noreferrer">
+              GitHub: lwc-recipes — Official Salesforce LWC pattern examples
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>11. Quick Recall Card</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Mechanism</th>
+              <th>Key Rule</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Mixin Factory</td>
+              <td><code>const M = (Base) =&gt; class extends Base {...}</code></td>
+              <td>Always call <code>super.hook?.()</code> inside mixin lifecycle hooks</td>
+            </tr>
+            <tr>
+              <td><code>@api</code> getter/setter</td>
+              <td>Decorate the getter, not the setter</td>
+              <td>Guard setter side effects with <code>if (this.isConnected)</code></td>
+            </tr>
+            <tr>
+              <td>Service Component</td>
+              <td>Empty <code>.html</code> + <code>@api</code> methods</td>
+              <td>Use <code>lwc:ref</code> to call service methods from parent</td>
+            </tr>
+            <tr>
+              <td>Compound Component</td>
+              <td>Named slots in layout shell</td>
+              <td>Style slotted content via <code>::slotted()</code> or CSS hooks</td>
+            </tr>
+            <tr>
+              <td>Provider / Consumer</td>
+              <td>LMS publish/subscribe across shadow boundaries</td>
+              <td>Use <code>APPLICATION_SCOPE</code> for cross-component-tree comms</td>
+            </tr>
+            <tr>
+              <td>Recursive Component</td>
+              <td>Self-reference in template via <code>for:each</code></td>
+              <td>Guard with <code>hasChildren</code> to terminate; add depth limit</td>
+            </tr>
+            <tr>
+              <td>Utility Module</td>
+              <td>Plain <code>.js</code> file, no <code>.html</code></td>
+              <td>Import via <code>c/moduleName</code>; no lifecycle overhead</td>
+            </tr>
+            <tr>
+              <td>Anti-Pattern: <code>@api</code> mutation</td>
+              <td>—</td>
+              <td>Never mutate — fire a CustomEvent instead</td>
+            </tr>
+            <tr>
+              <td>Anti-Pattern: getter returning new object</td>
+              <td>—</td>
+              <td>Memoize with a cache flag; invalidate on source data change</td>
+            </tr>
+            <tr>
+              <td>Anti-Pattern: querying across shadow</td>
+              <td>—</td>
+              <td>Use <code>@api</code> methods or <code>lwc:ref</code> on children</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="18-deployment-targets.html" class="nav-prev">
+          ← Article 18: Deployment Targets &amp; Metadata Configuration
+        </a>
+        <a href="20-scenario-qa.html" class="nav-next">
+          Article 20: Scenario-Based Q&amp;A →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level LWC Mastery</p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const STORE_KEY = 'lwc-theme';
+      const html      = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        document.getElementById('themeLabel').textContent =
+          theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      document.getElementById('themeToggle').addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

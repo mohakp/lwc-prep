@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>07. Shadow DOM vs Light DOM — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into Shadow DOM vs Light DOM in LWC: synthetic vs native shadow, event retargeting, CSS penetration, scoped slots, and real-world styling bugs.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/07-shadow-dom-vs-light-dom.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Shadow DOM Matters</a></li>
+          <li><a href="#mental-model">2. The CSS Global Scope Problem</a></li>
+          <li class="level-3"><a href="#specificity-war">The Specificity War</a></li>
+          <li class="level-3"><a href="#dom-tree">The DOM Tree &amp; Encapsulation Need</a></li>
+          <li><a href="#shadow-dom-anatomy">3. Shadow DOM Anatomy</a></li>
+          <li class="level-3"><a href="#shadow-host">Shadow Host, Root &amp; Tree</a></li>
+          <li class="level-3"><a href="#shadow-in-browser">Shadow DOM in the Browser</a></li>
+          <li class="level-3"><a href="#slots-explained">How Slots Work</a></li>
+          <li><a href="#synthetic-vs-native">4. Synthetic vs Native Shadow DOM</a></li>
+          <li class="level-3"><a href="#synthetic-shadow">Salesforce Synthetic Shadow</a></li>
+          <li class="level-3"><a href="#native-shadow">Native Shadow DOM</a></li>
+          <li class="level-3"><a href="#mixed-shadow">Mixed Shadow Mode</a></li>
+          <li><a href="#encapsulation">5. What Encapsulation Actually Means</a></li>
+          <li class="level-3"><a href="#css-isolation">CSS Isolation</a></li>
+          <li class="level-3"><a href="#dom-isolation">DOM Isolation</a></li>
+          <li class="level-3"><a href="#event-retargeting">Event Retargeting</a></li>
+          <li><a href="#event-propagation">6. Event Propagation &amp; Shadow Boundaries</a></li>
+          <li class="level-3"><a href="#composed-true">composed: true</a></li>
+          <li class="level-3"><a href="#composed-false">composed: false</a></li>
+          <li class="level-3"><a href="#bubbles-composed-matrix">The Bubbles/Composed Matrix</a></li>
+          <li><a href="#querySelector-scoping">7. querySelector Scoping Rules</a></li>
+          <li class="level-3"><a href="#template-querySelector">this.template.querySelector</a></li>
+          <li class="level-3"><a href="#querySelector-limits">What You Cannot Query</a></li>
+          <li><a href="#css-penetration">8. CSS Penetration Selectors</a></li>
+          <li class="level-3"><a href="#host-selector">:host and :host()</a></li>
+          <li class="level-3"><a href="#slotted">::slotted()</a></li>
+          <li class="level-3"><a href="#css-custom-props">CSS Custom Properties (the Real Bridge)</a></li>
+          <li><a href="#light-dom">9. Light DOM</a></li>
+          <li class="level-3"><a href="#enabling-light-dom">Enabling Light DOM</a></li>
+          <li class="level-3"><a href="#light-dom-tradeoffs">Trade-offs &amp; Implications</a></li>
+          <li class="level-3"><a href="#scoped-slots">Scoped Slots</a></li>
+          <li class="level-3"><a href="#when-light-dom">When to Choose Light DOM</a></li>
+          <li><a href="#styling-hooks">10. SLDS Styling Hooks</a></li>
+          <li><a href="#real-world-bugs">11. Real-World Bugs</a></li>
+          <li><a href="#pitfalls">12. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">13. Expert Insight</a></li>
+          <li><a href="#recall">14. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 07</div>
+        <h1>Shadow DOM vs Light DOM</h1>
+        <div class="article-meta">
+          <span>⏱ 20 min read</span>
+          <span class="tags">
+            <span class="tag">#template-dom</span>
+            <span class="tag">#shadow-dom</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="07"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Shadow DOM Matters</h2>
+        <p>
+          Imagine you're building a reusable <code>&lt;fancy-button&gt;</code> component. You spend
+          hours perfecting its styles. Then a page developer drops it into their app — and
+          the button inherits <code>color</code>, <code>font-size</code>, and <code>border</code> from
+          a dozen cascading parent stylesheets. Your carefully tuned component looks completely broken.
+        </p>
+        <p>
+          This is the CSS global scope problem, and it plagued the web for decades. Shadow DOM is
+          the browser's answer. It creates a <em>style boundary</em> — an encapsulation wall where
+          CSS inside a shadow tree cannot leak out and CSS outside cannot leak in.
+        </p>
+        <p>
+          LWC is built on top of Shadow DOM. Every component you write runs inside a shadow tree by
+          default. Understanding <em>how</em> that wall works — what it blocks, what crosses it, and
+          when you want to punch a hole through it — is essential expert knowledge. Get this wrong and
+          you'll spend hours debugging invisible styling issues, broken event handlers, and
+          <code>querySelector</code> calls that silently return <code>null</code>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — MENTAL MODEL
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. The CSS Global Scope Problem</h2>
+
+        <h3 id="specificity-war">The Specificity War</h3>
+        <p>
+          In a traditional web app, all stylesheets share a single global cascade. Every CSS rule
+          competes with every other CSS rule on the page. Developers work around this with naming
+          conventions (BEM, SMACSS), CSS preprocessors, and ever-increasing specificity chains
+          like <code>.my-app .card__header--active h2</code> — all to avoid accidental collisions.
+        </p>
+        <p>
+          At Salesforce's scale — hundreds of base components, dozens of installed packages, and
+          customer code all on the same page — this global scope is unworkable. One rogue stylesheet
+          can break every component on every page in every org.
+        </p>
+
+        <h3 id="dom-tree">The DOM Tree &amp; the Encapsulation Need</h3>
+        <p>
+          The DOM is a tree of nodes. Normally every node lives in the <strong>document tree</strong>
+          and is fully visible to CSS selectors and JavaScript queries from anywhere on the page.
+          What was needed was a way to say: "this subtree is private — its styles and DOM nodes
+          should not be reachable from outside."
+        </p>
+        <p>
+          That need drove the W3C Web Components specification, which gave us
+          <strong>Shadow DOM</strong> — a mechanism for attaching a private, scoped DOM subtree
+          to any element.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — SHADOW DOM ANATOMY
+           ============================================================ -->
+      <section id="shadow-dom-anatomy">
+        <h2>3. Shadow DOM Anatomy</h2>
+
+        <h3 id="shadow-host">Shadow Host, Root &amp; Tree</h3>
+        <p>
+          Shadow DOM introduces three new concepts:
+        </p>
+        <ul>
+          <li><strong>Shadow Host</strong> — A regular DOM element that "hosts" a shadow tree. In LWC,
+            every component's root element is a shadow host. For <code>&lt;c-my-card&gt;</code>, the
+            custom element itself is the host.</li>
+          <li><strong>Shadow Root</strong> — The root node of the private shadow tree. It is attached
+            to the shadow host but is not part of the document tree. Think of it as a
+            hidden document inside a document.</li>
+          <li><strong>Shadow Tree</strong> — All the nodes inside the shadow root: the component's
+            HTML template output.</li>
+        </ul>
+        <p>
+          The line between the regular document tree (the "light DOM") and the shadow tree is called
+          the <strong>shadow boundary</strong>. CSS selectors and DOM queries cannot cross this
+          boundary by default.
+        </p>
+
+        <h3 id="shadow-in-browser">Shadow DOM in the Browser</h3>
+        <p>
+          Here is how you create a shadow root in vanilla JavaScript — this is what the browser
+          spec actually defines:
+        </p>
+        <pre><code class="language-javascript">// Vanilla JS — attaching a shadow root
+const host = document.querySelector('#my-element');
+
+// attachShadow creates the shadow root
+const shadowRoot = host.attachShadow({ mode: 'open' }); // or 'closed'
+
+// Now populate the shadow tree
+shadowRoot.innerHTML = `
+  &lt;style&gt;p { color: red; }&lt;/style&gt;
+  &lt;p&gt;This text is red, but only inside this shadow tree.&lt;/p&gt;
+`;
+
+// Outside this shadow root, the p { color: red } rule has NO EFFECT.
+// And document.querySelector('p') will NOT return this &lt;p&gt;.</code></pre>
+
+        <p>
+          The <code>mode</code> option matters:
+        </p>
+        <ul>
+          <li><strong><code>open</code></strong> — <code>element.shadowRoot</code> returns the shadow root from outside. Most browsers use this.</li>
+          <li><strong><code>closed</code></strong> — <code>element.shadowRoot</code> returns <code>null</code>. Salesforce's synthetic shadow uses a closed-like approach.</li>
+        </ul>
+
+        <h3 id="slots-explained">How Slots Work</h3>
+        <p>
+          A <strong>slot</strong> is the bridge between the shadow tree and the light DOM content
+          projected into it. The parent component puts content between the component's opening and
+          closing tags (light DOM children). The <code>&lt;slot&gt;</code> element inside the shadow
+          tree defines <em>where</em> that content appears.
+        </p>
+        <pre><code class="language-html">&lt;!-- Parent template (light DOM children) --&gt;
+&lt;c-card&gt;
+  &lt;p slot="header"&gt;My Title&lt;/p&gt;
+  &lt;p&gt;Default slot content&lt;/p&gt;
+&lt;/c-card&gt;
+
+&lt;!-- c-card shadow tree --&gt;
+&lt;template&gt;
+  &lt;div class="card"&gt;
+    &lt;slot name="header"&gt;&lt;/slot&gt;  &lt;!-- receives &lt;p slot="header"&gt; --&gt;
+    &lt;slot&gt;&lt;/slot&gt;               &lt;!-- receives the default &lt;p&gt; --&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          The slotted content physically lives in the parent's DOM (light DOM), but is
+          <em>rendered</em> at the slot's position in the shadow tree. This distinction has
+          significant implications for CSS (covered below).
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — SYNTHETIC VS NATIVE
+           ============================================================ -->
+      <section id="synthetic-vs-native">
+        <h2>4. Synthetic vs Native Shadow DOM</h2>
+
+        <h3 id="synthetic-shadow">Salesforce Synthetic Shadow</h3>
+        <p>
+          LWC on Salesforce has historically used <strong>Synthetic Shadow DOM</strong> — a
+          JavaScript polyfill that <em>simulates</em> Shadow DOM behavior rather than using the
+          native browser API. This was necessary because Shadow DOM was not consistently supported
+          across all browsers when LWC launched (IE11, older Safari).
+        </p>
+        <p>
+          Synthetic shadow works by patching DOM methods (<code>querySelector</code>,
+          <code>addEventListener</code>, etc.) globally and adding unique scoping attributes to
+          elements at compile time. A component's styles are applied to the document stylesheet but
+          scoped using auto-generated attribute selectors like <code>[c-myCard_myCard]</code>.
+        </p>
+
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">ℹ️</span>
+            <span>How Synthetic Shadow Scopes CSS</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>When LWC compiles your component's CSS, it rewrites selectors by adding unique
+            attribute selectors. Your <code>.btn</code> becomes <code>.btn[c-myCard_myCard]</code>
+            and the corresponding HTML element gets that attribute injected at compile time.
+            This emulates Shadow DOM isolation without actually using shadow roots in older browsers.</p>
+            <pre><code class="language-css">/* What you write */
+.btn { background: blue; }
+
+/* What the compiler produces (synthetic shadow) */
+.btn[c-myCard_myCard] { background: blue; }</code></pre>
+          </div>
+        </div>
+
+        <h3 id="native-shadow">Native Shadow DOM</h3>
+        <p>
+          With IE11 reaching end-of-life and all modern browsers supporting native Shadow DOM,
+          Salesforce began the migration to <strong>native shadow DOM</strong>. In Spring '24,
+          Salesforce entered beta for native shadow. With native shadow, the browser's built-in
+          shadow DOM mechanism is used directly — no polyfill.
+        </p>
+        <p>
+          Key differences in native shadow:
+        </p>
+        <ul>
+          <li><strong>Real encapsulation</strong>: <code>element.shadowRoot</code> is truly inaccessible from outside (closed mode).</li>
+          <li><strong>DOM patch removal</strong>: Browser APIs like <code>addEventListener</code> work without patches — event retargeting is handled natively.</li>
+          <li><strong>querySelector behavior</strong>: <code>document.querySelector</code> genuinely cannot find elements inside shadow roots.</li>
+        </ul>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span>Migration Risk: Synthetic → Native Shadow</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Code that works under synthetic shadow often breaks under native shadow. Common breakage patterns:</p>
+            <ul>
+              <li>Using <code>document.querySelector</code> to reach inside a component's DOM</li>
+              <li>Third-party JS libraries that traverse the full DOM tree</li>
+              <li>Using <code>event.target</code> without accounting for retargeting</li>
+              <li>CSS that relied on synthetic shadow's loose enforcement</li>
+            </ul>
+            <p>Always test against native shadow before deploying to production orgs that have opted in.</p>
+          </div>
+        </div>
+
+        <h3 id="mixed-shadow">Mixed Shadow Mode</h3>
+        <p>
+          Salesforce introduced <strong>Mixed Shadow Mode</strong> as a migration bridge. In mixed
+          mode, most components use native shadow, but specific components can opt back into
+          synthetic shadow using the <code>synthetic-shadow</code> capability in their metadata.
+          This lets you migrate incrementally rather than all at once.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — WHAT ENCAPSULATION MEANS
+           ============================================================ -->
+      <section id="encapsulation">
+        <h2>5. What Encapsulation Actually Means</h2>
+        <p>
+          Shadow DOM provides three distinct types of encapsulation. Understanding each one
+          separately prevents enormous confusion:
+        </p>
+
+        <h3 id="css-isolation">CSS Isolation</h3>
+        <p>
+          CSS styles defined <em>inside</em> a shadow tree cannot leak <em>out</em>, and CSS styles
+          defined <em>outside</em> cannot leak <em>in</em>.
+        </p>
+        <pre><code class="language-css">/* todoApp.css — parent component */
+p {
+  color: red;
+  font-size: 18px;
+}
+
+/* These styles DO NOT reach into c-todo-item's shadow tree.
+   The &lt;p&gt; inside c-todo-item is unaffected. */</code></pre>
+        <p>
+          This is why you cannot style a child LWC component's internals from a parent stylesheet —
+          the shadow boundary blocks the CSS cascade. This is a feature, not a bug.
+        </p>
+
+        <h3 id="dom-isolation">DOM Isolation</h3>
+        <p>
+          DOM isolation means that querying the document cannot reach inside a shadow tree:
+        </p>
+        <pre><code class="language-javascript">// In a parent component — this will NOT find elements inside c-todo-item
+document.querySelector('.todo-item-internal-class'); // returns null
+
+// The correct way — query within the component's own shadow root
+this.template.querySelector('.btn'); // finds elements in THIS component's shadow
+
+// To query a child component's shadow, the child must expose a method or @api ref
+// You CANNOT reach inside a child's shadow from a parent</code></pre>
+        <p>
+          This makes components truly independent. A component's internal structure is implementation
+          detail — parents cannot accidentally couple to it.
+        </p>
+
+        <h3 id="event-retargeting">Event Retargeting</h3>
+        <p>
+          When an event bubbles up through the DOM and crosses a shadow boundary, the browser
+          automatically <em>retargets</em> the event — it changes <code>event.target</code> to point
+          to the shadow host instead of the actual originating element.
+        </p>
+        <pre><code class="language-javascript">// c-todo-item's template:
+// &lt;button class="delete-btn"&gt;Delete&lt;/button&gt;
+
+// Parent component listens for click on c-todo-item:
+handleClick(event) {
+  // event.target is c-todo-item (the shadow host)
+  // NOT the internal &lt;button class="delete-btn"&gt;
+  // The button is encapsulated — the parent doesn't know it exists.
+  console.log(event.target.tagName); // 'C-TODO-ITEM'
+}</code></pre>
+        <p>
+          Retargeting preserves encapsulation from the event system's perspective. The parent knows
+          <em>that something happened</em> on <code>c-todo-item</code>, but not <em>what internal
+          element</em> triggered it.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — EVENT PROPAGATION & SHADOW BOUNDARIES
+           ============================================================ -->
+      <section id="event-propagation">
+        <h2>6. Event Propagation &amp; Shadow Boundaries</h2>
+        <p>
+          Two properties of <code>CustomEvent</code> control how events interact with shadow
+          boundaries: <code>bubbles</code> and <code>composed</code>.
+        </p>
+
+        <h3 id="composed-true"><code>composed: true</code></h3>
+        <p>
+          When <code>composed: true</code>, the event crosses shadow boundaries as it bubbles up.
+          It becomes visible to listeners in the document tree and in ancestor components' shadow
+          trees.
+        </p>
+        <pre><code class="language-javascript">// Inside c-deep-child
+this.dispatchEvent(new CustomEvent('statuschange', {
+  bubbles: true,
+  composed: true,    // crosses shadow boundaries
+  detail: { status: 'complete' }
+}));
+
+// A grandparent component (or even document) can listen for this event
+// even though c-deep-child is nested inside multiple shadow trees.</code></pre>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span>Caution: composed: true Breaks Encapsulation</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>composed: true</code> means the event leaks implementation details up the tree.
+              Any ancestor — including components that have no business knowing about your internals —
+              can intercept the event. Prefer <code>composed: false</code> for internal communication.
+              Only use <code>composed: true</code> when you intentionally want the event to propagate
+              beyond the immediate parent.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="composed-false"><code>composed: false</code></h3>
+        <p>
+          When <code>composed: false</code> (the default for <code>CustomEvent</code>), the event
+          stops at the shadow boundary. It is only visible to listeners within the same shadow tree.
+        </p>
+        <pre><code class="language-javascript">// The default — event stays within the shadow tree
+this.dispatchEvent(new CustomEvent('internalstatechange', {
+  bubbles: true,
+  composed: false,  // does NOT cross shadow boundaries
+  detail: { value: this._value }
+}));
+
+// Only listeners inside this component's shadow tree will hear this event.
+// The parent component will NOT receive it unless they attach a listener
+// directly on the child's host element and composed:true is used.</code></pre>
+
+        <h3 id="bubbles-composed-matrix">The Bubbles/Composed Matrix</h3>
+        <p>
+          Four combinations, four different propagation behaviors:
+        </p>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th><code>bubbles</code></th>
+                <th><code>composed</code></th>
+                <th>Behavior</th>
+                <th>Use Case</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>false</code></td>
+                <td><code>false</code></td>
+                <td>Fires only on the target element, stays in shadow tree</td>
+                <td>Pure internal signals</td>
+              </tr>
+              <tr>
+                <td><code>true</code></td>
+                <td><code>false</code></td>
+                <td>Bubbles within shadow tree, stops at shadow boundary</td>
+                <td>Most custom events — parent handles via template listener</td>
+              </tr>
+              <tr>
+                <td><code>false</code></td>
+                <td><code>true</code></td>
+                <td>Composed but not bubbling — only fires at target and shadow hosts above it</td>
+                <td>Rare — usually not what you want</td>
+              </tr>
+              <tr>
+                <td><code>true</code></td>
+                <td><code>true</code></td>
+                <td>Bubbles AND crosses all shadow boundaries</td>
+                <td>Legacy compatibility; use LMS instead for cross-tree communication</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          <strong>LWC best practice:</strong> Use <code>bubbles: true, composed: false</code> for
+          child-to-parent communication. The parent handles it via a template event handler on the
+          child component. For communication beyond the immediate parent, use
+          <strong>Lightning Message Service (LMS)</strong> rather than
+          <code>composed: true</code> events.
+        </p>
+
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">ℹ️</span>
+            <span>Native Events and Shadow DOM</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Built-in browser events like <code>click</code>, <code>focus</code>,
+              <code>input</code> are <code>composed: true</code> by default. That's why a
+              <code>click</code> listener on a parent component fires when a button inside a child
+              component's shadow tree is clicked — the click event crosses the shadow boundary
+              (but with retargeting applied to protect encapsulation).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — QUERYSELECTOR SCOPING RULES
+           ============================================================ -->
+      <section id="querySelector-scoping">
+        <h2>7. querySelector Scoping Rules</h2>
+
+        <h3 id="template-querySelector"><code>this.template.querySelector</code></h3>
+        <p>
+          In LWC, the correct way to query DOM elements is through <code>this.template</code>,
+          which gives you a reference to the component's shadow root:
+        </p>
+        <pre><code class="language-javascript">// ✅ CORRECT — queries within this component's shadow tree only
+const btn = this.template.querySelector('.my-button');
+const items = this.template.querySelectorAll('li');
+
+// ❌ WRONG — document-level query, cannot see inside shadow trees
+const btn = document.querySelector('.my-button'); // returns null in native shadow</code></pre>
+
+        <p>
+          For Light DOM components (covered later), use <code>this.querySelector</code> instead
+          of <code>this.template.querySelector</code> — there is no shadow root in light DOM.
+        </p>
+
+        <h3 id="querySelector-limits">What You Cannot Query</h3>
+        <ul>
+          <li>
+            <strong>Cannot query into a child's shadow tree</strong> — even from a parent
+            that "owns" the child, you cannot call
+            <code>this.template.querySelector('c-child').shadowRoot.querySelector(...)</code>
+            in native shadow mode (shadowRoot is inaccessible). Use <code>@api</code> methods
+            or refs on the child to expose functionality.
+          </li>
+          <li>
+            <strong>Cannot query slotted content's internals</strong> — content distributed
+            via <code>&lt;slot&gt;</code> lives in the parent's light DOM; the child component
+            hosting the slot cannot query it with <code>this.template.querySelector</code>.
+          </li>
+          <li>
+            <strong>Cannot query ancestor components</strong> — there is no "upward" query.
+            If a child needs access to ancestor state, use events or LMS.
+          </li>
+        </ul>
+
+        <pre><code class="language-javascript">// Scenario: parent wants to call a method on child component
+// ✅ Use @api to expose the method on the child
+// child.js
+@api validate() {
+  return this.template.querySelector('input').checkValidity();
+}
+
+// parent.js
+handleSave() {
+  const child = this.template.querySelector('c-form-child');
+  const valid = child.validate(); // calling @api method — this IS allowed
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — CSS PENETRATION SELECTORS
+           ============================================================ -->
+      <section id="css-penetration">
+        <h2>8. CSS Penetration Selectors</h2>
+        <p>
+          The shadow boundary blocks most CSS. But there are controlled ways to style across it:
+          the <code>:host</code>, <code>:host()</code>, and <code>::slotted()</code>
+          pseudo-selectors, plus CSS custom properties.
+        </p>
+
+        <h3 id="host-selector"><code>:host</code> and <code>:host()</code></h3>
+        <p>
+          <code>:host</code> selects the shadow host element itself — it allows a component to
+          style its own outer container. This is the only way to style the host from inside the
+          shadow tree.
+        </p>
+        <pre><code class="language-css">/* component.css — styles the &lt;c-my-card&gt; element itself */
+:host {
+  display: block;   /* LWC components are inline by default — this is critical */
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* :host() accepts a selector — styles the host when it matches the selector */
+:host(.highlighted) {
+  border: 2px solid var(--slds-g-color-brand-base-50, #0070d2);
+}
+
+/* :host-context() — styles host based on ancestor context (limited browser support) */
+:host-context(.dark-theme) {
+  background: #1c1c1e;
+}</code></pre>
+
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">ℹ️</span>
+            <span>Why display: block on :host Matters</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Custom elements are <code>display: inline</code> by default in the browser. This means
+              width/height/margin/padding may not behave as expected. Every LWC component that
+              participates in layout should declare <code>:host { display: block; }</code> (or
+              <code>display: flex</code>, <code>display: grid</code> as needed). Forgetting this is
+              a common source of mysterious layout bugs.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="slotted"><code>::slotted()</code></h3>
+        <p>
+          <code>::slotted(selector)</code> targets slotted content from inside the host's shadow
+          tree. Remember: slotted content lives in the parent's light DOM, so the shadow tree has
+          limited styling control over it.
+        </p>
+        <pre><code class="language-css">/* Inside c-card's CSS — style elements slotted into the default slot */
+::slotted(p) {
+  margin-bottom: 12px;
+  color: var(--slds-g-color-neutral-base-30, #444);
+}
+
+/* Can target specific named slot content */
+::slotted([slot="header"]) {
+  font-weight: bold;
+  font-size: 1.2rem;
+}</code></pre>
+        <p>
+          <strong>Important limitation:</strong> <code>::slotted()</code> only targets direct
+          children that are slotted — not deeply nested elements inside the slotted content. You
+          cannot write <code>::slotted(p span)</code> to reach a <code>&lt;span&gt;</code> inside
+          a slotted <code>&lt;p&gt;</code>.
+        </p>
+
+        <h3 id="css-custom-props">CSS Custom Properties (the Real Bridge)</h3>
+        <p>
+          CSS custom properties (variables) are the most powerful tool for cross-shadow styling —
+          they <strong>inherit through shadow boundaries</strong>. A parent can set a variable
+          that a child reads, enabling theming without breaking encapsulation.
+        </p>
+        <pre><code class="language-css">/* Parent component or global stylesheet */
+:root {
+  --card-background: #ffffff;
+  --card-text-color: #333333;
+}
+
+/* Inside c-card's shadow tree — reads the parent's variable */
+:host {
+  background: var(--card-background);
+  color: var(--card-text-color);
+}
+
+/* At runtime, changing --card-background anywhere above c-card will
+   immediately update the card's background — across the shadow boundary. */</code></pre>
+        <p>
+          This is the foundation of SLDS Styling Hooks (covered in the next section). CSS
+          variables are the bridge that allows global theming while preserving component
+          encapsulation.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — LIGHT DOM
+           ============================================================ -->
+      <section id="light-dom">
+        <h2>9. Light DOM</h2>
+        <p>
+          Light DOM is an opt-in rendering mode where a component's template is rendered directly
+          into the document tree (or parent's shadow tree) rather than into its own private shadow
+          tree. There is no shadow boundary. The component's markup is fully visible and accessible
+          from outside.
+        </p>
+
+        <h3 id="enabling-light-dom">Enabling Light DOM</h3>
+        <p>
+          Enable Light DOM by adding the static property to your component class:
+        </p>
+        <pre><code class="language-javascript">// myComponent.js
+import { LightningElement } from 'lwc';
+
+export default class MyComponent extends LightningElement {
+  static renderMode = 'light'; // ← opt into Light DOM
+}</code></pre>
+        <p>
+          You must also declare the <code>renderMode</code> in the component's metadata:
+        </p>
+        <pre><code class="language-xml">&lt;!-- myComponent.js-meta.xml --&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+  &lt;apiVersion&gt;61.0&lt;/apiVersion&gt;
+  &lt;isExposed&gt;false&lt;/isExposed&gt;
+  &lt;capabilities&gt;
+    &lt;capability&gt;lightning__dynamicComponent&lt;/capability&gt;
+  &lt;/capabilities&gt;
+&lt;/LightningComponentBundle&gt;</code></pre>
+
+        <p>
+          With Light DOM enabled, query with <code>this.querySelector</code> (no <code>.template</code>):
+        </p>
+        <pre><code class="language-javascript">// Light DOM component — no shadow root, so use this.querySelector
+connectedCallback() {
+  const input = this.querySelector('input'); // ✅ works in Light DOM
+  // this.template.querySelector('input');    // ❌ throws error — no template object in light DOM
+}</code></pre>
+
+        <h3 id="light-dom-tradeoffs">Trade-offs &amp; Implications</h3>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Aspect</th>
+                <th>Shadow DOM (Default)</th>
+                <th>Light DOM</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CSS encapsulation</td>
+                <td>Yes — styles scoped to component</td>
+                <td>No — global styles apply to internals</td>
+              </tr>
+              <tr>
+                <td>Global CSS can style internals</td>
+                <td>No (only via CSS variables)</td>
+                <td>Yes — full CSS access</td>
+              </tr>
+              <tr>
+                <td>querySelector from outside</td>
+                <td>Blocked</td>
+                <td>Allowed (parent can reach in)</td>
+              </tr>
+              <tr>
+                <td>Scoped Slots</td>
+                <td>Not supported</td>
+                <td>Supported</td>
+              </tr>
+              <tr>
+                <td>Third-party JS libraries</td>
+                <td>Often break (DOM traversal)</td>
+                <td>Work normally</td>
+              </tr>
+              <tr>
+                <td>SLDS token overrides</td>
+                <td>CSS custom properties only</td>
+                <td>Direct class overrides possible</td>
+              </tr>
+              <tr>
+                <td>Event retargeting</td>
+                <td>Yes</td>
+                <td>No (events behave normally)</td>
+              </tr>
+              <tr>
+                <td>Component isolation</td>
+                <td>Strong</td>
+                <td>Weak</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="scoped-slots">Scoped Slots</h3>
+        <p>
+          Scoped slots allow a parent to pass a <em>template</em> to a child, where the child
+          can provide data to fill in that template. This is a React "render props" pattern for LWC.
+          Scoped slots only work in Light DOM components.
+        </p>
+        <pre><code class="language-html">&lt;!-- c-list.html (Light DOM component) --&gt;
+&lt;template&gt;
+  &lt;ul&gt;
+    &lt;template for:each={items} for:item="item"&gt;
+      &lt;li key={item.id}&gt;
+        &lt;slot name="item" item={item}&gt;&lt;/slot&gt;
+      &lt;/li&gt;
+    &lt;/template&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;
+
+&lt;!-- Parent using c-list with scoped slot --&gt;
+&lt;c-list items={contacts}&gt;
+  &lt;template slot="item" let:item&gt;
+    &lt;strong&gt;{item.Name}&lt;/strong&gt; — {item.Email}
+  &lt;/template&gt;
+&lt;/c-list&gt;</code></pre>
+        <p>
+          The parent defines the item rendering template; the child controls iteration and data
+          binding. This pattern enables highly reusable, data-agnostic container components.
+        </p>
+
+        <h3 id="when-light-dom">When to Choose Light DOM</h3>
+        <ul>
+          <li><strong>Third-party JS integration</strong> — Libraries like D3, jQuery plugins, or
+            charting libraries that traverse the full DOM need light DOM to find their elements.</li>
+          <li><strong>Global CSS theming</strong> — When a page-level or Experience Cloud CSS
+            theme needs to style inside a component without CSS custom properties.</li>
+          <li><strong>Scoped slots</strong> — The pattern requires light DOM.</li>
+          <li><strong>Testing with simpler selectors</strong> — Avoids <code>shadowRoot</code>
+            traversal in Jest tests (though this is a weak reason — use proper test utilities instead).</li>
+        </ul>
+        <p>
+          <strong>Default to shadow DOM.</strong> Only opt into light DOM when you have a specific,
+          justified reason. The encapsulation loss is real and creates coupling between components.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — SLDS STYLING HOOKS
+           ============================================================ -->
+      <section id="styling-hooks">
+        <h2>10. SLDS Styling Hooks</h2>
+        <p>
+          SLDS Styling Hooks are the official, Salesforce-supported way to customize the visual
+          appearance of base <code>lightning-*</code> components across the shadow boundary. They
+          are CSS custom properties with a defined naming convention:
+        </p>
+        <ul>
+          <li><code>--slds-c-*</code> — Component-level hooks for specific components
+            (e.g., <code>--slds-c-button-brand-color-background</code>)</li>
+          <li><code>--slds-g-*</code> — Global design tokens affecting all components
+            (e.g., <code>--slds-g-color-brand-base-50</code>)</li>
+        </ul>
+        <pre><code class="language-css">/* Customizing lightning-button's brand variant */
+.my-container {
+  --slds-c-button-brand-color-background: #ff6b35;
+  --slds-c-button-brand-color-background-hover: #e85c2a;
+  --slds-c-button-brand-color-border: #ff6b35;
+  --slds-c-button-brand-color-text: #ffffff;
+}
+
+/* Global token — affects all SLDS text */
+:root {
+  --slds-g-font-family-sans: 'Inter', sans-serif;
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Never Override SLDS Classes Directly</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              You may be tempted to write rules like
+              <code>.slds-button_brand { background: red !important; }</code> in your component's
+              CSS. This is fragile for two reasons:
+            </p>
+            <ol>
+              <li>
+                Under native shadow DOM, your parent CSS cannot reach inside <code>lightning-button</code>'s
+                shadow tree at all — the rule has no effect.
+              </li>
+              <li>
+                Under synthetic shadow, it may work today but break when Salesforce migrates to native
+                shadow DOM.
+              </li>
+            </ol>
+            <p>Use <code>--slds-c-*</code> hooks — they're the stable, forward-compatible API.</p>
+          </div>
+        </div>
+
+        <p>
+          In <strong>Experience Cloud</strong>, styling hooks use a different namespace prefix
+          depending on the template. Always check the Experience Cloud theming documentation
+          because the hook names may differ from those in core Salesforce.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — REAL-WORLD BUGS
+           ============================================================ -->
+      <section id="real-world-bugs">
+        <h2>11. Real-World Bugs Caused by Shadow DOM Misunderstanding</h2>
+
+        <h3>Bug 1: querySelector Returns null</h3>
+        <pre><code class="language-javascript">// Component structure: c-parent contains c-child
+// c-parent.js — developer tries to get the input inside c-child
+
+connectedCallback() {
+  // ❌ WRONG — can't query across shadow boundaries
+  const input = this.template.querySelector('c-child input');
+  // input === null — this.template.querySelector can't pierce c-child's shadow
+
+  // ✅ CORRECT — expose an @api method on c-child
+  const child = this.template.querySelector('c-child');
+  const value = child.getValue(); // @api method
+}</code></pre>
+
+        <h3>Bug 2: CSS Not Applying to Child Component</h3>
+        <pre><code class="language-css">/* c-parent.css */
+/* ❌ This rule has NO EFFECT on &lt;p&gt; inside c-child */
+c-child p {
+  color: red;
+}
+
+/* ✅ CORRECT approach — use a CSS custom property */
+c-child {
+  --my-text-color: red;
+}
+/* Then inside c-child.css: */
+/* p { color: var(--my-text-color); } */</code></pre>
+
+        <h3>Bug 3: Event Handler Not Firing</h3>
+        <pre><code class="language-javascript">// c-child dispatches a custom event
+this.dispatchEvent(new CustomEvent('myevent', { bubbles: true }));
+// composed defaults to false — stops at shadow boundary
+
+// c-parent's template:
+// &lt;c-child onmyevent={handleMyEvent}&gt;&lt;/c-child&gt;
+// ✅ This works! Even with composed:false, the parent's template listener on the child
+// host element CAN hear events from within the child — because the listener is ON the
+// shadow host, which is the first element the event reaches when crossing the boundary.
+
+// BUT — a grandparent's template listener will NOT hear it with composed:false.
+// ✅ Fix: use composed:true or use LMS for cross-tree communication</code></pre>
+
+        <h3>Bug 4: Third-Party Library Cannot Find Elements</h3>
+        <pre><code class="language-javascript">// A charting library tries to find a canvas inside c-chart (shadow DOM component)
+import { loadScript } from 'lightning/platformResourceLoader';
+
+renderedCallback() {
+  if (this._initialized) return;
+  this._initialized = true;
+
+  loadScript(this, chartLibraryUrl).then(() => {
+    // ❌ Library internally calls document.querySelector('#chart-canvas')
+    // Returns null under native shadow DOM!
+
+    // ✅ Option 1: Pass the canvas element reference to the library
+    const canvas = this.template.querySelector('#chart-canvas');
+    new ChartLib(canvas, this.chartOptions); // library accepts the element directly
+
+    // ✅ Option 2: Use Light DOM for this component
+    // static renderMode = 'light'; — then document queries work
+  });
+}</code></pre>
+
+        <h3>Bug 5: event.target Is Not What You Expect</h3>
+        <pre><code class="language-javascript">// Parent listens for click events bubbling up from a child
+handleClick(event) {
+  // Developer writes this expecting to check which element was clicked:
+  if (event.target.classList.contains('delete-btn')) { // ❌ Never true!
+    this.deleteRecord();
+  }
+  // event.target is the c-child HOST element (e.g., &lt;c-todo-item&gt;)
+  // after retargeting. It doesn't have 'delete-btn' class.
+
+  // ✅ CORRECT — use a custom event with detail instead
+  // c-child: dispatchEvent(new CustomEvent('deleterequest', { bubbles:true, detail:{id} }))
+  // parent: handleDeleteRequest(event) { this.deleteRecord(event.detail.id); }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — PITFALLS
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>12. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Pitfall 1: Forgetting <code>:host { display: block }</code></span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Custom elements default to <code>display: inline</code>. Widths, heights, and
+            margins won't work as expected. Always add <code>:host { display: block; }</code>
+            to your component's CSS unless you specifically want inline rendering.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Pitfall 2: Using <code>document.addEventListener</code> Instead of <code>this.template</code></span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Attaching event listeners to <code>document</code> bypasses shadow DOM encapsulation,
+            creates memory leaks (unless manually removed in <code>disconnectedCallback</code>),
+            and listens to events from every component on the page — creating tight coupling.</p>
+            <pre><code class="language-javascript">// ❌ Anti-pattern
+connectedCallback() {
+  document.addEventListener('click', this.handleClick.bind(this));
+}
+// Will never auto-clean up; fires for ALL clicks on the page.
+
+// ✅ Use template event binding
+// &lt;div onclick={handleClick}&gt;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Pitfall 3: Assuming Synthetic Shadow Behavior in Tests</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Jest's JSDOM does not implement shadow DOM. LWC Jest tests use a test
+            renderer that simulates shadow boundaries. Always use
+            <code>element.shadowRoot.querySelector</code> in tests — not
+            <code>document.querySelector</code>. Code that works in Jest may still fail if
+            it relies on synthetic shadow's loose DOM patching.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Pitfall 4: Using <code>composed: true</code> as Default</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Some developers set <code>composed: true</code> on all custom events "just to be
+            safe." This breaks encapsulation and causes events to propagate to unintended listeners
+            all the way up the tree, including Salesforce platform components. Use
+            <code>composed: false</code> (the default) unless you have a specific need to cross
+            shadow boundaries.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Pitfall 5: Light DOM for Convenience, Not Necessity</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Light DOM removes encapsulation — parent components can accidentally couple to
+            your internal DOM structure. One refactor (renaming a CSS class or restructuring your
+            HTML) can break parent components that depend on reaching inside you. Use light DOM
+            only when shadow DOM's limitations genuinely block your use case.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🚫</span>
+            <span>Pitfall 6: Overriding SLDS Classes with <code>!important</code></span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>This is the most common styling hack. It works under synthetic shadow but will
+            completely break under native shadow DOM migration. It also creates upgrade risk —
+            SLDS class names can change between releases. Use <code>--slds-c-*</code> styling
+            hooks instead.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>13. Expert Insight</h2>
+
+        <div class="callout callout--p3">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span class="callout__icon">🎯</span>
+            <span>Expert Level: What Architects Must Know</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <h4>1. Synthetic Shadow Migration is Your Problem to Manage</h4>
+            <p>
+              Salesforce is actively migrating to native shadow. At expert level, you need to
+              <em>proactively audit</em> existing code for migration risk:
+            </p>
+            <ul>
+              <li>Any <code>document.querySelector</code> inside LWC components</li>
+              <li>Third-party libraries that use DOM traversal</li>
+              <li>CSS rules targeting child component internals without CSS variables</li>
+              <li>Tests that rely on document-level queries</li>
+            </ul>
+            <p>
+              Run the <strong>LWC Shadow DOM Linter</strong> (available via Salesforce CLI) to
+              identify violation patterns before migration hits your org.
+            </p>
+
+            <h4>2. The "Is It Shadow or Light DOM?" Decision Framework</h4>
+            <p>Ask these questions in order:</p>
+            <ol>
+              <li>Does a third-party JS library need to traverse into this component's DOM? → Light DOM</li>
+              <li>Does a parent component need full CSS control over this component's internals? → Light DOM</li>
+              <li>Does this component use scoped slots? → Light DOM (required)</li>
+              <li>Otherwise → Shadow DOM (always default)</li>
+            </ol>
+
+            <h4>3. Event Architecture Design</h4>
+            <p>
+              At architect level, you define the event contract for an entire component system.
+              The decision tree:
+            </p>
+            <ul>
+              <li><strong>Direct parent-child</strong> → CustomEvent with <code>bubbles: true, composed: false</code></li>
+              <li><strong>Sibling / cross-DOM</strong> → Lightning Message Service</li>
+              <li><strong>Server-pushed updates</strong> → Platform Events + <code>lightning/empApi</code></li>
+              <li><strong>LWC ↔ Aura</strong> → LMS (the only cross-technology bridge)</li>
+              <li><strong>Never use</strong> → <code>document.addEventListener</code>, global pubsub module in new code</li>
+            </ul>
+
+            <h4>4. CSS Architecture for Multi-Org or Package Development</h4>
+            <p>
+              If you're building components for an AppExchange managed package, your components
+              will run in customer orgs with arbitrary global CSS. Design every component's CSS
+              using <code>:host</code> for layout and CSS custom properties for theming.
+              Assume nothing about the global cascade. Document which <code>--slds-c-*</code>
+              hooks you expose — that's your component's CSS public API.
+            </p>
+
+            <h4>5. The <code>mode: 'closed'</code> Gotcha</h4>
+            <p>
+              Under native shadow DOM in closed mode, even your own component's JavaScript
+              cannot access <code>this.shadowRoot</code> from outside the attach-time scope.
+              LWC's framework manages this internally (it keeps a reference to the shadow root),
+              which is why <code>this.template</code> works — the framework has the reference.
+              But third-party code that tries to reach into your component will always get
+              <code>null</code> from <code>element.shadowRoot</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 14 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>14. Quick Recall Card</h2>
+        <div class="recall-card">
+          <h3>Shadow DOM vs Light DOM — Cheat Sheet</h3>
+          <div class="recall-grid">
+            <div class="recall-item">
+              <strong>Shadow Boundary</strong>
+              <span>CSS and DOM queries cannot cross it by default</span>
+            </div>
+            <div class="recall-item">
+              <strong>Shadow DOM (default)</strong>
+              <span>Encapsulated styles, DOM, and events</span>
+            </div>
+            <div class="recall-item">
+              <strong>Light DOM</strong>
+              <span><code>static renderMode = 'light'</code> — no encapsulation, enables scoped slots</span>
+            </div>
+            <div class="recall-item">
+              <strong>querySelector</strong>
+              <span>Use <code>this.template.querySelector</code> in shadow DOM; <code>this.querySelector</code> in light DOM</span>
+            </div>
+            <div class="recall-item">
+              <strong>Event retargeting</strong>
+              <span><code>event.target</code> changes to shadow host when events cross shadow boundary</span>
+            </div>
+            <div class="recall-item">
+              <strong>composed: false (default)</strong>
+              <span>Event stops at shadow boundary — preferred for CustomEvent</span>
+            </div>
+            <div class="recall-item">
+              <strong>composed: true</strong>
+              <span>Event crosses shadow boundaries — use sparingly, prefer LMS</span>
+            </div>
+            <div class="recall-item">
+              <strong>:host</strong>
+              <span>Style the component's outer element from inside the shadow tree</span>
+            </div>
+            <div class="recall-item">
+              <strong>::slotted()</strong>
+              <span>Style direct slotted children from inside the shadow tree — no deep descendant access</span>
+            </div>
+            <div class="recall-item">
+              <strong>CSS custom properties</strong>
+              <span>The only CSS mechanism that crosses shadow boundaries — foundation of SLDS styling hooks</span>
+            </div>
+            <div class="recall-item">
+              <strong>Synthetic shadow</strong>
+              <span>JS polyfill used by Salesforce historically; adds scoping attributes</span>
+            </div>
+            <div class="recall-item">
+              <strong>Native shadow (Spring '24+)</strong>
+              <span>Real browser shadow DOM; stricter DOM isolation</span>
+            </div>
+            <div class="recall-item">
+              <strong>SLDS Styling Hooks</strong>
+              <span><code>--slds-c-*</code> (component) and <code>--slds-g-*</code> (global) CSS variables</span>
+            </div>
+            <div class="recall-item">
+              <strong>display: block on :host</strong>
+              <span>Always add — custom elements default to <code>inline</code></span>
+            </div>
+          </div>
+
+          <h4 style="margin-top: 1.5rem;">Key Rules to Memorize</h4>
+          <ul>
+            <li>Parent CSS <strong>cannot style a child component's internals</strong> (use CSS custom properties)</li>
+            <li>Parent JS <strong>cannot query a child's shadow DOM</strong> (use <code>@api</code> methods)</li>
+            <li>Events with <code>composed: false</code> stop at shadow boundary — but template listeners on the child host <strong>do</strong> fire</li>
+            <li>Light DOM removes all protections — use only when necessary</li>
+            <li><code>::slotted()</code> targets only direct slotted children, not descendants</li>
+            <li>Never override SLDS classes directly — use <code>--slds-c-*</code> hooks</li>
+          </ul>
+
+          <h4 style="margin-top: 1.5rem;">References</h4>
+          <ul>
+            <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-dom.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Shadow DOM in LWC</a></li>
+            <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-light-dom.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Light DOM</a></li>
+            <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-dom-synthetic.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Synthetic Shadow DOM</a></li>
+            <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/events-propagation.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Event Propagation</a></li>
+            <li><a href="https://developer.salesforce.com/blogs/2024/01/get-your-lwc-components-ready-native-shadow-dom" target="_blank" rel="noopener noreferrer">Salesforce Blog: Native Shadow DOM Migration (Spring '24)</a></li>
+            <li><a href="https://lwc.dev/guide/light_dom" target="_blank" rel="noopener noreferrer">LWC.dev: Light DOM Guide</a></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="06-template-directives.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">06. HTML Template Directives</span>
+        </a>
+        <a href="08-component-communication.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">08. Component Communication</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      const articleId = btn ? btn.getAttribute('data-article-id') : null;
+      if (!btn || !articleId) return;
+
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function syncButton(readSet) {
+        const isRead = readSet.has(articleId);
+        btn.textContent    = isRead ? '✓ Read' : 'Mark as Read';
+        btn.setAttribute('aria-pressed', isRead);
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      syncButton(getReadSet());
+
+      btn.addEventListener('click', () => {
+        const set = getReadSet();
+        if (set.has(articleId)) { set.delete(articleId); } else { set.add(articleId); }
+        saveReadSet(set);
+        syncButton(set);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = Array.from(document.querySelectorAll('.toc-list a'));
+      const headings = Array.from(document.querySelectorAll(
+        '.article-main h2[id], .article-main h3[id]'
+      ));
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 100;
+        let active    = headings[0];
+        for (const h of headings) {
+          if (h.offsetTop <= scrollY) active = h;
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

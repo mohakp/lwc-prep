@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>14. Performance Optimization — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC performance: browser rendering pipeline, JavaScript event loop, LWC reactive engine, infinite re-render traps, lazy loading with IntersectionObserver, key-based list diffing, debouncing, layout thrashing, and profiling with Lightning Inspector.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/14-performance.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Performance Matters</a></li>
+          <li><a href="#rendering-pipeline">2. Browser Rendering Pipeline</a></li>
+          <li class="level-3"><a href="#pipeline-phases">Parse → Style → Layout → Paint → Composite</a></li>
+          <li class="level-3"><a href="#event-loop">JavaScript Event Loop</a></li>
+          <li class="level-3"><a href="#raf">requestAnimationFrame</a></li>
+          <li><a href="#lwc-engine">3. LWC Reactive Engine</a></li>
+          <li class="level-3"><a href="#when-rerenders">When Re-Renders Happen</a></li>
+          <li class="level-3"><a href="#proxy-reactivity">Proxy-Based Reactivity Internals</a></li>
+          <li class="level-3"><a href="#infinite-loop">The Infinite Re-Render Trap</a></li>
+          <li><a href="#reactive-props">4. Reactive Property Best Practices</a></li>
+          <li class="level-3"><a href="#getter-performance">Getter Performance &amp; Memoization</a></li>
+          <li class="level-3"><a href="#derived-state">Derived State vs Stored State</a></li>
+          <li><a href="#wire-caching">5. @wire Caching &amp; LDS</a></li>
+          <li class="level-3"><a href="#lds-cache">LDS Client-Side Cache Behaviour</a></li>
+          <li class="level-3"><a href="#cache-ttl">Cache TTL &amp; Invalidation</a></li>
+          <li><a href="#lazy-loading">6. Lazy Loading Strategies</a></li>
+          <li class="level-3"><a href="#conditional-vs-dynamic">Conditional Rendering vs Dynamic Import</a></li>
+          <li class="level-3"><a href="#intersection-observer">IntersectionObserver Pattern</a></li>
+          <li class="level-3"><a href="#code-splitting">Code Splitting with Dynamic Imports</a></li>
+          <li><a href="#list-perf">7. List Performance &amp; the key Directive</a></li>
+          <li class="level-3"><a href="#reconciliation">Key Reconciliation Algorithm</a></li>
+          <li class="level-3"><a href="#datatable">lightning-datatable Virtual Scrolling</a></li>
+          <li class="level-3"><a href="#pagination">Server-Side vs Client-Side Pagination</a></li>
+          <li><a href="#dom-patterns">8. DOM Read/Write Patterns</a></li>
+          <li class="level-3"><a href="#layout-thrashing">Avoiding Layout Thrashing</a></li>
+          <li class="level-3"><a href="#debouncing">Debouncing User Input</a></li>
+          <li><a href="#static-resources">9. Static Resource Versioning &amp; Caching</a></li>
+          <li><a href="#profiling">10. Profiling Workflow</a></li>
+          <li class="level-3"><a href="#chrome-devtools">Chrome DevTools</a></li>
+          <li class="level-3"><a href="#lightning-inspector">Salesforce Lightning Inspector</a></li>
+          <li><a href="#pitfalls">11. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">12. Expert Insight</a></li>
+          <li><a href="#recall">13. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 14</div>
+        <h1>Performance Optimization</h1>
+        <div class="article-meta">
+          <span>⏱ 30 min read</span>
+          <span class="tags">
+            <span class="tag">#performance</span>
+            <span class="tag">#rendering</span>
+            <span class="tag">#optimization</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="14"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Performance Matters</h2>
+        <p>
+          A slow component is not just an inconvenience — it is a broken user experience.
+          On Salesforce's Lightning platform, every millisecond counts. Sales reps working a
+          pipeline need instant responses. Service agents handling hundreds of cases per day
+          can't afford 3-second spinner waits every time a page loads.
+        </p>
+        <p>
+          More importantly, performance bugs in LWC often have <strong>non-obvious causes</strong>.
+          Infinite re-render loops, layout thrashing, un-memoized getters, and missing
+          <code>key</code> directives can each silently degrade frame rates without throwing a
+          single error. The developers who debug these issues fastest are the ones who understand
+          what the browser is doing <em>underneath</em> LWC.
+        </p>
+        <p>
+          This article builds that mental model — from the browser's rendering pipeline and
+          JavaScript event loop, up through LWC's reactive engine, and out to concrete patterns
+          for lazy loading, list optimization, and profiling.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — BROWSER RENDERING PIPELINE
+           ============================================================ -->
+      <section id="rendering-pipeline">
+        <h2>2. Browser Rendering Pipeline</h2>
+
+        <h3 id="pipeline-phases">Parse → Style → Layout → Paint → Composite</h3>
+        <p>
+          Before a pixel appears on screen, the browser executes a multi-stage pipeline. Every
+          LWC render ultimately feeds into this pipeline, so understanding it is prerequisite
+          to diagnosing performance problems.
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>What happens</th>
+                <th>LWC connection</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Parse</strong></td>
+                <td>HTML parsed into DOM tree; CSS parsed into CSSOM tree</td>
+                <td>LWC template compilation produces a render function that emits DOM operations</td>
+              </tr>
+              <tr>
+                <td><strong>Style</strong></td>
+                <td>DOM + CSSOM merged into the Render Tree; computed styles resolved per element</td>
+                <td>LWC scoped CSS applies per-component attribute selectors at this stage</td>
+              </tr>
+              <tr>
+                <td><strong>Layout</strong></td>
+                <td>Geometry calculated: positions and dimensions of every element (also called "reflow")</td>
+                <td>Any DOM read that forces geometry (e.g., <code>getBoundingClientRect</code>) triggers a synchronous layout flush</td>
+              </tr>
+              <tr>
+                <td><strong>Paint</strong></td>
+                <td>Pixels drawn into layers: background, text, borders, shadows</td>
+                <td>Expensive CSS properties (box-shadow, filter, opacity) are painted</td>
+              </tr>
+              <tr>
+                <td><strong>Composite</strong></td>
+                <td>Layers composited by the GPU onto the screen</td>
+                <td>GPU-accelerated properties (transform, opacity) skip Layout and Paint — keep animations here</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The critical insight is the <strong>cost hierarchy</strong>: Layout &gt; Paint &gt; Composite.
+          Anything that causes a Layout invalidation is the most expensive. Mutations that
+          only trigger Composite (CSS <code>transform</code>, <code>opacity</code>) are cheapest.
+        </p>
+
+        <h3 id="event-loop">JavaScript Event Loop</h3>
+        <p>
+          JavaScript is single-threaded, yet it handles asynchronous work via the event loop.
+          Understanding its queue model is essential for timing DOM reads and writes correctly.
+        </p>
+        <pre><code class="language-javascript">// Mental model of one event loop iteration ("tick")
+//
+// 1. Execute one task from the macrotask queue
+//    (setTimeout, setInterval, I/O callbacks, user events)
+//
+// 2. Drain the entire microtask queue
+//    (Promise.then, queueMicrotask, MutationObserver callbacks)
+//
+// 3. If time remains before next frame, run idle callbacks
+//    (requestIdleCallback)
+//
+// 4. If a frame is due, run animation callbacks
+//    (requestAnimationFrame) → then run Layout → Paint → Composite
+
+// Practical implications:
+setTimeout(() => console.log('macrotask'), 0);
+Promise.resolve().then(() => console.log('microtask'));
+// Output: microtask → macrotask
+// (microtasks always drain before the next macrotask)</code></pre>
+        <p>
+          Why does this matter for LWC? LWC's rendering is <strong>batched and asynchronous</strong>.
+          When you mutate a reactive property, LWC does not immediately synchronously re-render.
+          Instead it schedules a micro-task to batch all pending reactive mutations and perform
+          a single combined re-render. This is why <code>Promise.resolve()</code> is the standard
+          "flush pending renders" pattern in Jest tests.
+        </p>
+
+        <h3 id="raf">requestAnimationFrame</h3>
+        <p>
+          <code>requestAnimationFrame</code> (rAF) runs your callback immediately before the
+          browser performs Layout and Paint for the next frame — typically at 60fps (every 16.67ms).
+          It is the correct place for:
+        </p>
+        <ul>
+          <li>Imperatively reading DOM geometry after a render (measure phase)</li>
+          <li>Applying DOM mutations you want painted atomically in one frame</li>
+          <li>Implementing smooth animations via incremental position updates</li>
+        </ul>
+        <pre><code class="language-javascript">// Correct: measure in rAF (post-layout), then mutate
+connectedCallback() {
+  requestAnimationFrame(() => {
+    const height = this.template.querySelector('.container').getBoundingClientRect().height;
+    // Now mutate based on measured height
+    this.containerHeight = height;
+  });
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall — Don't use rAF as a lazy substitute for renderedCallback
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>requestAnimationFrame</code> fires before the browser paints, but after LWC has
+              produced its DOM output. Do not use rAF as a general "wait for LWC to render" hack.
+              For post-render logic, <code>renderedCallback()</code> is the correct hook. Reserve
+              rAF for animation loops and geometry measurements.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — LWC REACTIVE ENGINE
+           ============================================================ -->
+      <section id="lwc-engine">
+        <h2>3. LWC Reactive Engine</h2>
+
+        <h3 id="when-rerenders">When Re-Renders Happen</h3>
+        <p>
+          LWC schedules a re-render whenever a <strong>reactive property changes</strong>. A property
+          is reactive if it is:
+        </p>
+        <ul>
+          <li>Decorated with <code>@api</code> (set from parent)</li>
+          <li>Decorated with <code>@track</code> (explicit deep tracking)</li>
+          <li>A <strong>plain class field</strong> (primitive or object/array) — LWC wraps the component
+            instance in a Proxy that intercepts writes to any field referenced in the template</li>
+          <li>Updated via a <code>@wire</code> result</li>
+        </ul>
+        <p>
+          The key word is <strong>referenced in the template</strong>. If a property is mutated but
+          never read in the template (directly or via a getter), LWC will not re-render.
+        </p>
+        <pre><code class="language-javascript">// js
+export default class Counter extends LightningElement {
+  count = 0;          // Reactive — referenced in template
+  _internalLog = [];  // NOT reactive — only used in JS logic, never in template
+
+  increment() {
+    this.count++;         // → triggers re-render
+    this._internalLog.push(this.count); // → no re-render
+  }
+}</code></pre>
+
+        <h3 id="proxy-reactivity">Proxy-Based Reactivity Internals</h3>
+        <p>
+          LWC wraps each component instance in an ES6 <code>Proxy</code>. When the compiled
+          template's render function reads <code>this.count</code>, the Proxy records a
+          <em>dependency</em>. When the property is later written, the Proxy notifies LWC's
+          scheduler, which enqueues a re-render task.
+        </p>
+        <p>
+          For <strong>plain objects and arrays</strong> (without <code>@track</code>), LWC only
+          tracks the top-level property assignment. Mutating a nested property does <em>not</em>
+          trigger re-render unless you re-assign the top-level reference:
+        </p>
+        <pre><code class="language-javascript">// js
+export default class Example extends LightningElement {
+  record = { name: 'Acme', employees: 50 };
+
+  updateEmployees() {
+    // ❌ Does NOT trigger re-render
+    this.record.employees = 100;
+
+    // ✅ Does trigger re-render (reassigning top-level reference)
+    this.record = { ...this.record, employees: 100 };
+  }
+}
+
+// --- OR use @track for deep reactivity ---
+import { track } from 'lwc';
+export default class Example extends LightningElement {
+  @track record = { name: 'Acme', employees: 50 };
+
+  updateEmployees() {
+    // ✅ @track makes nested mutations reactive
+    this.record.employees = 100;
+  }
+}</code></pre>
+
+        <h3 id="infinite-loop">The Infinite Re-Render Trap</h3>
+        <p>
+          The most dangerous performance bug in LWC is the <strong>infinite re-render loop</strong>.
+          It occurs when a re-render triggers another reactive mutation, which triggers another
+          re-render — ad infinitum. LWC detects this after a threshold and throws:
+        </p>
+        <pre><code class="language-text">Error: [LWC error]: Maximum call stack size exceeded</code></pre>
+        <p>The most common cause is mutating state inside <code>renderedCallback()</code>:</p>
+        <pre><code class="language-javascript">// ❌ INFINITE LOOP — don't do this
+export default class BadComponent extends LightningElement {
+  items = [];
+
+  renderedCallback() {
+    // This runs AFTER every render.
+    // Mutating this.items triggers ANOTHER render.
+    // Which calls renderedCallback() again → infinite loop.
+    this.items = [...this.items, 'new item'];
+  }
+}
+
+// ✅ CORRECT — guard with a flag
+export default class GoodComponent extends LightningElement {
+  items = [];
+  _initialized = false;
+
+  renderedCallback() {
+    if (this._initialized) return; // exit after first run
+    this._initialized = true;
+    this.items = ['initial item']; // safe — only runs once
+  }
+}</code></pre>
+        <p>Other sources of infinite loops:</p>
+        <ul>
+          <li>A getter that returns a <strong>new object/array on every call</strong>
+            (e.g., <code>get data() { return [...this._raw]; }</code>) — LWC compares by
+            reference, so each call returns a "new" value and re-renders.</li>
+          <li>Updating a reactive property inside a <code>@wire</code> reactive getter, which then
+            changes the wire parameter, which fires the wire again.</li>
+          <li>Calling <code>dispatchEvent</code> in <code>renderedCallback</code> that triggers a
+            parent handler which sets a child <code>@api</code> property.</li>
+        </ul>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            💡 Expert Insight — Diagnosing an Infinite Loop
+          </div>
+          <div class="callout__body">
+            <p>
+              Open Chrome DevTools, go to the Performance tab, and record while the component
+              loads. Look for a <strong>flame chart that never stops</strong> — you will see
+              the same LWC render function called repeatedly without pause. The call stack in
+              the error message will point to which getter or callback is responsible.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — REACTIVE PROPERTY BEST PRACTICES
+           ============================================================ -->
+      <section id="reactive-props">
+        <h2>4. Reactive Property Best Practices</h2>
+
+        <h3 id="getter-performance">Getter Performance &amp; Memoization</h3>
+        <p>
+          In LWC, getters used in templates are re-evaluated <strong>on every render</strong>.
+          If your getter performs expensive work (sorting, filtering, complex calculations), it
+          will run repeatedly. The fix is memoization — caching the computed value and only
+          recomputing when the source data changes.
+        </p>
+        <pre><code class="language-javascript">// ❌ Expensive getter re-runs on every render
+get sortedContacts() {
+  return this.contacts.slice().sort((a, b) => a.Name.localeCompare(b.Name));
+}
+
+// ✅ Memoized getter — only recomputes when contacts changes
+_sortedContacts = null;
+_lastContacts = null;
+
+get sortedContacts() {
+  if (this.contacts !== this._lastContacts) {
+    this._lastContacts = this.contacts;
+    this._sortedContacts = this.contacts.slice().sort(
+      (a, b) => a.Name.localeCompare(b.Name)
+    );
+  }
+  return this._sortedContacts;
+}</code></pre>
+        <p>
+          Note: Use <code>!==</code> for the reference check — this works correctly for arrays
+          and objects because LWC triggers re-renders by reassigning references, not mutating them.
+        </p>
+
+        <h3 id="derived-state">Derived State vs Stored State</h3>
+        <p>
+          Derived state is computed from other state. A common mistake is storing the same
+          information twice — once as raw state and once as a derived computed value — and
+          then struggling to keep them in sync.
+        </p>
+        <pre><code class="language-javascript">// ❌ Anti-pattern: redundant stored state
+export default class ContactList extends LightningElement {
+  contacts = [];
+  filteredContacts = []; // Trying to keep this in sync manually
+
+  handleSearch(event) {
+    const term = event.target.value;
+    this.filteredContacts = this.contacts.filter(c =>
+      c.Name.toLowerCase().includes(term.toLowerCase())
+    );
+  }
+
+  // When contacts change from @wire, filteredContacts goes stale ↑
+}
+
+// ✅ Pattern: computed getter (with memoization if needed)
+export default class ContactList extends LightningElement {
+  contacts = [];
+  searchTerm = '';
+
+  get filteredContacts() {
+    if (!this.searchTerm) return this.contacts;
+    const term = this.searchTerm.toLowerCase();
+    return this.contacts.filter(c => c.Name.toLowerCase().includes(term));
+  }
+
+  handleSearch(event) {
+    this.searchTerm = event.target.value; // only one reactive property to manage
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — @WIRE CACHING
+           ============================================================ -->
+      <section id="wire-caching">
+        <h2>5. @wire Caching &amp; LDS</h2>
+
+        <h3 id="lds-cache">LDS Client-Side Cache Behaviour</h3>
+        <p>
+          The <strong>Lightning Data Service (LDS)</strong> maintains a client-side cache
+          shared across all components on the page. When two different LWC components wire
+          to the same record, LDS fetches it <strong>once</strong> and serves both from the
+          cache. This is one of LWC's most significant network performance advantages over
+          direct Apex imperative calls.
+        </p>
+        <pre><code class="language-javascript">// Component A — wires to Account record 001xx
+@wire(getRecord, { recordId: '001xx...', fields: [NAME_FIELD] })
+account;
+
+// Component B — wires to the same Account record 001xx
+// LDS serves from cache — no additional server call
+@wire(getRecord, { recordId: '001xx...', fields: [NAME_FIELD, PHONE_FIELD] })
+account;
+
+// LDS merges field sets: both components share a single cached response
+// that contains both NAME_FIELD and PHONE_FIELD</code></pre>
+        <p>
+          LDS also <strong>pushes updates</strong>. When you <code>updateRecord</code> via
+          <code>lightning/uiRecordApi</code>, LDS automatically invalidates the cache entry
+          and notifies all subscribed wire adapters — they re-render without any manual refresh.
+        </p>
+
+        <h3 id="cache-ttl">Cache TTL &amp; Invalidation</h3>
+        <p>
+          LDS cache entries have a <strong>Time-To-Live (TTL)</strong> that varies by object
+          type. For standard objects it is typically around 30 seconds for read-only data.
+          After TTL expiry, the next access triggers a fresh server request.
+        </p>
+        <p>
+          When you perform DML via <strong>imperative Apex</strong> (not LDS), the cache
+          is <em>not</em> automatically invalidated. You must call
+          <code>notifyRecordUpdateAvailable()</code> with the affected record IDs:
+        </p>
+        <pre><code class="language-javascript">import { notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+
+async saveWithApex() {
+  try {
+    const recordId = await saveContactApex({ contact: this.contact });
+    // Tell LDS this record has changed so all wired components refresh
+    notifyRecordUpdateAvailable([{ recordId }]);
+  } catch (error) {
+    this.error = error;
+  }
+}</code></pre>
+        <p>
+          For <code>@wire(apexMethod, ...)</code> with <code>cacheable=true</code>, use
+          <code>refreshApex(this.wiredResult)</code> to force a re-fetch:
+        </p>
+        <pre><code class="language-javascript">import { refreshApex } from '@salesforce/apex';
+
+@wire(getContactsApex, { accountId: '$accountId' })
+wiredContacts; // The whole wire result object (not wiredContacts.data)
+
+async handleSave() {
+  await saveApex({ ... });
+  await refreshApex(this.wiredContacts); // Pass the wire result, not .data
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Common Mistake — refreshApex argument
+          </div>
+          <div class="callout__body">
+            <p>
+              A very common bug is passing <code>this.wiredContacts.data</code> to
+              <code>refreshApex()</code>. This does nothing — the function expects the
+              <strong>entire wire result object</strong> (<code>this.wiredContacts</code>), not
+              its <code>.data</code> property.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — LAZY LOADING
+           ============================================================ -->
+      <section id="lazy-loading">
+        <h2>6. Lazy Loading Strategies</h2>
+
+        <h3 id="conditional-vs-dynamic">Conditional Rendering vs Dynamic Import</h3>
+        <p>
+          There are two primary strategies for deferring component work. They serve different
+          goals:
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Technique</th>
+                <th>Eliminates</th>
+                <th>When to use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>lwc:if</code> conditional rendering</td>
+                <td>Component <em>execution</em> (constructor, connectedCallback, wire calls)</td>
+                <td>Tabs, modals, collapsible sections — content not always needed</td>
+              </tr>
+              <tr>
+                <td>Dynamic <code>import()</code></td>
+                <td>Component <em>download</em> (JavaScript bundle not fetched until needed)</td>
+                <td>Heavy charting/PDF libraries, rarely-used panels, above-fold vs below-fold</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>lwc:if</code> hides component execution but the component's JavaScript module
+          is still downloaded as part of the initial page bundle. Dynamic <code>import()</code>
+          truly defers the network fetch.
+        </p>
+        <pre><code class="language-javascript">// Conditional rendering — no download savings
+// component JS is bundled at build time
+get showChart() { return this.activeTab === 'chart'; }
+
+// Dynamic import — actual code splitting
+async loadChart() {
+  const { default: ChartComponent } = await import('c/heavyChart');
+  this.chartCtor = ChartComponent;
+}</code></pre>
+
+        <h3 id="intersection-observer">IntersectionObserver Pattern</h3>
+        <p>
+          <code>IntersectionObserver</code> lets you fire a callback when an element enters
+          or exits the browser viewport. This is the correct mechanism for "load when visible"
+          lazy loading — for example, deferring a chart or map until the user scrolls to it.
+        </p>
+        <pre><code class="language-javascript">// js
+import { LightningElement, track } from 'lwc';
+
+export default class LazyChart extends LightningElement {
+  @track chartCtor = null;
+  _observer = null;
+
+  connectedCallback() {
+    // Start observing the component's root element
+    this._observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          this._loadChart();
+          this._observer.disconnect(); // only load once
+        }
+      },
+      { threshold: 0.1 } // fire when 10% of element is visible
+    );
+    // Observe after the component is in the DOM
+    // Use setTimeout to ensure the element is rendered
+    setTimeout(() => {
+      const el = this.template.querySelector('.chart-placeholder');
+      if (el) this._observer.observe(el);
+    }, 0);
+  }
+
+  async _loadChart() {
+    const { default: ChartComponent } = await import('c/salesChart');
+    this.chartCtor = ChartComponent;
+  }
+
+  disconnectedCallback() {
+    if (this._observer) {
+      this._observer.disconnect();
+      this._observer = null;
+    }
+  }
+}
+</code></pre>
+        <pre><code class="language-html">&lt;!-- template --&gt;
+&lt;template&gt;
+  &lt;div class="chart-placeholder"&gt;
+    &lt;template lwc:if={chartCtor}&gt;
+      &lt;lwc:component lwc:is={chartCtor}&gt;&lt;/lwc:component&gt;
+    &lt;/template&gt;
+    &lt;template lwc:else&gt;
+      &lt;div class="skeleton"&gt;Loading chart...&lt;/div&gt;
+    &lt;/template&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3 id="code-splitting">Code Splitting with Dynamic Imports</h3>
+        <p>
+          Salesforce's bundler (used during SFDX deploy) can code-split components referenced
+          via dynamic <code>import()</code>. However, there is a constraint:
+          <strong>imports must be statically analyzable</strong> — the import path must be a
+          string literal, not a dynamic expression:
+        </p>
+        <pre><code class="language-javascript">// ✅ Statically analyzable — bundler can split this
+const mod = await import('c/myHeavyComponent');
+
+// ❌ Dynamic expression — bundler cannot analyze, will throw at build time
+const name = 'myHeavy';
+const mod = await import(`c/${name}Component`); // NOT allowed</code></pre>
+        <p>
+          This constraint exists because the Salesforce bundler needs to know which modules
+          to include in which chunk at compile time, not at runtime.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — LIST PERFORMANCE
+           ============================================================ -->
+      <section id="list-perf">
+        <h2>7. List Performance &amp; the key Directive</h2>
+
+        <h3 id="reconciliation">Key Reconciliation Algorithm</h3>
+        <p>
+          When LWC re-renders a <code>for:each</code> list, it needs to efficiently determine
+          which DOM nodes can be reused and which must be created or destroyed. The
+          <code>key</code> directive is its hint. Without stable keys, LWC must destroy and
+          recreate every element in the list on each render — a massive waste.
+        </p>
+        <pre><code class="language-html">&lt;!-- ❌ Using index as key — breaks when list order changes --&gt;
+&lt;template for:each={contacts} for:item="contact" for:index="idx"&gt;
+  &lt;c-contact-row key={idx} contact={contact}&gt;&lt;/c-contact-row&gt;
+&lt;/template&gt;
+
+&lt;!-- ✅ Using stable record ID --&gt;
+&lt;template for:each={contacts} for:item="contact"&gt;
+  &lt;c-contact-row key={contact.Id} contact={contact}&gt;&lt;/c-contact-row&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          With <code>key={contact.Id}</code>, when you add a new contact at the top of the list,
+          LWC reuses all existing DOM nodes and only creates one new one. With
+          <code>key={idx}</code>, adding at the top shifts all indexes, causing LWC to believe
+          every element changed — destroying and recreating all of them.
+        </p>
+        <p>
+          The reconciler's logic, simplified:
+        </p>
+        <ol>
+          <li>Compare old key list vs new key list</li>
+          <li>Keys that appear in both → patch the existing DOM node in-place (fastest)</li>
+          <li>Keys only in new list → create new DOM nodes</li>
+          <li>Keys only in old list → remove DOM nodes</li>
+        </ol>
+
+        <h3 id="datatable">lightning-datatable Virtual Scrolling</h3>
+        <p>
+          <code>lightning-datatable</code> implements <strong>virtual scrolling</strong> (also
+          called windowed rendering). Instead of rendering all rows in the DOM, it only renders
+          the rows visible in the viewport, plus a small buffer. As the user scrolls, offscreen
+          rows are removed and new ones are inserted.
+        </p>
+        <p>
+          This means rendering 10,000 rows costs nearly the same as rendering 50 rows in
+          terms of initial DOM creation. Use <code>lightning-datatable</code> for large datasets
+          rather than a custom <code>for:each</code> list.
+        </p>
+        <pre><code class="language-html">&lt;template&gt;
+  &lt;lightning-datatable
+    key-field="Id"
+    data={contacts}
+    columns={columns}
+    enable-infinite-loading
+    onloadmore={handleLoadMore}
+    is-loading={isLoading}&gt;
+  &lt;/lightning-datatable&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          The <code>enable-infinite-loading</code> attribute, combined with the
+          <code>onloadmore</code> event handler, lets you implement server-side pagination
+          that loads the next page when the user scrolls to the bottom — combining virtual
+          scrolling with server-side data fetching for optimal performance.
+        </p>
+
+        <h3 id="pagination">Server-Side vs Client-Side Pagination</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Approach</th>
+                <th>SOQL Pattern</th>
+                <th>Best For</th>
+                <th>Tradeoff</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Client-side</strong></td>
+                <td>Fetch all records; slice in JS</td>
+                <td>Small datasets (&lt;200 records)</td>
+                <td>Large initial payload; client memory usage</td>
+              </tr>
+              <tr>
+                <td><strong>Server-side OFFSET</strong></td>
+                <td><code>LIMIT 50 OFFSET 100</code></td>
+                <td>Simple paging with known total count</td>
+                <td>OFFSET degrades at high values (SOQL scans all preceding rows)</td>
+              </tr>
+              <tr>
+                <td><strong>Server-side cursor (keyset)</strong></td>
+                <td><code>WHERE Id &gt; :lastId LIMIT 50</code></td>
+                <td>Large datasets, infinite scroll</td>
+                <td>Cannot jump to arbitrary page; requires stable sort key</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code class="language-apex">// Apex — keyset pagination (recommended for large datasets)
+@AuraEnabled
+public static List&lt;Contact&gt; getContacts(String lastId, Integer pageSize) {
+    if (lastId == null) {
+        return [SELECT Id, Name, Email FROM Contact
+                ORDER BY Id LIMIT :pageSize];
+    }
+    return [SELECT Id, Name, Email FROM Contact
+            WHERE Id &gt; :lastId
+            ORDER BY Id LIMIT :pageSize];
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — DOM READ/WRITE PATTERNS
+           ============================================================ -->
+      <section id="dom-patterns">
+        <h2>8. DOM Read/Write Patterns</h2>
+
+        <h3 id="layout-thrashing">Avoiding Layout Thrashing</h3>
+        <p>
+          <strong>Layout thrashing</strong> (also called "forced synchronous layout") occurs
+          when JavaScript alternates between reading and writing DOM geometry in a tight loop.
+          Each read forces the browser to finish all pending writes before it can answer the
+          geometry query — triggering a synchronous layout flush per iteration.
+        </p>
+        <pre><code class="language-javascript">// ❌ Layout thrashing — 100 synchronous layout flushes
+const items = this.template.querySelectorAll('.item');
+items.forEach(item => {
+  const height = item.getBoundingClientRect().height; // READ → forces layout
+  item.style.marginBottom = height * 0.1 + 'px';     // WRITE → invalidates layout
+  // Next iteration READ forces another layout flush ↑
+});
+
+// ✅ Batch reads first, then writes
+const items = this.template.querySelectorAll('.item');
+// Phase 1: READ all geometry (one layout flush total)
+const heights = Array.from(items).map(item => item.getBoundingClientRect().height);
+// Phase 2: WRITE all mutations (no layout flush during writes)
+items.forEach((item, i) => {
+  item.style.marginBottom = heights[i] * 0.1 + 'px';
+});</code></pre>
+
+        <h3 id="debouncing">Debouncing User Input</h3>
+        <p>
+          Search boxes, filter inputs, and resize handlers fire events on every keystroke or
+          pixel change. Processing each event immediately (e.g., querying an API per keystroke)
+          creates unnecessary load. <strong>Debouncing</strong> delays execution until the
+          user stops typing.
+        </p>
+        <pre><code class="language-javascript">// js
+export default class SearchComponent extends LightningElement {
+  _debounceTimer = null;
+
+  handleSearchInput(event) {
+    const value = event.target.value;
+
+    clearTimeout(this._debounceTimer);
+    this._debounceTimer = setTimeout(() => {
+      this.performSearch(value);
+    }, 300); // wait 300ms after last keystroke
+  }
+
+  async performSearch(term) {
+    if (!term || term.length < 2) return;
+    try {
+      const results = await searchContacts({ searchTerm: term });
+      this.contacts = results;
+    } catch (error) {
+      this.error = error;
+    }
+  }
+
+  disconnectedCallback() {
+    // Clean up any pending timer when component is removed
+    clearTimeout(this._debounceTimer);
+  }
+}</code></pre>
+        <p>
+          The 300ms delay is a common UX convention — short enough to feel responsive, long
+          enough to avoid firing for every individual character. Adjust based on the cost
+          of the operation (local filter: 150ms; API call: 300-500ms).
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            💡 Throttle vs Debounce
+          </div>
+          <div class="callout__body">
+            <p>
+              <strong>Debounce</strong> — only fires <em>after</em> the user stops. Best for search inputs
+              where you only care about the final value.<br><br>
+              <strong>Throttle</strong> — fires at most once per interval regardless of event frequency.
+              Best for scroll handlers and resize events where you want periodic updates but not overwhelming ones.
+            </p>
+            <pre><code class="language-javascript">// Simple throttle implementation
+throttle(fn, limit) {
+  let lastCall = 0;
+  return function(...args) {
+    const now = Date.now();
+    if (now - lastCall >= limit) {
+      lastCall = now;
+      fn.apply(this, args);
+    }
+  };
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — STATIC RESOURCES & CACHING
+           ============================================================ -->
+      <section id="static-resources">
+        <h2>9. Static Resource Versioning &amp; Caching</h2>
+        <p>
+          Static Resources in Salesforce are served with aggressive HTTP caching headers.
+          The browser caches them by URL. When you upload a new version of a static resource,
+          Salesforce appends a version hash to the URL (e.g., <code>/resource/1700000001000/myLib</code>).
+          This cache-busting URL ensures browsers always load the latest version.
+        </p>
+        <pre><code class="language-javascript">// ✅ Always import via @salesforce/resourceUrl — gets the versioned URL
+import chartJs from '@salesforce/resourceUrl/chartJs';
+import { loadScript } from 'lightning/platformResourceLoader';
+
+export default class ChartComponent extends LightningElement {
+  _chartJsLoaded = false;
+
+  connectedCallback() {
+    if (this._chartJsLoaded) return;
+    loadScript(this, chartJs)
+      .then(() => {
+        this._chartJsLoaded = true;
+        this.initChart();
+      })
+      .catch(error => {
+        console.error('Failed to load Chart.js', error);
+      });
+  }
+
+  initChart() {
+    // Chart.js is now available as a global: window.Chart
+    const ctx = this.template.querySelector('canvas');
+    this._chart = new window.Chart(ctx, { ... });
+  }
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ CDN URLs Are Blocked by CSP
+          </div>
+          <div class="callout__body">
+            <p>
+              Salesforce's Content Security Policy blocks <code>script-src</code> from external
+              domains by default. <code>loadScript('https://cdn.jsdelivr.net/...')</code> will
+              fail silently or throw a CSP error. Always upload third-party libraries as
+              Static Resources and reference them via <code>@salesforce/resourceUrl</code>.
+            </p>
+          </div>
+        </div>
+
+        <p>
+          For frequently accessed static resources (e.g., a shared utility library used across
+          many components), Salesforce's CDN edge network will serve them from a location
+          geographically close to the user — you get implicit CDN benefits without any
+          additional configuration.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — PROFILING WORKFLOW
+           ============================================================ -->
+      <section id="profiling">
+        <h2>10. Profiling Workflow</h2>
+
+        <h3 id="chrome-devtools">Chrome DevTools</h3>
+        <p>
+          Chrome DevTools is your primary performance investigation tool. Here is a structured
+          workflow for LWC performance issues:
+        </p>
+        <ol>
+          <li>
+            <strong>Performance Panel → Record</strong>: Click Record, reproduce the slow
+            interaction, click Stop. Review the flame chart for long tasks (tasks &gt;50ms shown in red).
+          </li>
+          <li>
+            <strong>Identify render-heavy functions</strong>: Look for LWC internal functions
+            like <code>requeue</code>, <code>flushReactiveLogs</code>, or your component's own
+            getter/setter calls dominating the flame chart.
+          </li>
+          <li>
+            <strong>Memory Panel → Heap Snapshot</strong>: Take a snapshot before and after
+            an action. Compare to find retained objects — indicator of memory leaks from
+            uncleaned listeners or <code>@track</code> references.
+          </li>
+          <li>
+            <strong>Network Panel</strong>: Filter by XHR/Fetch to see UI API calls. Look for
+            redundant wire calls (same endpoint called multiple times) or large response payloads.
+          </li>
+        </ol>
+
+        <h3 id="lightning-inspector">Salesforce Lightning Inspector</h3>
+        <p>
+          The <strong>Lightning Inspector</strong> is a Chrome DevTools extension provided by
+          Salesforce. Install from the Chrome Web Store (search "Salesforce Lightning Inspector").
+        </p>
+        <p>Key panels:</p>
+        <ul>
+          <li>
+            <strong>Component Tree</strong>: Browse the live LWC/Aura component tree in the
+            page. Inspect <code>@api</code> properties and internal state.
+          </li>
+          <li>
+            <strong>Performance Tab</strong>: Shows LWC-specific render timings — how long each
+            component's render function took, how many times it was called in a session. This is
+            the primary tool for identifying which component is re-rendering too often.
+          </li>
+          <li>
+            <strong>Wire Panel</strong>: Shows all active wire adapters and their current
+            <code>{ data, error }</code> values. Useful for confirming wire parameters and
+            checking if adapters are fetching correctly.
+          </li>
+          <li>
+            <strong>Event Log</strong>: Traces all component events (both custom events and
+            platform events). Useful for verifying event propagation chains.
+          </li>
+        </ul>
+        <pre><code class="language-text">Profiling workflow with Lightning Inspector:
+
+1. Open Chrome DevTools → Lightning Inspector tab
+2. Navigate to the page with the slow component
+3. Click "Start Profiling" in the Performance panel
+4. Reproduce the slow interaction
+5. Click "Stop Profiling"
+6. Sort by "Self Time" — components with high self-time are rendering work
+7. Check "Render Count" — a component rendering 100x should render ~1-5x
+
+Common findings:
+  - Input component rendering on every keystroke → add debounce
+  - Data table component rendering when parent state changes → memoize getters
+  - Child component rendering when unrelated parent property changes → check @api dependencies</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            💡 Expert Insight — Use Performance.mark() for Custom Timing
+          </div>
+          <div class="callout__body">
+            <p>
+              For production performance monitoring, use the
+              <a href="https://developer.mozilla.org/en-US/docs/Web/API/Performance/mark" target="_blank" rel="noopener noreferrer">User Timing API</a>
+              to add custom markers visible in the DevTools Performance flame chart:
+            </p>
+            <pre><code class="language-javascript">connectedCallback() {
+  performance.mark('myComponent:connectedStart');
+}
+
+renderedCallback() {
+  if (!this._tracked) {
+    this._tracked = true;
+    performance.mark('myComponent:firstRenderEnd');
+    performance.measure(
+      'myComponent:firstRender',
+      'myComponent:connectedStart',
+      'myComponent:firstRenderEnd'
+    );
+  }
+}</code></pre>
+            <p>These markers appear in the Performance flame chart under "Timings" — invaluable for
+            measuring real-world component mount time in production profiling sessions.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>11. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 1 — Getter returning new object on every call
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ Creates new array reference on every render → LWC re-renders loop
+get items() {
+  return this._data.map(d => ({ ...d, label: d.name.toUpperCase() }));
+}
+// ✅ Memoize: store computed result, recompute only when _data changes</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 2 — Mutating state in renderedCallback without a guard
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ Infinite render loop
+renderedCallback() {
+  this.count++; // triggers re-render → calls renderedCallback → repeat
+}
+// ✅ Guard with a first-render flag
+renderedCallback() {
+  if (this._rendered) return;
+  this._rendered = true;
+  this.count++;
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 3 — Index as key in for:each
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-html">&lt;!-- ❌ Index keys break DOM reuse when list is reordered or prepended --&gt;
+&lt;template for:each={items} for:item="item" for:index="i"&gt;
+  &lt;div key={i}&gt;{item.label}&lt;/div&gt;
+&lt;/template&gt;
+&lt;!-- ✅ Use stable unique IDs --&gt;
+&lt;template for:each={items} for:item="item"&gt;
+  &lt;div key={item.id}&gt;{item.label}&lt;/div&gt;
+&lt;/template&gt;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 4 — Not cleaning up timers in disconnectedCallback
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ Timer fires after component is removed from DOM
+connectedCallback() {
+  this._timer = setInterval(() => this.refresh(), 5000);
+}
+// ✅ Always cancel in disconnectedCallback
+disconnectedCallback() {
+  clearInterval(this._timer);
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 5 — Not cleaning up IntersectionObserver
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ Observer keeps a reference to the DOM element after component removal
+// ✅ Always disconnect the observer in disconnectedCallback
+disconnectedCallback() {
+  if (this._observer) {
+    this._observer.disconnect();
+    this._observer = null;
+  }
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 6 — Reading DOM geometry immediately in connectedCallback
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// ❌ DOM is attached but not yet rendered/painted — measurements are 0 or wrong
+connectedCallback() {
+  const height = this.template.querySelector('.box').getBoundingClientRect().height;
+  // → returns 0 because rendering hasn't happened yet
+}
+// ✅ Wait for renderedCallback or use requestAnimationFrame
+renderedCallback() {
+  if (this._measured) return;
+  this._measured = true;
+  const height = this.template.querySelector('.box').getBoundingClientRect().height;
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>12. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            💡 Expert Performance Architecture
+          </div>
+          <div class="callout__body">
+            <p>A expert architect approaches performance as a <strong>system property</strong>, not a
+            component-level concern. Key architectural decisions that determine performance at scale:</p>
+            <ol>
+              <li>
+                <strong>Data access strategy selection</strong>: LDS/wire for most data reads
+                (shared cache, automatic refresh), imperative Apex with <code>notifyRecordUpdateAvailable</code>
+                for complex DML that requires cache coordination.
+              </li>
+              <li>
+                <strong>Component boundary design</strong>: Avoid "mega-components" that own too much
+                state and re-render frequently. Decompose into smaller components so that only the
+                changed portion re-renders.
+              </li>
+              <li>
+                <strong>Above-the-fold vs below-the-fold</strong>: Eagerly load the first screen's
+                content; use IntersectionObserver + dynamic import for everything below the fold.
+              </li>
+              <li>
+                <strong>Server-side pagination at design time</strong>: Do not load all records and
+                slice client-side for datasets over 200 records. Design SOQL queries with keyset
+                pagination from day one.
+              </li>
+              <li>
+                <strong>Wire parameter stability</strong>: Ensure <code>$</code>-prefixed wire
+                parameters only change when truly necessary. An unstable parameter (e.g., a new
+                object reference on every render) will trigger redundant wire re-fetches.
+              </li>
+            </ol>
+            <p>At Expert, you should be able to look at a slow page, identify whether the bottleneck is
+            in the <strong>network layer</strong> (too many/large API calls), the
+            <strong>rendering layer</strong> (too many re-renders, missing memoization), or the
+            <strong>DOM layer</strong> (layout thrashing, missing virtual scrolling) — and prescribe
+            a specific fix for each.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>13. Quick Recall Card</h2>
+        <div class="recall-card">
+          <div class="recall-grid">
+
+            <div class="recall-item">
+              <div class="recall-label">When does LWC re-render?</div>
+              <div class="recall-value">
+                When a reactive property (class field referenced in template, <code>@api</code>,
+                <code>@track</code>, or wire result) changes value/reference.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Infinite re-render cause</div>
+              <div class="recall-value">
+                Mutating reactive state in <code>renderedCallback()</code> without a first-render guard.
+                Also: getter returning new object reference on every call.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Memoization guard pattern</div>
+              <div class="recall-value">
+                <code>if (this.contacts !== this._lastContacts) { recompute; }</code>
+                — compare by reference, cache the result.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">refreshApex argument</div>
+              <div class="recall-value">
+                Pass <code>this.wiredResult</code> (the entire wire object), NOT
+                <code>this.wiredResult.data</code>.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">key directive rule</div>
+              <div class="recall-value">
+                Always use a stable unique ID (e.g., <code>record.Id</code>) — never use
+                the loop index. Unstable keys cause full list re-creation on every render.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">IntersectionObserver cleanup</div>
+              <div class="recall-value">
+                Always call <code>this._observer.disconnect()</code> in
+                <code>disconnectedCallback()</code> to prevent memory leaks.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Debounce vs Throttle</div>
+              <div class="recall-value">
+                Debounce: fires after user stops (search input). Throttle: fires at fixed
+                interval regardless (scroll, resize).
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Layout thrashing fix</div>
+              <div class="recall-value">
+                Batch all DOM reads first (one layout flush), then batch all DOM writes.
+                Never alternate read/write in a loop.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Static import vs dynamic import</div>
+              <div class="recall-value">
+                Static import: always downloaded in page bundle. Dynamic <code>import()</code>:
+                deferred download — actual code splitting. Import path must be a string literal.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">CDN URLs in LWC</div>
+              <div class="recall-value">
+                Blocked by CSP. Use Static Resources + <code>@salesforce/resourceUrl</code> +
+                <code>loadScript()</code> instead.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">notifyRecordUpdateAvailable</div>
+              <div class="recall-value">
+                Call after imperative Apex DML to invalidate LDS cache entries and trigger
+                wire adapter refresh across all subscribed components.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Lightning Inspector key use</div>
+              <div class="recall-value">
+                Performance tab → sort by "Render Count" and "Self Time" to find which
+                components are re-rendering excessively.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="13-security.html" class="nav-prev">
+          ← Article 13: Security — LWS, Locker &amp; CSP
+        </a>
+        <a href="15-error-handling.html" class="nav-next">
+          Article 15: Error Handling →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level Proficiency</p>
+      <p>
+        References:
+        <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.performance" target="_blank" rel="noopener noreferrer">LWC Performance Docs</a> ·
+        <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.create_dynamic_components" target="_blank" rel="noopener noreferrer">Dynamic Components</a> ·
+        <a href="https://developer.salesforce.com/docs/component-library/bundle/lightning-datatable/documentation" target="_blank" rel="noopener noreferrer">lightning-datatable</a> ·
+        <a href="https://developer.chrome.com/docs/devtools/performance/" target="_blank" rel="noopener noreferrer">Chrome DevTools Performance</a> ·
+        <a href="https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API" target="_blank" rel="noopener noreferrer">IntersectionObserver API (MDN)</a>
+      </p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../assets/prism-apex.min.js" onerror="void 0"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const STORE_KEY = 'lwc-theme';
+      const html      = document.documentElement;
+      const btn       = document.getElementById('themeToggle');
+      const label     = document.getElementById('themeLabel');
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      if (btn) btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

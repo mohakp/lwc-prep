@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>17. Jest Unit Testing — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC Jest testing: the testing pyramid, Jest architecture, all three wire adapter types, NavigationMixin mocking, LMS testing, async rendering, and a complete failure catalogue.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/17-jest-testing.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Unit Tests Matter in LWC</a></li>
+          <li><a href="#pyramid">2. The Testing Pyramid</a></li>
+          <li class="level-3"><a href="#pyramid-lwc">Where LWC Jest Sits</a></li>
+          <li><a href="#jest-arch">3. Jest Architecture</a></li>
+          <li class="level-3"><a href="#jsdom">JSDOM: Fake Browser Environment</a></li>
+          <li class="level-3"><a href="#sfdx-jest">@salesforce/sfdx-lwc-jest</a></li>
+          <li class="level-3"><a href="#module-mapping">Module Name Mapping</a></li>
+          <li><a href="#test-anatomy">4. Anatomy of an LWC Test</a></li>
+          <li class="level-3"><a href="#create-element">createElement — The Entry Point</a></li>
+          <li class="level-3"><a href="#append-cleanup">appendChild + afterEach Cleanup</a></li>
+          <li class="level-3"><a href="#shadow-query">Shadow Root Querying</a></li>
+          <li class="level-3"><a href="#flush-promises">flushPromises — Async Rendering</a></li>
+          <li><a href="#api-testing">5. Testing @api Properties &amp; Methods</a></li>
+          <li class="level-3"><a href="#api-before-after">Setting @api Before vs After Append</a></li>
+          <li class="level-3"><a href="#api-methods">Testing Exposed Methods</a></li>
+          <li><a href="#event-testing">6. Testing Events</a></li>
+          <li class="level-3"><a href="#test-handlers">Testing Event Handlers</a></li>
+          <li class="level-3"><a href="#test-dispatch">Testing Custom Event Dispatch</a></li>
+          <li><a href="#wire-adapters">7. Wire Adapter Test Utilities</a></li>
+          <li class="level-3"><a href="#three-adapters">The Three Adapter Types</a></li>
+          <li class="level-3"><a href="#register-apex">registerApexTestWireAdapter</a></li>
+          <li class="level-3"><a href="#register-lds">registerLdsTestWireAdapter</a></li>
+          <li class="level-3"><a href="#register-generic">registerTestWireAdapter</a></li>
+          <li class="level-3"><a href="#wire-errors">Emitting Errors Through Wire</a></li>
+          <li><a href="#apex-imperative">8. Mocking Imperative Apex</a></li>
+          <li><a href="#nav-testing">9. Testing NavigationMixin</a></li>
+          <li class="level-3"><a href="#nav-mock">The navigation Mock</a></li>
+          <li class="level-3"><a href="#nav-assert">Asserting Navigation Calls</a></li>
+          <li><a href="#lms-testing">10. Testing Lightning Message Service</a></li>
+          <li class="level-3"><a href="#lms-publish">Testing Message Publish</a></li>
+          <li class="level-3"><a href="#lms-subscribe">Testing Message Subscription</a></li>
+          <li><a href="#snapshots">11. Snapshot Testing</a></li>
+          <li class="level-3"><a href="#snapshot-risk">When Snapshots Are a Liability</a></li>
+          <li><a href="#coverage">12. Coverage &amp; Running Tests</a></li>
+          <li><a href="#failures">13. Common Failure Catalogue</a></li>
+          <li><a href="#pitfalls">14. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">15. Expert Insight</a></li>
+          <li><a href="#recall">16. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 17</div>
+        <h1>Jest Unit Testing</h1>
+        <div class="article-meta">
+          <span>⏱ 40 min read</span>
+          <span class="tags">
+            <span class="tag">#testing</span>
+            <span class="tag">#Jest</span>
+            <span class="tag">#wire</span>
+            <span class="tag">#NavigationMixin</span>
+            <span class="tag">#LMS</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="17"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Unit Tests Matter in LWC</h2>
+        <p>
+          A Lightning Web Component lives at the intersection of three complex systems: the
+          browser's DOM, Salesforce's platform layer (LDS, wire service, navigation), and your own
+          application logic. Without automated tests, every change is a roll of the dice — did
+          the async Apex call still render correctly after you refactored the getter? Does the
+          custom event still bubble with the right <code>detail</code> shape after the design
+          change? Does the component still wire up correctly to the record data after the API
+          version bump?
+        </p>
+        <p>
+          Jest tests answer those questions in milliseconds, without a Salesforce org, without
+          a scratch org deploy, without a browser. They run locally on every <code>git push</code>,
+          they run in CI pipelines, and they document the component's contract as executable
+          specifications.
+        </p>
+        <p>
+          For expert-level proficiency, examiners expect you to know not just <em>how</em> to write
+          an LWC Jest test but <em>why</em> each testing construct works the way it does —
+          why you use <code>element.shadowRoot.querySelector</code> instead of
+          <code>document.querySelector</code>, why <code>flushPromises</code> is necessary,
+          why each wire adapter type behaves differently, and why snapshot tests are often
+          counterproductive.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — TESTING PYRAMID
+           ============================================================ -->
+      <section id="pyramid">
+        <h2>2. The Testing Pyramid</h2>
+        <p>
+          The testing pyramid is a mental model for balancing the three layers of automated tests:
+        </p>
+        <pre><code class="language-text">           /\
+          /e2e\          ← few, slow, brittle — Selenium / Playwright
+         /------\
+        / integr \       ← moderate — Apex tests, REST endpoint tests
+       /----------\
+      /  unit tests \    ← many, fast, isolated — Jest for LWC
+     /--------------\</code></pre>
+        <p>
+          The pyramid says: invest most in the lowest layer because those tests are fastest,
+          cheapest to write, and most granular in their failure signal.
+        </p>
+
+        <h3 id="pyramid-lwc">Where LWC Jest Sits</h3>
+        <p>
+          LWC Jest tests are <strong>unit tests</strong>. They isolate a single component,
+          mock everything outside it (Apex, LDS, navigation, message service), and assert
+          on the component's DOM output and event behavior.
+        </p>
+        <p>
+          What Jest tests do <em>not</em> cover:
+        </p>
+        <ul>
+          <li>Apex logic (that's Apex unit tests)</li>
+          <li>Full UI flows end-to-end (that's Selenium or browser tests)</li>
+          <li>True LDS cache behavior (mocked at the adapter layer)</li>
+          <li>Actual Salesforce UI chrome (header, navigation bar, etc.)</li>
+        </ul>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Official Reference</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <a href="https://developer.salesforce.com/docs/platform/lwc/guide/unit-testing-using-jest-create-tests.html" target="_blank" rel="noopener noreferrer">
+                Write Jest Tests — Salesforce LWC Developer Guide
+              </a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — JEST ARCHITECTURE
+           ============================================================ -->
+      <section id="jest-arch">
+        <h2>3. Jest Architecture</h2>
+        <p>
+          Jest is a JavaScript testing framework from Meta. It bundles four things in one package:
+        </p>
+        <ul>
+          <li><strong>Test runner</strong> — discovers <code>*.test.js</code> files, runs them in parallel, reports results</li>
+          <li><strong>Assertion library</strong> — <code>expect(x).toBe(y)</code> and all its variants</li>
+          <li><strong>Mock system</strong> — <code>jest.fn()</code>, <code>jest.mock()</code>, <code>jest.spyOn()</code></li>
+          <li><strong>JSDOM environment</strong> — a simulated browser DOM in Node.js</li>
+        </ul>
+
+        <h3 id="jsdom">JSDOM: Fake Browser Environment</h3>
+        <p>
+          Jest does not run in a real browser. Instead, it uses <strong>JSDOM</strong> — a
+          Node.js implementation of the browser's DOM and HTML standards. JSDOM gives you
+          <code>document</code>, <code>window</code>, <code>CustomEvent</code>, and DOM querying,
+          but it is <em>not</em> a real rendering engine. There is no layout, no painting, and
+          no network.
+        </p>
+        <p>
+          This is why LWC Jest tests are fast — no browser launch overhead — and why they have
+          limits: you cannot test actual visual layout, computed styles, or real browser-specific
+          APIs like Intersection Observer (though you can mock them).
+        </p>
+
+        <h3 id="sfdx-jest">@salesforce/sfdx-lwc-jest</h3>
+        <p>
+          Raw Jest cannot understand LWC's decorators, Salesforce module paths
+          (<code>@salesforce/apex/...</code>, <code>lightning/uiRecordApi</code>), or LWC's
+          template compilation. <strong>@salesforce/sfdx-lwc-jest</strong> bridges this gap by
+          providing:
+        </p>
+        <ul>
+          <li>A Jest transformer that compiles LWC bundles (<code>.html</code>, <code>.js</code> with decorators) via <code>@lwc/jest-transformer</code></li>
+          <li>Stubs for all Salesforce-specific module paths (so import statements don't fail)</li>
+          <li>Mock implementations of <code>lightning/*</code> base components</li>
+          <li>Wire adapter test utilities (<code>registerApexTestWireAdapter</code>, etc.)</li>
+          <li>A <code>flushPromises</code> helper for async rendering</li>
+        </ul>
+
+        <h3 id="module-mapping">Module Name Mapping</h3>
+        <p>
+          In <code>jest.config.js</code>, the <code>moduleNameMapper</code> key maps Salesforce
+          module paths to local stubs. For example:
+        </p>
+        <pre><code class="language-javascript">// jest.config.js (generated by sfdx-lwc-jest setup)
+module.exports = {
+  testEnvironment: '@salesforce/sfdx-lwc-jest/setup-jest',
+  moduleNameMapper: {
+    // LWC components map to their bundle files
+    '^c/(.+)$': '&lt;rootDir&gt;/force-app/main/default/lwc/$1/$1.js',
+
+    // @salesforce/apex stubs
+    '^@salesforce/apex$': '&lt;rootDir&gt;/__mocks__/@salesforce/apex.js',
+
+    // Schema imports stub
+    '^@salesforce/schema/(.+)$': '&lt;rootDir&gt;/__mocks__/@salesforce/schema.js',
+
+    // Salesforce labels stub
+    '^@salesforce/label/(.+)$': '&lt;rootDir&gt;/__mocks__/@salesforce/label.js',
+  }
+};</code></pre>
+        <p>
+          Understanding this mapping is critical — when a test "cannot find module", it's
+          usually a missing stub entry in <code>moduleNameMapper</code>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — ANATOMY OF AN LWC TEST
+           ============================================================ -->
+      <section id="test-anatomy">
+        <h2>4. Anatomy of an LWC Test</h2>
+        <p>
+          Let's examine a minimal but complete test to understand every line:
+        </p>
+        <pre><code class="language-javascript">// myComponent/__tests__/myComponent.test.js
+
+import { createElement } from 'lwc';
+import MyComponent from 'c/myComponent';
+
+describe('c-my-component', () =&gt; {
+
+  // ① Clean up after EVERY test — prevents DOM leakage between tests
+  afterEach(() =&gt; {
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
+  });
+
+  it('renders the component with default greeting', () =&gt; {
+    // ② Create a component instance — NOT new MyComponent()
+    const element = createElement('c-my-component', { is: MyComponent });
+
+    // ③ Set properties BEFORE append if they affect first render
+    element.greeting = 'Hello';
+
+    // ④ Mount to the JSDOM document to trigger connectedCallback + render
+    document.body.appendChild(element);
+
+    // ⑤ Query inside shadow root — NEVER document.querySelector
+    const p = element.shadowRoot.querySelector('p');
+    expect(p.textContent).toBe('Hello');
+  });
+
+});</code></pre>
+
+        <h3 id="create-element">createElement — The Entry Point</h3>
+        <p>
+          <code>createElement</code> from <code>'lwc'</code> is the test equivalent of
+          putting a component tag in a template. It creates a component instance and registers
+          it with LWC's rendering engine, but does <em>not</em> mount it to the DOM yet.
+        </p>
+        <p>
+          The first argument is the component tag name (used for debugging and in error messages).
+          The second argument, <code>{ is: ComponentClass }</code>, provides the class. This
+          mirrors the <code>lwc:is</code> dynamic component pattern.
+        </p>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Critical: Never use <code>new MyComponent()</code></span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Calling <code>new MyComponent()</code> bypasses the LWC lifecycle entirely —
+              no shadow root is created, no reactive tracking is set up, decorators are not
+              initialized. Always use <code>createElement</code>.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="append-cleanup">appendChild + afterEach Cleanup</h3>
+        <p>
+          <code>document.body.appendChild(element)</code> triggers the full LWC mount sequence:
+          <code>constructor</code> → <code>connectedCallback</code> → first render →
+          <code>renderedCallback</code>. The DOM is now queryable.
+        </p>
+        <p>
+          The <code>afterEach</code> cleanup loop removes all children from <code>document.body</code>
+          after every test. Without this, components from test A are still in the DOM during test B,
+          causing stale DOM interference. JSDOM persists across tests within a file; only a fresh
+          Jest worker resets it completely.
+        </p>
+
+        <h3 id="shadow-query">Shadow Root Querying</h3>
+        <p>
+          LWC creates a shadow root for every component. The template's DOM lives inside that
+          shadow root — it is <em>not</em> accessible via <code>document.querySelector</code>.
+          You must enter the shadow root explicitly:
+        </p>
+        <pre><code class="language-javascript">// ✅ Correct — enters the shadow root
+const btn = element.shadowRoot.querySelector('button');
+
+// ❌ Wrong — returns null in Jest (and in browsers with native Shadow DOM)
+const btn = document.querySelector('button');</code></pre>
+        <p>
+          For nested child components, you must traverse shadow roots step by step:
+        </p>
+        <pre><code class="language-javascript">// Parent component contains a child component c-child
+// c-child's shadow root contains a button
+const child = element.shadowRoot.querySelector('c-child');
+const btn   = child.shadowRoot.querySelector('button');</code></pre>
+
+        <h3 id="flush-promises">flushPromises — Async Rendering</h3>
+        <p>
+          LWC's rendering engine is <strong>asynchronous</strong>. When reactive state changes
+          (a property is set, a wire adapter emits data), the DOM does not update synchronously.
+          LWC batches updates and schedules them as microtasks.
+        </p>
+        <p>
+          To make your test wait for the DOM to reflect the change, use <code>flushPromises()</code>:
+        </p>
+        <pre><code class="language-javascript">import { flushPromises } from '@salesforce/sfdx-lwc-jest';
+
+it('updates the DOM after state change', async () =&gt; {
+  const element = createElement('c-my-component', { is: MyComponent });
+  document.body.appendChild(element);
+
+  // Change a reactive property
+  element.title = 'Updated Title';
+
+  // ① Wait for LWC to flush its rendering queue
+  await flushPromises();
+
+  // ② Now the DOM reflects the new title
+  expect(element.shadowRoot.querySelector('h1').textContent).toBe('Updated Title');
+});</code></pre>
+        <p>
+          Internally, <code>flushPromises()</code> returns a resolved <code>Promise</code>
+          that, by the time it resolves, has allowed all queued microtasks (including LWC's
+          rendering microtasks) to complete. It is NOT a sleep — it drains the JavaScript
+          microtask queue.
+        </p>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Alternative: return a Promise</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              You can also use <code>return Promise.resolve();</code> in older codebases
+              instead of <code>await flushPromises()</code>. Both drain the microtask queue
+              and allow LWC to complete its rendering cycle before the assertion runs.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — TESTING @api PROPERTIES & METHODS
+           ============================================================ -->
+      <section id="api-testing">
+        <h2>5. Testing @api Properties &amp; Methods</h2>
+
+        <h3 id="api-before-after">Setting @api Before vs After Append</h3>
+        <p>
+          A common question: should you set <code>@api</code> properties before or after
+          <code>document.body.appendChild</code>?
+        </p>
+        <pre><code class="language-javascript">// Component definition
+// @api recordId;
+// @api objectApiName;
+
+it('renders with record id', async () =&gt; {
+  const element = createElement('c-account-card', { is: AccountCard });
+
+  // ✅ Set before append → property is available on first render
+  //    use when the template's initial render depends on the prop
+  element.recordId = '001XXXXXXXXXXXX';
+  element.objectApiName = 'Account';
+
+  document.body.appendChild(element);
+  await flushPromises();
+
+  expect(element.shadowRoot.querySelector('h1').textContent).toContain('Account');
+});
+
+it('reacts when record id changes after mount', async () =&gt; {
+  const element = createElement('c-account-card', { is: AccountCard });
+  document.body.appendChild(element);
+  await flushPromises();
+
+  // ✅ Set after append → tests reactive updates to @api
+  element.recordId = '001XXXXXXXXXXXX';
+  await flushPromises();
+
+  expect(element.shadowRoot.querySelector('h1')).toBeTruthy();
+});</code></pre>
+        <p>
+          <strong>Rule of thumb:</strong> Set props <em>before</em> append when you want to
+          test the initial render state. Set them <em>after</em> append when you want to test
+          how the component reacts to externally changing props (the more Expert-relevant scenario).
+        </p>
+
+        <h3 id="api-methods">Testing Exposed Methods</h3>
+        <p>
+          If a component exposes <code>@api</code> methods, call them directly on the element
+          reference after appending to the DOM:
+        </p>
+        <pre><code class="language-javascript">// Component: @api reset() { this.value = ''; }
+
+it('resets the field when reset() is called', async () =&gt; {
+  const element = createElement('c-search-bar', { is: SearchBar });
+  document.body.appendChild(element);
+
+  const input = element.shadowRoot.querySelector('lightning-input');
+  // Simulate user typing
+  input.value = 'some query';
+  input.dispatchEvent(new CustomEvent('change', { detail: { value: 'some query' } }));
+  await flushPromises();
+
+  // Call the public API method
+  element.reset();
+  await flushPromises();
+
+  expect(element.shadowRoot.querySelector('lightning-input').value).toBe('');
+});</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — TESTING EVENTS
+           ============================================================ -->
+      <section id="event-testing">
+        <h2>6. Testing Events</h2>
+
+        <h3 id="test-handlers">Testing Event Handlers</h3>
+        <p>
+          To test that a component reacts to a DOM event, dispatch that event on the child
+          element and then assert on the resulting state change:
+        </p>
+        <pre><code class="language-javascript">it('increments counter on button click', async () =&gt; {
+  const element = createElement('c-counter', { is: Counter });
+  document.body.appendChild(element);
+  await flushPromises();
+
+  // Find the button inside shadow root
+  const button = element.shadowRoot.querySelector('button');
+
+  // Dispatch a click event
+  button.click();
+  await flushPromises();
+
+  // Assert the resulting DOM state
+  const count = element.shadowRoot.querySelector('.count');
+  expect(count.textContent).toBe('1');
+});</code></pre>
+
+        <h3 id="test-dispatch">Testing Custom Event Dispatch</h3>
+        <p>
+          To verify that a component fires a custom event with the correct payload, attach a
+          listener to the component element and use a <code>jest.fn()</code> spy:
+        </p>
+        <pre><code class="language-javascript">it('fires "select" event with correct record id', async () =&gt; {
+  const element = createElement('c-record-picker', { is: RecordPicker });
+  document.body.appendChild(element);
+  await flushPromises();
+
+  // ① Spy function captures event calls
+  const handler = jest.fn();
+  element.addEventListener('select', handler);
+
+  // ② Simulate the interaction that triggers the event
+  const row = element.shadowRoot.querySelector('.record-row');
+  row.click();
+  await flushPromises();
+
+  // ③ Assert the event was fired
+  expect(handler).toHaveBeenCalledTimes(1);
+
+  // ④ Assert the event detail payload
+  expect(handler.mock.calls[0][0].detail).toEqual({
+    recordId: '001XXXXXXXXXXXX',
+    apiName: 'Account'
+  });
+});</code></pre>
+        <p>
+          Key points:
+        </p>
+        <ul>
+          <li>Listen on the <em>element</em>, not on <code>document</code> — the event must be <code>composed: true</code> or listened at the right shadow level.</li>
+          <li>Use <code>handler.mock.calls[0][0]</code> to get the <code>Event</code> object from the first call.</li>
+          <li><code>.detail</code> contains the payload you passed to <code>new CustomEvent('select', { detail: {...} })</code>.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — WIRE ADAPTER TEST UTILITIES
+           ============================================================ -->
+      <section id="wire-adapters">
+        <h2>7. Wire Adapter Test Utilities</h2>
+        <p>
+          The wire service is one of the most complex parts of LWC to test correctly because
+          wire adapters have asynchronous, reactive behavior that does not map cleanly to simple
+          function mocks. Salesforce provides three specialized adapter factories in
+          <code>@salesforce/sfdx-lwc-jest</code> to handle all wire scenarios.
+        </p>
+
+        <h3 id="three-adapters">The Three Adapter Types</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Factory</th>
+              <th>Used For</th>
+              <th>Key Behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>registerApexTestWireAdapter</code></td>
+              <td>Apex methods wired via <code>@wire</code></td>
+              <td>Emits <code>{ data, error }</code>; includes Apex-shaped error status codes</td>
+            </tr>
+            <tr>
+              <td><code>registerLdsTestWireAdapter</code></td>
+              <td>LDS adapters: <code>getRecord</code>, <code>getObjectInfo</code>, etc.</td>
+              <td>Emits LDS-shaped records; tracks property updates on the adapter</td>
+            </tr>
+            <tr>
+              <td><code>registerTestWireAdapter</code></td>
+              <td>Any custom wire adapter</td>
+              <td>Generic — emits arbitrary values; no opinion on shape</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          All three work the same way conceptually:
+        </p>
+        <ol>
+          <li>Import the wire adapter function (<code>getRecord</code>, <code>getAccountList</code>, etc.) in your test.</li>
+          <li>Register it with the appropriate factory to get an adapter mock.</li>
+          <li>After mounting the component, call <code>adapterMock.emit(data)</code> to push data into the wire.</li>
+          <li>Call <code>await flushPromises()</code> to let LWC re-render.</li>
+          <li>Assert on the DOM.</li>
+        </ol>
+
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Official Reference</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <a href="https://developer.salesforce.com/docs/platform/lwc/guide/unit-testing-using-wire-utility.html" target="_blank" rel="noopener noreferrer">
+                Write Jest Tests for Wire Service — Salesforce LWC Developer Guide
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <h3 id="register-apex">registerApexTestWireAdapter</h3>
+        <p>
+          Use this when the component has <code>@wire(MyApexMethod)</code>.
+        </p>
+        <pre><code class="language-javascript">// accountList.js (component under test)
+import { LightningElement, wire } from 'lwc';
+import getAccounts from '@salesforce/apex/AccountController.getAccounts';
+
+export default class AccountList extends LightningElement {
+  @wire(getAccounts)
+  accounts; // { data, error }
+
+  get hasData() { return this.accounts.data &amp;&amp; this.accounts.data.length &gt; 0; }
+  get hasError() { return this.accounts.error; }
+}</code></pre>
+        <pre><code class="language-javascript">// accountList.test.js
+import { createElement }                from 'lwc';
+import AccountList                      from 'c/accountList';
+import { registerApexTestWireAdapter }  from '@salesforce/sfdx-lwc-jest';
+import getAccounts                      from '@salesforce/apex/AccountController.getAccounts';
+import { flushPromises }                from '@salesforce/sfdx-lwc-jest';
+
+// ① Register the adapter — replaces the real Apex wire mechanism
+const getAccountsAdapter = registerApexTestWireAdapter(getAccounts);
+
+describe('c-account-list', () =&gt; {
+  afterEach(() =&gt; {
+    while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+  });
+
+  it('renders a list when data arrives', async () =&gt; {
+    const element = createElement('c-account-list', { is: AccountList });
+    document.body.appendChild(element);
+
+    // ② Push mock data through the wire adapter
+    getAccountsAdapter.emit({
+      data: [
+        { Id: '001XXX001', Name: 'Acme Corp' },
+        { Id: '001XXX002', Name: 'Globex' }
+      ],
+      error: undefined
+    });
+    await flushPromises();
+
+    // ③ Assert the DOM reflects the data
+    const rows = element.shadowRoot.querySelectorAll('li');
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toBe('Acme Corp');
+  });
+});</code></pre>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>registerApexTestWireAdapter vs Imperative Mock</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>registerApexTestWireAdapter</code> is for <em>wire</em> usage of Apex.
+              If the component calls the Apex function <em>imperatively</em> (inside a handler),
+              you mock it differently — see Section 8.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="register-lds">registerLdsTestWireAdapter</h3>
+        <p>
+          Use this for any <code>lightning/uiRecordApi</code> adapter like
+          <code>getRecord</code>, <code>getObjectInfo</code>, or <code>getPicklistValues</code>.
+          The LDS adapter provides additional inspection APIs like <code>getLastConfig()</code>
+          that let you assert what parameters the component passed to the adapter.
+        </p>
+        <pre><code class="language-javascript">// contactViewer.js
+import { LightningElement, api, wire } from 'lwc';
+import { getRecord }                    from 'lightning/uiRecordApi';
+import NAME_FIELD                       from '@salesforce/schema/Contact.Name';
+import EMAIL_FIELD                      from '@salesforce/schema/Contact.Email';
+
+export default class ContactViewer extends LightningElement {
+  @api recordId;
+
+  @wire(getRecord, { recordId: '$recordId', fields: [NAME_FIELD, EMAIL_FIELD] })
+  contact;
+
+  get name() {
+    return this.contact?.data?.fields?.Name?.value;
+  }
+}</code></pre>
+        <pre><code class="language-javascript">// contactViewer.test.js
+import { createElement }               from 'lwc';
+import ContactViewer                   from 'c/contactViewer';
+import { registerLdsTestWireAdapter }  from '@salesforce/sfdx-lwc-jest';
+import { getRecord }                   from 'lightning/uiRecordApi';
+import { flushPromises }               from '@salesforce/sfdx-lwc-jest';
+
+const getRecordAdapter = registerLdsTestWireAdapter(getRecord);
+
+describe('c-contact-viewer', () =&gt; {
+  afterEach(() =&gt; {
+    while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+  });
+
+  it('displays contact name from getRecord data', async () =&gt; {
+    const element = createElement('c-contact-viewer', { is: ContactViewer });
+    element.recordId = '003XXXXXXXXXXXX';
+    document.body.appendChild(element);
+
+    // ① Push LDS-shaped record data
+    getRecordAdapter.emit({
+      fields: {
+        Name:  { value: 'Alice Smith', displayValue: 'Alice Smith' },
+        Email: { value: 'alice@example.com', displayValue: 'alice@example.com' }
+      }
+    });
+    await flushPromises();
+
+    const nameEl = element.shadowRoot.querySelector('.contact-name');
+    expect(nameEl.textContent).toBe('Alice Smith');
+  });
+
+  it('passes the correct config to getRecord', async () =&gt; {
+    const element = createElement('c-contact-viewer', { is: ContactViewer });
+    element.recordId = '003XXXXXXXXXXXX';
+    document.body.appendChild(element);
+    await flushPromises();
+
+    // ② Inspect the last config the component sent to the adapter
+    const config = getRecordAdapter.getLastConfig();
+    expect(config.recordId).toBe('003XXXXXXXXXXXX');
+  });
+});</code></pre>
+
+        <h3 id="register-generic">registerTestWireAdapter</h3>
+        <p>
+          For custom wire adapters or any wire source outside of Apex and LDS, use the generic
+          <code>registerTestWireAdapter</code>. It emits arbitrary values without any shape
+          assumptions:
+        </p>
+        <pre><code class="language-javascript">// usingCustomAdapter.test.js
+import { createElement }          from 'lwc';
+import MyComponent                from 'c/myComponent';
+import { registerTestWireAdapter } from '@salesforce/sfdx-lwc-jest';
+import { CurrentPageReference }   from 'lightning/navigation';
+import { flushPromises }          from '@salesforce/sfdx-lwc-jest';
+
+const currentPageReferenceAdapter = registerTestWireAdapter(CurrentPageReference);
+
+it('reacts to page reference change', async () =&gt; {
+  const element = createElement('c-my-component', { is: MyComponent });
+  document.body.appendChild(element);
+
+  // Emit a page reference
+  currentPageReferenceAdapter.emit({
+    type: 'standard__recordPage',
+    attributes: { recordId: '001XXXXXXXXXXXX', actionName: 'view' }
+  });
+  await flushPromises();
+
+  // Assert component reacted to the page context
+  const header = element.shadowRoot.querySelector('h1');
+  expect(header.textContent).toBe('Record: 001XXXXXXXXXXXX');
+});</code></pre>
+
+        <h3 id="wire-errors">Emitting Errors Through Wire</h3>
+        <p>
+          Test the error path of your component by calling <code>error()</code> instead of
+          <code>emit()</code>:
+        </p>
+        <pre><code class="language-javascript">it('shows error panel when getAccounts fails', async () =&gt; {
+  const element = createElement('c-account-list', { is: AccountList });
+  document.body.appendChild(element);
+
+  // ① Emit an error through the Apex wire adapter
+  getAccountsAdapter.error({
+    body: { message: 'Internal server error' },
+    ok: false,
+    status: 500,
+    statusText: 'Internal Server Error'
+  });
+  await flushPromises();
+
+  // ② Assert the error UI is shown
+  const errorEl = element.shadowRoot.querySelector('.error-panel');
+  expect(errorEl).not.toBeNull();
+  expect(errorEl.textContent).toContain('Internal server error');
+});</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — MOCKING IMPERATIVE APEX
+           ============================================================ -->
+      <section id="apex-imperative">
+        <h2>8. Mocking Imperative Apex</h2>
+        <p>
+          When a component calls an Apex method imperatively (inside an event handler or lifecycle
+          hook), you mock it using <code>jest.mock</code> at the module level:
+        </p>
+        <pre><code class="language-javascript">// saveContact.test.js
+import { createElement }     from 'lwc';
+import SaveContact           from 'c/saveContact';
+import saveContactApex       from '@salesforce/apex/ContactController.saveContact';
+import { flushPromises }     from '@salesforce/sfdx-lwc-jest';
+
+// ① Mock the entire @salesforce/apex module path
+jest.mock(
+  '@salesforce/apex/ContactController.saveContact',
+  () => ({ default: jest.fn() }),
+  { virtual: true }
+);
+
+describe('c-save-contact', () =&gt; {
+  afterEach(() =&gt; {
+    jest.clearAllMocks();
+    while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+  });
+
+  it('calls saveContact when form is submitted', async () =&gt; {
+    // ② Return a resolved promise (success case)
+    saveContactApex.mockResolvedValue({ id: '003XXXXXXXXXXXX' });
+
+    const element = createElement('c-save-contact', { is: SaveContact });
+    document.body.appendChild(element);
+
+    // Simulate form submit
+    const btn = element.shadowRoot.querySelector('button[type="submit"]');
+    btn.click();
+    await flushPromises();
+
+    // ③ Assert the Apex function was called
+    expect(saveContactApex).toHaveBeenCalledTimes(1);
+    expect(saveContactApex).toHaveBeenCalledWith({
+      name: expect.any(String),
+      email: expect.any(String)
+    });
+  });
+
+  it('shows error when saveContact rejects', async () =&gt; {
+    // ④ Return a rejected promise (error case)
+    saveContactApex.mockRejectedValue({
+      body: { message: 'Required field missing' },
+      status: 400
+    });
+
+    const element = createElement('c-save-contact', { is: SaveContact });
+    document.body.appendChild(element);
+
+    const btn = element.shadowRoot.querySelector('button[type="submit"]');
+    btn.click();
+    await flushPromises();
+
+    const error = element.shadowRoot.querySelector('.error-message');
+    expect(error.textContent).toContain('Required field missing');
+  });
+});</code></pre>
+        <p>
+          Use <code>jest.clearAllMocks()</code> in <code>afterEach</code> to reset mock call
+          counts between tests.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — TESTING NAVIGATIONMIXIN
+           ============================================================ -->
+      <section id="nav-testing">
+        <h2>9. Testing NavigationMixin</h2>
+        <p>
+          Components that extend <code>NavigationMixin(LightningElement)</code> use navigation
+          via <code>this[NavigationMixin.Navigate](pageRef)</code>. The default lightning/navigation
+          stub provided by sfdx-lwc-jest records navigation calls and exposes them for assertion.
+        </p>
+
+        <h3 id="nav-mock">The navigation Mock</h3>
+        <p>
+          When sfdx-lwc-jest runs, it replaces <code>lightning/navigation</code> with a stub
+          that does not actually navigate anywhere. The stub provides:
+        </p>
+        <ul>
+          <li><code>NavigationMixin</code> — returns a mixin class that records calls</li>
+          <li><code>CurrentPageReference</code> — a wire adapter stub</li>
+        </ul>
+        <p>
+          For more granular control, you can mock lightning/navigation yourself:
+        </p>
+        <pre><code class="language-javascript">// jest.setup.js or __mocks__/lightning/navigation.js
+export const NavigationMixin = (Base) =&gt;
+  class extends Base {
+    [Symbol.for('CurrentPageReference')] = null;
+    // NavigationMixin.Navigate symbol
+    [NavigationMixin.Navigate] = jest.fn();
+    [NavigationMixin.GenerateUrl] = jest.fn();
+  };
+
+NavigationMixin.Navigate    = Symbol.for('NavigationMixin.Navigate');
+NavigationMixin.GenerateUrl = Symbol.for('NavigationMixin.GenerateUrl');
+
+export { CurrentPageReference } from './navigation';
+</code></pre>
+
+        <h3 id="nav-assert">Asserting Navigation Calls</h3>
+        <p>
+          The simplest pattern using the default stub is to listen for the navigation event
+          dispatched by the mock:
+        </p>
+        <pre><code class="language-javascript">import { createElement }          from 'lwc';
+import NavButton                  from 'c/navButton';
+import { navigate }               from 'lightning/navigation';
+import { flushPromises }          from '@salesforce/sfdx-lwc-jest';
+
+// The default stub exposes a `navigate` spy you can assert on
+jest.mock('lightning/navigation', () =&gt; ({
+  NavigationMixin: (Base) =&gt; class extends Base {},
+  navigate: jest.fn(),
+}), { virtual: true });
+
+it('navigates to account record on click', async () =&gt; {
+  const element = createElement('c-nav-button', { is: NavButton });
+  element.recordId = '001XXXXXXXXXXXX';
+  document.body.appendChild(element);
+
+  element.shadowRoot.querySelector('button').click();
+  await flushPromises();
+
+  expect(navigate).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'standard__recordPage',
+    attributes: expect.objectContaining({ recordId: '001XXXXXXXXXXXX' })
+  }));
+});</code></pre>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Recommended Approach</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The exact mock strategy for NavigationMixin varies between sfdx-lwc-jest
+              versions. The most reliable pattern is to create a project-level manual mock
+              at <code>__mocks__/lightning/navigation.js</code> that captures calls to
+              <code>this[NavigationMixin.Navigate]</code> via <code>jest.fn()</code>.
+              See the
+              <a href="https://developer.salesforce.com/docs/platform/lwc/guide/unit-testing-using-jest-patterns.html" target="_blank" rel="noopener noreferrer">Jest Test Patterns guide</a>
+              for the latest pattern.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — TESTING LIGHTNING MESSAGE SERVICE
+           ============================================================ -->
+      <section id="lms-testing">
+        <h2>10. Testing Lightning Message Service</h2>
+        <p>
+          The Lightning Message Service has two test concerns: (1) verifying a component
+          <em>publishes</em> a message when a user action occurs, and (2) verifying a component
+          <em>reacts correctly</em> when a message is received.
+        </p>
+        <p>
+          The sfdx-lwc-jest stub for <code>lightning/messageService</code> exposes two key
+          functions you can use in tests:
+        </p>
+        <ul>
+          <li><code>publish</code> — the spy that records publish calls from the component</li>
+          <li><code>subscribe</code> — the spy that records subscription setup</li>
+          <li><code>MessageContext</code> — the wire adapter stub for message context</li>
+        </ul>
+
+        <h3 id="lms-publish">Testing Message Publish</h3>
+        <pre><code class="language-javascript">// publisherComponent.test.js
+import { createElement }     from 'lwc';
+import Publisher             from 'c/publisher';
+import { publish, MessageContext } from 'lightning/messageService';
+import MY_CHANNEL            from '@salesforce/messageChannel/MyChannel__c';
+import { flushPromises, registerTestWireAdapter } from '@salesforce/sfdx-lwc-jest';
+
+// Provide MessageContext via wire adapter stub
+const messageContextAdapter = registerTestWireAdapter(MessageContext);
+
+// The publish function from the stub is already a jest.fn() spy
+jest.mock('lightning/messageService', () =&gt; ({
+  publish:        jest.fn(),
+  subscribe:      jest.fn(),
+  unsubscribe:    jest.fn(),
+  MessageContext: Symbol('MessageContext'),
+  APPLICATION_SCOPE: 'APPLICATION_SCOPE',
+}), { virtual: true });
+
+describe('c-publisher', () =&gt; {
+  afterEach(() =&gt; {
+    jest.clearAllMocks();
+    while (document.body.firstChild) document.body.removeChild(document.body.firstChild);
+  });
+
+  it('publishes a message when button is clicked', async () =&gt; {
+    const element = createElement('c-publisher', { is: Publisher });
+    document.body.appendChild(element);
+
+    // Provide the message context
+    messageContextAdapter.emit({});
+    await flushPromises();
+
+    // Click the publish button
+    element.shadowRoot.querySelector('button').click();
+    await flushPromises();
+
+    // Assert publish was called with correct channel and payload
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(
+      expect.anything(),  // message context
+      MY_CHANNEL,
+      expect.objectContaining({ action: 'refresh' })
+    );
+  });
+});</code></pre>
+
+        <h3 id="lms-subscribe">Testing Message Subscription</h3>
+        <p>
+          To test that a subscriber component reacts to an incoming message, simulate the
+          subscription callback by capturing it from the <code>subscribe</code> mock:
+        </p>
+        <pre><code class="language-javascript">// subscriberComponent.test.js
+import { createElement }     from 'lwc';
+import Subscriber            from 'c/subscriber';
+import { subscribe, MessageContext } from 'lightning/messageService';
+import { registerTestWireAdapter, flushPromises } from '@salesforce/sfdx-lwc-jest';
+
+const messageContextAdapter = registerTestWireAdapter(MessageContext);
+
+jest.mock('lightning/messageService', () =&gt; ({
+  publish:        jest.fn(),
+  subscribe:      jest.fn(),
+  unsubscribe:    jest.fn(),
+  MessageContext: Symbol('MessageContext'),
+  APPLICATION_SCOPE: 'APPLICATION_SCOPE',
+}), { virtual: true });
+
+it('updates the UI when an LMS message is received', async () =&gt; {
+  const element = createElement('c-subscriber', { is: Subscriber });
+  document.body.appendChild(element);
+
+  messageContextAdapter.emit({});
+  await flushPromises();
+
+  // ① Capture the callback the component registered with subscribe
+  const subscribeCall = subscribe.mock.calls[0];
+  // subscribeCall = [context, channel, callback, options]
+  const messageCallback = subscribeCall[2];
+
+  // ② Invoke the callback directly with a test message
+  messageCallback({ action: 'refresh', recordId: '001XXXXXXXXXXXX' });
+  await flushPromises();
+
+  // ③ Assert the component reacted to the message
+  const status = element.shadowRoot.querySelector('.status');
+  expect(status.textContent).toContain('Refreshed');
+});</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — SNAPSHOT TESTING
+           ============================================================ -->
+      <section id="snapshots">
+        <h2>11. Snapshot Testing</h2>
+        <p>
+          Jest supports <strong>snapshot tests</strong> — recording the serialized DOM output
+          of a component and comparing it on future runs to detect unintended changes:
+        </p>
+        <pre><code class="language-javascript">it('matches snapshot', async () =&gt; {
+  const element = createElement('c-badge', { is: Badge });
+  element.label = 'Hot';
+  element.variant = 'warning';
+  document.body.appendChild(element);
+  await flushPromises();
+
+  expect(element.shadowRoot).toMatchSnapshot();
+});</code></pre>
+        <p>
+          The first time this runs, Jest creates a <code>__snapshots__/badge.test.js.snap</code>
+          file. On subsequent runs, it diffs the current output against the saved snapshot and
+          fails if they differ.
+        </p>
+
+        <h3 id="snapshot-risk">When Snapshots Are a Liability</h3>
+        <p>
+          Snapshots seem appealing but cause problems in LWC projects:
+        </p>
+        <ul>
+          <li>
+            <strong>They break on every intentional UI change.</strong> Updating a label or adding a
+            CSS class requires regenerating the snapshot with <code>jest --updateSnapshot</code>,
+            which developers do reflexively without actually reviewing the diff.
+          </li>
+          <li>
+            <strong>LWC shadow root serialization changes between sfdx-lwc-jest versions.</strong>
+            A version bump can produce snapshot diffs that have nothing to do with your code.
+          </li>
+          <li>
+            <strong>They don't tell you <em>what</em> matters.</strong> A snapshot of a complex
+            component is 300+ lines of HTML; reviewers can't assess correctness at a glance.
+          </li>
+        </ul>
+        <p>
+          <strong>Expert recommendation:</strong> Use explicit assertions over specific DOM nodes
+          instead of snapshots. Snapshots provide a false sense of coverage without meaningful
+          assertions. Reserve them for tightly-scoped, visually stable "pixel perfect" leaf
+          components where any markup change truly is a regression.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — COVERAGE & RUNNING TESTS
+           ============================================================ -->
+      <section id="coverage">
+        <h2>12. Coverage &amp; Running Tests</h2>
+        <pre><code class="language-bash"># Run all tests
+npm run test:unit
+
+# Run in watch mode (re-runs on file save)
+npm run test:unit:watch
+
+# Run with code coverage report
+npm run test:unit:coverage
+# Or directly: npx jest --coverage
+
+# Run a single test file
+npx jest accountList
+
+# Run with verbose output
+npx jest --verbose</code></pre>
+        <p>
+          The coverage report is generated at <code>coverage/lcov-report/index.html</code>.
+          It shows:
+        </p>
+        <ul>
+          <li><strong>Statements</strong> — % of JS statements executed by tests</li>
+          <li><strong>Branches</strong> — % of <code>if/else</code> branches taken</li>
+          <li><strong>Functions</strong> — % of functions called</li>
+          <li><strong>Lines</strong> — % of lines executed</li>
+        </ul>
+        <p>
+          Salesforce does not mandate a coverage threshold for LWC tests (unlike Apex's 75%
+          line coverage requirement), but enterprise projects typically target 80%+ branch
+          coverage for critical components.
+        </p>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Coverage != Quality</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              100% line coverage does not mean your tests are meaningful. A test that calls
+              every function without any <code>expect()</code> assertions achieves perfect
+              coverage and tests nothing. Focus on asserting behavior, not hitting lines.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — COMMON FAILURE CATALOGUE
+           ============================================================ -->
+      <section id="failures">
+        <h2>13. Common Failure Catalogue</h2>
+
+        <h3>❌ "Cannot find module '@salesforce/apex/...'"</h3>
+        <p>
+          The <code>moduleNameMapper</code> in <code>jest.config.js</code> does not have an
+          entry for the Apex namespace, or the stub file it points to does not exist.
+          <strong>Fix:</strong> Add the mapping or create the manual mock file.
+        </p>
+
+        <h3>❌ querySelector returns null</h3>
+        <p>
+          Most common cause: querying <code>document.querySelector</code> instead of
+          <code>element.shadowRoot.querySelector</code>. Second cause: the element is not
+          in the DOM yet — check that <code>document.body.appendChild</code> was called and
+          <code>flushPromises()</code> was awaited.
+          <strong>Fix:</strong> Always query via <code>element.shadowRoot</code>; await flush after state changes.
+        </p>
+
+        <h3>❌ "Test was not wrapped in act(...)" warning</h3>
+        <p>
+          You performed a state update inside a test without awaiting the rendering flush.
+          <strong>Fix:</strong> Always <code>await flushPromises()</code> after any operation
+          that changes component state.
+        </p>
+
+        <h3>❌ Wire adapter emitted data but DOM didn't update</h3>
+        <p>
+          Either <code>flushPromises()</code> wasn't awaited after the <code>emit()</code> call,
+          or the adapter was registered with the wrong factory (e.g., used
+          <code>registerTestWireAdapter</code> for an Apex wire).
+          <strong>Fix:</strong> Use the correct factory type; await flush after emit.
+        </p>
+
+        <h3>❌ Apex mock not called (mock registered wrong)</h3>
+        <p>
+          When using <code>jest.mock()</code> for imperative Apex, the mock must use
+          <code>{ virtual: true }</code> because the module path doesn't exist as a real file.
+          Without it, Jest throws "Cannot find module".
+          <strong>Fix:</strong> Always add <code>{ virtual: true }</code> to <code>jest.mock()</code>
+          for Salesforce modules.
+        </p>
+
+        <h3>❌ Tests interfere with each other (stale DOM)</h3>
+        <p>
+          The <code>afterEach</code> cleanup was not implemented or does not remove all children.
+          <strong>Fix:</strong> Use the canonical cleanup loop:
+        </p>
+        <pre><code class="language-javascript">afterEach(() =&gt; {
+  while (document.body.firstChild) {
+    document.body.removeChild(document.body.firstChild);
+  }
+});</code></pre>
+
+        <h3>❌ "The `is` property must be a LightningElement constructor"</h3>
+        <p>
+          The <code>createElement</code> second argument is incorrect — typically the import
+          path is wrong, so the module resolved to <code>undefined</code>.
+          <strong>Fix:</strong> Check the import path in the test file against the
+          <code>moduleNameMapper</code> config.
+        </p>
+
+        <h3>❌ getLastConfig() returns undefined</h3>
+        <p>
+          This only works with <code>registerLdsTestWireAdapter</code>, not the Apex or
+          generic adapters. Also, the component must have mounted and rendered at least once.
+          <strong>Fix:</strong> Ensure you're using the LDS adapter factory and have awaited
+          flush after mounting.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 14 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>14. Pitfall Catalogue</h2>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 1: Testing implementation details</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Asserting on internal class names, private properties, or intermediate state
+              makes tests fragile — they break when you refactor internals without changing
+              behavior. Test the <em>public contract</em>: DOM output, events fired,
+              and <code>@api</code> properties.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 2: One giant test per component</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Having a single test that sets up state, clicks things, and asserts 15 conditions
+              tells you <em>something</em> failed but not <em>what</em>. Write one
+              <code>it()</code> per behavior. When tests are granular, failure messages are
+              descriptive.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 3: Forgetting to test the error path</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Most developers test the happy path but skip the error path. For every
+              <code>@wire</code> adapter in your component, write a test that emits an error
+              and asserts the error UI is shown. This is precisely what expert assessors check —
+              does your component degrade gracefully?
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 4: Not clearing mocks between tests</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Mock call history persists across tests in the same file. Without
+              <code>jest.clearAllMocks()</code> in <code>afterEach</code>, a spy from test A
+              reports extra calls in test B's assertions.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 5: Testing base component internals</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Base components like <code>lightning-input</code>, <code>lightning-datatable</code>
+              are replaced by lightweight stubs in Jest. You cannot test <em>their</em> behavior
+              (validation dialogs, column sorting, etc.) in LWC unit tests. Only test how
+              <em>your</em> component responds to events dispatched from the stub.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 15 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>15. Expert Insight</h2>
+        <div class="callout callout--p3">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: Why three wire adapter types?</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The reason for three distinct wire adapter factories is that each adapter type
+              has a different internal contract with the wire service:
+            </p>
+            <ul>
+              <li>
+                <strong>LDS adapters</strong> emit a specific record-shape object and support
+                <code>getLastConfig()</code> because LDS always tracks the parameters sent to
+                each adapter. The test adapter mirrors this tracking behavior.
+              </li>
+              <li>
+                <strong>Apex wire adapters</strong> emit a <code>{ data, error }</code> wrapper
+                and support server-side error status codes. The mock shapes errors to match what
+                an Apex exception actually returns.
+              </li>
+              <li>
+                <strong>Generic adapters</strong> are parameter-agnostic: they emit whatever
+                you give them, matching the contract of custom wire adapters which define their
+                own data shapes.
+              </li>
+            </ul>
+            <p>
+              Using the wrong adapter type means your tests do not faithfully simulate the
+              platform's behavior — for instance, using <code>registerTestWireAdapter</code>
+              for <code>getRecord</code> works but loses <code>getLastConfig()</code> and the
+              LDS-shaped error format.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--p3">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: flushPromises internals</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>flushPromises()</code> works by returning a <code>Promise</code> that
+              resolves after a series of <code>Promise.resolve()</code> microtask ticks.
+              Each tick allows all currently queued microtasks to drain before proceeding.
+              LWC's rendering engine schedules DOM updates as microtasks, so a single
+              <code>await flushPromises()</code> is usually enough for one reactive update
+              cycle.
+            </p>
+            <p>
+              However, for <em>cascading</em> updates (e.g., a wire result triggers a setter
+              that triggers another reactive property that triggers another render), you may
+              need to call <code>await flushPromises()</code> twice in sequence.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--p3">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: What tests prove nothing about</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LWC Jest tests run in JSDOM with the sfdx-lwc-jest synthetic LWC engine, not
+              in a Salesforce org. They prove component logic is correct under mocked
+              conditions. They do NOT prove:
+            </p>
+            <ul>
+              <li>That the Apex controller is correct (separate Apex tests needed)</li>
+              <li>That the component renders correctly in all Lightning App Builder layouts (manual QA)</li>
+              <li>That record security / FLS is enforced (enforced by the platform, not JS)</li>
+              <li>That the component works in all browsers (Jest uses JSDOM, not real Chrome/Firefox)</li>
+              <li>That the component survives a real network outage or session expiry</li>
+            </ul>
+            <p>
+              Understanding these limits prevents over-investing in unit tests for concerns
+              better addressed by Apex tests, browser tests, or platform policies.
+            </p>
+          </div>
+        </div>
+        <div class="callout callout--p3">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: Test file conventions and CI integration</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Test files must live in <code>__tests__/</code> inside the component folder
+              and must have the suffix <code>.test.js</code>. The SFDX CLI recognizes this
+              convention and the Salesforce VS Code extension runs tests inline.
+            </p>
+            <p>
+              In a CI/CD pipeline, run tests with <code>npx jest --ci --coverage</code>.
+              The <code>--ci</code> flag disables interactive mode, treats new snapshots as
+              errors (requires committing snapshots first), and fails on any uncaught
+              asynchronous errors — critical for a trustworthy pipeline.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 16 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>16. Quick Recall Card</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Concept</th>
+              <th>One-liner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>createElement('tag', { is: Class })</code></td>
+              <td>Creates an LWC instance; doesn't mount until <code>appendChild</code></td>
+            </tr>
+            <tr>
+              <td><code>document.body.appendChild(element)</code></td>
+              <td>Mounts the component; triggers constructor → connectedCallback → render</td>
+            </tr>
+            <tr>
+              <td><code>element.shadowRoot.querySelector</code></td>
+              <td>Always use this — never <code>document.querySelector</code></td>
+            </tr>
+            <tr>
+              <td><code>await flushPromises()</code></td>
+              <td>Waits for LWC to flush async DOM updates after state change</td>
+            </tr>
+            <tr>
+              <td><code>afterEach</code> cleanup loop</td>
+              <td>Removes all DOM children to prevent test interference</td>
+            </tr>
+            <tr>
+              <td><code>registerApexTestWireAdapter</code></td>
+              <td>For <code>@wire(ApexMethod)</code> — emits <code>{ data, error }</code></td>
+            </tr>
+            <tr>
+              <td><code>registerLdsTestWireAdapter</code></td>
+              <td>For LDS (<code>getRecord</code>, etc.) — includes <code>getLastConfig()</code></td>
+            </tr>
+            <tr>
+              <td><code>registerTestWireAdapter</code></td>
+              <td>For custom wire adapters — emits arbitrary values</td>
+            </tr>
+            <tr>
+              <td><code>adapter.emit(data)</code></td>
+              <td>Pushes success data into the wire</td>
+            </tr>
+            <tr>
+              <td><code>adapter.error(err)</code></td>
+              <td>Pushes error into the wire</td>
+            </tr>
+            <tr>
+              <td><code>jest.mock('path', () =&gt; ..., { virtual: true })</code></td>
+              <td>Mocks imperative Apex; <code>{ virtual: true }</code> required</td>
+            </tr>
+            <tr>
+              <td><code>jest.fn().mockResolvedValue()</code></td>
+              <td>Makes a mock return a resolved Promise (async success)</td>
+            </tr>
+            <tr>
+              <td><code>jest.fn().mockRejectedValue()</code></td>
+              <td>Makes a mock return a rejected Promise (async error)</td>
+            </tr>
+            <tr>
+              <td><code>jest.clearAllMocks()</code></td>
+              <td>Resets spy call counts in <code>afterEach</code></td>
+            </tr>
+            <tr>
+              <td>Snapshot testing</td>
+              <td>Useful for stable leaf components; avoid for complex/frequently changing UIs</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>References</h3>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/unit-testing-using-jest-create-tests.html" target="_blank" rel="noopener noreferrer">
+              Write Jest Tests — Salesforce LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/unit-testing-using-wire-utility.html" target="_blank" rel="noopener noreferrer">
+              Write Jest Tests for Wire Service — Salesforce LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/unit-testing-using-jest-patterns.html" target="_blank" rel="noopener noreferrer">
+              Jest Test Patterns — Salesforce LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/salesforce/wire-service-jest-util" target="_blank" rel="noopener noreferrer">
+              wire-service-jest-util — GitHub (Salesforce)
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/salesforce/sfdx-lwc-jest" target="_blank" rel="noopener noreferrer">
+              sfdx-lwc-jest — GitHub (Salesforce)
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="16-accessibility.html" class="nav-prev">
+          ← Article 16: Accessibility
+        </a>
+        <a href="18-deployment-targets.html" class="nav-next">
+          Article 18: Deployment Targets →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level LWC Mastery</p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const STORE_KEY = 'lwc-theme';
+      const html      = document.documentElement;
+      const btn       = document.getElementById('themeToggle');
+      const label     = document.getElementById('themeLabel');
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      if (btn) btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

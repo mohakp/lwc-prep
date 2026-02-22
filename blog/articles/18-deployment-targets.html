@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>18. Deployment Targets &amp; Metadata Configuration — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC deployment targets and js-meta.xml: every XML element explained, all available targets, targetConfigs property types, Flow input/output properties, and CI/CD integration.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/18-deployment-targets.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why This File Controls Everything</a></li>
+          <li><a href="#metadata-api">2. The Metadata API: First Principles</a></li>
+          <li class="level-3"><a href="#sfdx-wrapper">How SFDX Wraps the Metadata API</a></li>
+          <li class="level-3"><a href="#bundle-contract">The LWC Bundle Contract</a></li>
+          <li><a href="#xml-elements">3. js-meta.xml — Every Element Explained</a></li>
+          <li class="level-3"><a href="#api-version">apiVersion</a></li>
+          <li class="level-3"><a href="#is-exposed">isExposed</a></li>
+          <li class="level-3"><a href="#label-desc">label &amp; description</a></li>
+          <li class="level-3"><a href="#targets-element">targets</a></li>
+          <li class="level-3"><a href="#target-configs">targetConfigs</a></li>
+          <li class="level-3"><a href="#capability">capability</a></li>
+          <li><a href="#all-targets">4. All Deployment Targets</a></li>
+          <li class="level-3"><a href="#page-targets">Lightning Page Targets</a></li>
+          <li class="level-3"><a href="#action-targets">Action Targets</a></li>
+          <li class="level-3"><a href="#flow-targets">Flow Target</a></li>
+          <li class="level-3"><a href="#community-targets">Experience Cloud Targets</a></li>
+          <li class="level-3"><a href="#other-targets">Specialized Targets</a></li>
+          <li><a href="#target-configs-deep">5. targetConfigs Deep Dive</a></li>
+          <li class="level-3"><a href="#property-types">Property Types</a></li>
+          <li class="level-3"><a href="#datasource">datasource Attribute</a></li>
+          <li class="level-3"><a href="#objects-element">objects Element</a></li>
+          <li class="level-3"><a href="#flow-props">Flow Input &amp; Output Properties</a></li>
+          <li class="level-3"><a href="#sobject-generic">Generic sObject (Generics)</a></li>
+          <li><a href="#deployment-flow">6. Deployment Flow</a></li>
+          <li class="level-3"><a href="#sfdx-commands">Key SFDX Commands</a></li>
+          <li class="level-3"><a href="#scratch-sandbox-prod">Scratch → Sandbox → Production</a></li>
+          <li><a href="#cicd">7. CI/CD Pipeline Integration</a></li>
+          <li class="level-3"><a href="#github-actions">GitHub Actions Example</a></li>
+          <li class="level-3"><a href="#pipeline-stages">Pipeline Stages</a></li>
+          <li><a href="#version-control">8. Version Control Best Practices</a></li>
+          <li><a href="#pitfalls">9. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">10. Expert Insight</a></li>
+          <li><a href="#recall">11. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 18</div>
+        <h1>Deployment Targets &amp; Metadata Configuration</h1>
+        <div class="article-meta">
+          <span>⏱ 22 min read</span>
+          <span class="tags">
+            <span class="tag">#deployment</span>
+            <span class="tag">#metadata</span>
+            <span class="tag">#js-meta.xml</span>
+            <span class="tag">#targets</span>
+            <span class="tag">#Flow</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="18"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why This File Controls Everything</h2>
+        <p>
+          Every Lightning Web Component ships with a file that most developers write once and
+          never look at again: <code>componentName.js-meta.xml</code>. Yet this single XML file
+          is the gatekeeper for almost every deployment decision the platform makes about your
+          component.
+        </p>
+        <p>
+          It answers questions like:
+        </p>
+        <ul>
+          <li>Should this component appear in Lightning App Builder's component panel?</li>
+          <li>Which page types can it be dragged onto — home pages, record pages, both?</li>
+          <li>What configurable properties should App Builder expose to non-developers?</li>
+          <li>Can this component be placed on a Flow screen?</li>
+          <li>Does it restrict itself to only Account record pages?</li>
+          <li>Can it be instantiated dynamically at runtime?</li>
+        </ul>
+        <p>
+          Get any of these settings wrong and your component either won't appear where it should,
+          or will appear somewhere it shouldn't, or will silently fail to accept configuration in
+          a builder. For expert-level proficiency, you are expected to explain every XML element, predict
+          its runtime effect, and design metadata configurations for complex scenarios.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — METADATA API: FIRST PRINCIPLES
+           ============================================================ -->
+      <section id="metadata-api">
+        <h2>2. The Metadata API: First Principles</h2>
+        <p>
+          Before Salesforce DX (SFDX), Salesforce's customization objects — Apex classes,
+          workflows, page layouts, components — were stored as metadata records in the platform.
+          The <strong>Metadata API</strong> is the SOAP-based web service that lets you read and
+          write this metadata programmatically. It underpins every deployment tool: Ant Migration
+          Tool, Workbench, Salesforce CLI, Change Sets.
+        </p>
+        <p>
+          The key insight: metadata is <em>declarative configuration</em> that the platform
+          interprets at runtime. When you deploy a component's XML file, you are telling the
+          platform runtime engine how to categorize, expose, and constrain that component — no
+          code execution involved.
+        </p>
+
+        <h3 id="sfdx-wrapper">How SFDX Wraps the Metadata API</h3>
+        <p>
+          The Salesforce CLI (sf / sfdx) wraps the Metadata API in two ways:
+        </p>
+        <ul>
+          <li>
+            <strong>Source format</strong> — The developer-friendly format you work with locally.
+            Components are stored in a directory per component (the bundle). This is what you see
+            in your repository.
+          </li>
+          <li>
+            <strong>Metadata format</strong> — The wire format the Metadata API understands.
+            The CLI converts between the two automatically on deploy/retrieve.
+          </li>
+        </ul>
+        <pre><code class="language-bash"># Deploy a single component to a scratch org
+sf project deploy start --source-dir force-app/main/default/lwc/myComponent
+
+# Deploy everything
+sf project deploy start --source-dir force-app
+
+# Retrieve changes made in the org back to local
+sf project retrieve start --source-dir force-app/main/default/lwc/myComponent</code></pre>
+
+        <h3 id="bundle-contract">The LWC Bundle Contract</h3>
+        <p>
+          An LWC bundle is a directory where every file shares the same base name as the
+          directory itself. The platform co-locates all files in one deployment unit:
+        </p>
+        <pre><code class="language-text">myComponent/
+├── myComponent.html          ← Template (required)
+├── myComponent.js            ← Controller (required)
+├── myComponent.js-meta.xml   ← Metadata configuration (required)
+├── myComponent.css           ← Scoped styles (optional)
+├── myComponent.svg           ← Custom icon (optional)
+└── __tests__/
+    └── myComponent.test.js   ← Jest tests (not deployed)</code></pre>
+        <p>
+          The XML file is the only non-code file in the bundle and the only one the <em>platform</em>
+          reads at deployment time (not at runtime). The rest are compiled by the LWC framework.
+        </p>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Official Reference</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-configuration-tags.html" target="_blank" rel="noopener noreferrer">
+                XML Configuration File Elements — Salesforce LWC Developer Guide
+              </a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — XML ELEMENTS EXPLAINED
+           ============================================================ -->
+      <section id="xml-elements">
+        <h2>3. js-meta.xml — Every Element Explained</h2>
+        <p>
+          Here is the full skeleton of a richly configured metadata file, followed by an
+          element-by-element breakdown:
+        </p>
+        <pre><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+
+  &lt;apiVersion&gt;62.0&lt;/apiVersion&gt;
+  &lt;isExposed&gt;true&lt;/isExposed&gt;
+  &lt;label&gt;My Awesome Component&lt;/label&gt;
+  &lt;description&gt;Displays account summary with key metrics.&lt;/description&gt;
+
+  &lt;targets&gt;
+    &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+    &lt;target&gt;lightning__AppPage&lt;/target&gt;
+    &lt;target&gt;lightning__FlowScreen&lt;/target&gt;
+  &lt;/targets&gt;
+
+  &lt;targetConfigs&gt;
+
+    &lt;targetConfig targets="lightning__RecordPage"&gt;
+      &lt;property name="greeting"   type="String"  default="Hello" label="Greeting Text" /&gt;
+      &lt;property name="showBadge"  type="Boolean" default="true"  label="Show Status Badge" /&gt;
+      &lt;property name="itemCount"  type="Integer" min="1" max="50" default="10" label="Max Items" /&gt;
+      &lt;property name="objectType" type="String"  datasource="apex://MyPicklistApex" label="Object Type" /&gt;
+      &lt;objects&gt;
+        &lt;object&gt;Account&lt;/object&gt;
+        &lt;object&gt;Contact&lt;/object&gt;
+      &lt;/objects&gt;
+    &lt;/targetConfig&gt;
+
+    &lt;targetConfig targets="lightning__FlowScreen"&gt;
+      &lt;property name="recordId"   type="String"  role="inputOnly"  label="Record Id" /&gt;
+      &lt;property name="outputData" type="String"  role="outputOnly" label="Output" /&gt;
+    &lt;/targetConfig&gt;
+
+  &lt;/targetConfigs&gt;
+
+  &lt;capabilities&gt;
+    &lt;capability&gt;lightning__dynamicComponent&lt;/capability&gt;
+  &lt;/capabilities&gt;
+
+&lt;/LightningComponentBundle&gt;</code></pre>
+
+        <h3 id="api-version">apiVersion</h3>
+        <p>
+          The API version number (e.g., <code>62.0</code>) tells the platform which version of
+          Salesforce's API contract this component was written against. This affects:
+        </p>
+        <ul>
+          <li>
+            <strong>Metadata API behaviour</strong> — deployment validation rules may differ
+            by version.
+          </li>
+          <li>
+            <strong>Base component availability</strong> — new <code>lightning-*</code> components
+            are introduced at specific API versions; the compiler enforces this.
+          </li>
+          <li>
+            <strong>Framework runtime behaviour</strong> — despite what many developers assume,
+            LWC components always use the <em>current</em> LDS and base component implementations,
+            not a versioned one. The apiVersion gates the <em>compiler</em>, not the runtime.
+          </li>
+        </ul>
+        <div class="callout callout--warning">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Spring '25 Requirement</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              As of Spring '25, all LWC components <strong>must specify an apiVersion</strong>
+              in their metadata file. Attempting to save a component without it in a Spring '25+
+              org will fail validation. Set it to the current org API version unless you have a
+              specific reason to pin to an older one.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="is-exposed">isExposed</h3>
+        <p>
+          This boolean controls whether the component is <em>visible in drag-and-drop builders</em>
+          (Lightning App Builder, Experience Builder). It does <strong>not</strong> prevent the
+          component from being used programmatically inside other components.
+        </p>
+        <ul>
+          <li>
+            <code>true</code> — The component appears in the builder's component panel. You
+            <strong>must</strong> also define at least one <code>&lt;target&gt;</code> or the
+            builder will not know where to list it.
+          </li>
+          <li>
+            <code>false</code> (default) — The component is a private implementation detail,
+            usable only by other components within the same namespace. It will never appear in
+            App Builder.
+          </li>
+        </ul>
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Common Mistake</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Setting <code>isExposed</code> to <code>true</code> without adding
+              <code>&lt;targets&gt;</code> means the component <em>is</em> exposed but has no
+              valid target — it will not appear in any builder panel. Always pair
+              <code>isExposed: true</code> with at least one target.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="label-desc">label &amp; description</h3>
+        <p>
+          These are the human-readable strings that appear in App Builder and Setup:
+        </p>
+        <ul>
+          <li>
+            <code>label</code> — The display name shown in the builder's component panel and
+            in Setup's component list. If omitted, the system uses the component's technical name.
+          </li>
+          <li>
+            <code>description</code> — A one-sentence summary shown as a tooltip in builders.
+            Helps admins understand the component's purpose without reading code.
+          </li>
+        </ul>
+
+        <h3 id="targets-element">targets</h3>
+        <p>
+          This container lists every <strong>surface</strong> where this component is permitted
+          to appear. Each <code>&lt;target&gt;</code> child names one deployment context.
+          The complete list of targets is covered in the next section.
+        </p>
+        <pre><code class="language-xml">&lt;targets&gt;
+  &lt;target&gt;lightning__AppPage&lt;/target&gt;
+  &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+  &lt;target&gt;lightning__HomePage&lt;/target&gt;
+&lt;/targets&gt;</code></pre>
+        <p>
+          An important nuance: declaring a target does <em>not</em> automatically make the
+          component configurable in that target's builder. You need a matching
+          <code>&lt;targetConfig targets="..."&gt;</code> to expose configurable properties.
+          A component with a target but no targetConfig will appear in the builder but have
+          no property panel.
+        </p>
+
+        <h3 id="target-configs">targetConfigs</h3>
+        <p>
+          This container holds one or more <code>&lt;targetConfig&gt;</code> elements, each
+          scoped to one or more targets. The <code>targets</code> attribute can be a
+          comma-separated list of target names when the same config applies to multiple targets:
+        </p>
+        <pre><code class="language-xml">&lt;targetConfigs&gt;
+  &lt;!-- Same properties for both page types --&gt;
+  &lt;targetConfig targets="lightning__AppPage,lightning__RecordPage"&gt;
+    &lt;property name="title" type="String" label="Card Title" /&gt;
+  &lt;/targetConfig&gt;
+
+  &lt;!-- Different config just for Flow --&gt;
+  &lt;targetConfig targets="lightning__FlowScreen"&gt;
+    &lt;property name="inputValue" type="String" role="inputOnly" label="Input" /&gt;
+    &lt;property name="result"     type="String" role="outputOnly" label="Result" /&gt;
+  &lt;/targetConfig&gt;
+&lt;/targetConfigs&gt;</code></pre>
+
+        <h3 id="capability">capability</h3>
+        <p>
+          Capabilities declare special platform-level features the component uses. The most
+          relevant ones for Expert:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Capability Value</th><th>What It Enables</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>lightning__dynamicComponent</code></td>
+              <td>
+                Allows the component to instantiate other components dynamically at runtime
+                using <code>&lt;lwc:component lwc:is={ctor}&gt;</code>. Requires Lightning
+                Web Security (LWS) to be enabled in the org.
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightning__ServerRenderable</code></td>
+              <td>
+                Enables server-side rendering (SSR) for LWR Experience Cloud sites. The
+                component must be SSR-compatible (no DOM access in constructor or connectedCallback).
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightning__ServerRenderableWithHydration</code></td>
+              <td>
+                SSR with client-side hydration — the server renders the initial HTML and
+                the client then "hydrates" it to make it interactive.
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightningCommunity__RelaxedCSP</code></td>
+              <td>
+                Allows the component to run in Experience Builder without Lightning Locker
+                isolation. Use only when third-party JS requires it.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — ALL DEPLOYMENT TARGETS
+           ============================================================ -->
+      <section id="all-targets">
+        <h2>4. All Deployment Targets</h2>
+        <p>
+          Each target string maps to a specific location in the Salesforce UI. Using an
+          unrecognized target string will cause a deployment validation error.
+        </p>
+
+        <h3 id="page-targets">Lightning Page Targets</h3>
+        <table>
+          <thead>
+            <tr><th>Target</th><th>Where It Appears</th><th>Key Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>lightning__AppPage</code></td>
+              <td>Custom App Pages in Lightning App Builder</td>
+              <td>A blank canvas page type for custom app dashboards</td>
+            </tr>
+            <tr>
+              <td><code>lightning__RecordPage</code></td>
+              <td>Record detail pages for any SObject</td>
+              <td>
+                Use <code>&lt;objects&gt;</code> inside targetConfig to restrict to specific
+                object types. Without it, the component appears for <em>all</em> objects.
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightning__HomePage</code></td>
+              <td>The Lightning home page</td>
+              <td>Shared across all apps unless overridden per app</td>
+            </tr>
+            <tr>
+              <td><code>lightning__Tab</code></td>
+              <td>Custom Lightning Tabs (Navigation Items)</td>
+              <td>
+                The component fills the entire tab area. The tab must reference the component's
+                API name in the tab metadata.
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightning__UrlAddressable</code></td>
+              <td>Navigatable via PageReference in NavigationMixin</td>
+              <td>
+                Makes the component accessible as a <code>standard__component</code> page type.
+                Allows deep-linking to a specific component via URL state.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="action-targets">Action Targets</h3>
+        <table>
+          <thead>
+            <tr><th>Target</th><th>Where It Appears</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>lightning__GlobalAction</code></td>
+              <td>The global actions bar in the Salesforce header (the "+" button)</td>
+            </tr>
+            <tr>
+              <td><code>lightning__RecordAction</code></td>
+              <td>
+                Record-page quick action buttons (in the highlights panel or action bar).
+                These appear when a user clicks "New", "Edit", "Log a Call", etc.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          For a record action, the component receives the current <code>recordId</code> automatically
+          as an <code>@api</code> property. You must declare it:
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, api } from 'lwc';
+
+export default class MyAction extends LightningElement {
+    @api recordId;  // automatically injected by the platform
+    @api objectApiName;  // also auto-injected on record pages
+}</code></pre>
+
+        <h3 id="flow-targets">Flow Target</h3>
+        <p>
+          <code>lightning__FlowScreen</code> is the most nuanced target. When a component
+          targets Flow, it becomes available in Flow Builder as a screen component. The
+          properties you define in <code>targetConfigs</code> with
+          <code>role="inputOnly"</code> or <code>role="outputOnly"</code> become Flow
+          variables that can be mapped in the flow canvas.
+        </p>
+        <p>
+          Flow components must implement the <strong>Screen Flow interface</strong> if they
+          need to control navigation. Add this to the XML for a component that acts as a
+          full screen:
+        </p>
+        <pre><code class="language-xml">&lt;targetConfig targets="lightning__FlowScreen"&gt;
+  &lt;!-- Implements the lightning:availableForFlowScreens interface --&gt;
+  &lt;property name="accountId" type="String" role="inputOnly"  label="Account Id" /&gt;
+  &lt;property name="result"    type="String" role="outputOnly" label="Selected Value" /&gt;
+&lt;/targetConfig&gt;</code></pre>
+        <p>
+          The JS controller uses <code>FlowAttributeChangeEvent</code> to notify Flow that
+          an output value changed:
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, api } from 'lwc';
+import { FlowAttributeChangeEvent } from 'lightning/flowSupport';
+
+export default class MyFlowStep extends LightningElement {
+    @api accountId;    // input: Flow passes value in
+    @api result;       // output: component writes value back
+
+    handleSelection(event) {
+        // Notify Flow that the output attribute changed
+        const attributeChangeEvent = new FlowAttributeChangeEvent(
+            'result',               // attribute name (matches @api property)
+            event.detail.value      // new value
+        );
+        this.dispatchEvent(attributeChangeEvent);
+    }
+}</code></pre>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Flow Navigation</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              If your component needs to control flow navigation (Next, Back, Pause, Finish),
+              import <code>FlowNavigationNextEvent</code>, <code>FlowNavigationBackEvent</code>,
+              etc. from <code>lightning/flowSupport</code> and dispatch them on user action.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="community-targets">Experience Cloud Targets</h3>
+        <table>
+          <thead>
+            <tr><th>Target</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>lightningCommunity__Page</code></td>
+              <td>
+                Experience Builder pages for Aura-based sites. The component appears in the
+                Experience Builder components panel.
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightningCommunity__Page_Layout</code></td>
+              <td>
+                LWR (Lightning Web Runtime) page layouts. Used for newer, performance-optimized
+                Experience Cloud sites built with LWR.
+              </td>
+            </tr>
+            <tr>
+              <td><code>lightningCommunity__Theme_Layout</code></td>
+              <td>
+                LWR theme layouts — the outermost shell (header, footer, navigation) of an
+                LWR site. Highly specialized, used for site-wide theming.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="other-targets">Specialized Targets</h3>
+        <p>
+          Beyond the core targets, Salesforce exposes a growing list of specialized surfaces:
+        </p>
+        <ul>
+          <li><code>lightning__Inbox</code> — Salesforce Inbox integration pane in Outlook/Gmail</li>
+          <li><code>analytics__Dashboard</code> — CRM Analytics (Tableau CRM) dashboard widgets</li>
+          <li><code>lightning__ECSFSApp</code> — Salesforce Field Service mobile app</li>
+          <li><code>lightning__ServiceDocument</code> — Document Builder for service agreements</li>
+          <li><code>lightningStatic__Email</code> — Email Content Builder for marketing emails</li>
+          <li><code>lightningSnapin__ChatHeader</code>, <code>__ChatMessage</code>, <code>__PreChat</code> — Embedded Service Chat customization</li>
+          <li><code>lightning__AgentforceInput</code>, <code>lightning__AgentforceOutput</code> — Agentforce agent action inputs/outputs (GA in recent releases)</li>
+          <li><code>lightning__EnablementProgram</code> — Enablement (Sales Enablement) custom exercises</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — TARGETCONFIGS DEEP DIVE
+           ============================================================ -->
+      <section id="target-configs-deep">
+        <h2>5. targetConfigs Deep Dive</h2>
+        <p>
+          The <code>&lt;property&gt;</code> element inside a targetConfig defines a single
+          configurable attribute. Here is the full attribute set for a property element:
+        </p>
+        <pre><code class="language-xml">&lt;property
+  name="propertyName"          &lt;!-- REQUIRED: must match @api property in JS --&gt;
+  type="String"                &lt;!-- REQUIRED: see type table below --&gt;
+  label="Human Readable Label" &lt;!-- shown in builder's property panel --&gt;
+  description="What it does"   &lt;!-- tooltip in builder --&gt;
+  default="defaultValue"       &lt;!-- initial value set by builder --&gt;
+  required="true"              &lt;!-- marks field as required in builder UI --&gt;
+  placeholder="e.g. My Title"  &lt;!-- placeholder text (String only) --&gt;
+  min="1"                      &lt;!-- minimum value (Integer only) --&gt;
+  max="100"                    &lt;!-- maximum value (Integer only) --&gt;
+  role="inputOnly"             &lt;!-- Flow only: inputOnly | outputOnly --&gt;
+  datasource="apex://MyClass"  &lt;!-- renders a picklist of values --&gt;
+/&gt;</code></pre>
+
+        <h3 id="property-types">Property Types</h3>
+        <table>
+          <thead>
+            <tr><th>type Value</th><th>JS Equivalent</th><th>Builder UI</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>String</code></td>
+              <td><code>@api myProp;</code></td>
+              <td>Text input</td>
+              <td>Default type. Use for text, IDs, and picklist values via datasource.</td>
+            </tr>
+            <tr>
+              <td><code>Integer</code></td>
+              <td><code>@api myProp = 0;</code></td>
+              <td>Number input with optional min/max</td>
+              <td>Must also use <code>Integer</code> or <code>Number</code> type in JS class comments; no decimal values.</td>
+            </tr>
+            <tr>
+              <td><code>Boolean</code></td>
+              <td><code>@api myProp = false;</code></td>
+              <td>Toggle (checkbox)</td>
+              <td>The default value must be the string <code>"true"</code> or <code>"false"</code>, not a boolean literal in XML.</td>
+            </tr>
+            <tr>
+              <td><code>@salesforce/schema/Object.Field</code></td>
+              <td><code>@api myProp;</code></td>
+              <td>Object picker or field picker</td>
+              <td>Renders a dropdown of SObjects or fields depending on context. Use in App Builder for dynamic object selection.</td>
+            </tr>
+            <tr>
+              <td><code>apex://ClassName</code></td>
+              <td><code>@api myProp;</code></td>
+              <td>Apex-driven picklist</td>
+              <td>
+                The Apex class must implement <code>VisualEditor.DynamicPickList</code>.
+                Salesforce calls the class at builder load time to get the picklist options.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="datasource">datasource Attribute</h3>
+        <p>
+          When a property has <code>type="String"</code>, the <code>datasource</code>
+          attribute transforms the free-text input into a picklist in the builder UI.
+          There are three flavors:
+        </p>
+
+        <strong>1. Static comma-separated list</strong>
+        <pre><code class="language-xml">&lt;property
+  name="variant"
+  type="String"
+  label="Card Variant"
+  datasource="Standard,Info,Warning,Error"
+  default="Standard"
+/&gt;</code></pre>
+        <p>
+          The builder renders a dropdown with exactly these four options. No Apex required.
+        </p>
+
+        <strong>2. SObject picklist</strong>
+        <pre><code class="language-xml">&lt;property
+  name="objectApiName"
+  type="String"
+  label="SObject Type"
+  datasource="sobject"
+/&gt;</code></pre>
+        <p>
+          Renders a dropdown listing all SObjects the current user can access. The selected
+          value is the object's API name (e.g., <code>Account</code>, <code>Opportunity__c</code>).
+        </p>
+
+        <strong>3. Apex-driven dynamic picklist</strong>
+        <pre><code class="language-xml">&lt;property
+  name="region"
+  type="String"
+  label="Sales Region"
+  datasource="apex://MyRegionPicklist"
+/&gt;</code></pre>
+        <p>
+          The Apex class <code>MyRegionPicklist</code> must implement
+          <code>VisualEditor.DynamicPickList</code>:
+        </p>
+        <pre><code class="language-apex">global class MyRegionPicklist extends VisualEditor.DynamicPickList {
+
+    global override VisualEditor.DataRow getDefaultValue() {
+        return new VisualEditor.DataRow('North America', 'NA');
+    }
+
+    global override VisualEditor.DynamicPickListRows getValues() {
+        VisualEditor.DynamicPickListRows rows = new VisualEditor.DynamicPickListRows();
+        rows.addRow(new VisualEditor.DataRow('North America', 'NA'));
+        rows.addRow(new VisualEditor.DataRow('Europe',        'EU'));
+        rows.addRow(new VisualEditor.DataRow('Asia Pacific',  'APAC'));
+        return rows;
+    }
+}</code></pre>
+        <p>
+          This approach is powerful because the picklist values can be derived from SOQL
+          queries, org preferences, or any server-side logic.
+        </p>
+
+        <h3 id="objects-element">objects Element</h3>
+        <p>
+          Inside a <code>lightning__RecordPage</code> targetConfig, the
+          <code>&lt;objects&gt;</code> element restricts which SObject record pages the
+          component appears on:
+        </p>
+        <pre><code class="language-xml">&lt;targetConfig targets="lightning__RecordPage"&gt;
+  &lt;property name="greeting" type="String" label="Greeting" /&gt;
+  &lt;objects&gt;
+    &lt;object&gt;Account&lt;/object&gt;
+    &lt;object&gt;Opportunity&lt;/object&gt;
+    &lt;object&gt;Contact&lt;/object&gt;
+  &lt;/objects&gt;
+&lt;/targetConfig&gt;</code></pre>
+        <p>
+          Without <code>&lt;objects&gt;</code>, the component appears in the builder for
+          every SObject's record page — including custom objects. This creates clutter. Always
+          use <code>&lt;objects&gt;</code> when a component is object-specific.
+        </p>
+
+        <h3 id="flow-props">Flow Input &amp; Output Properties</h3>
+        <p>
+          The <code>role</code> attribute on properties inside a
+          <code>lightning__FlowScreen</code> targetConfig determines how Flow treats the property:
+        </p>
+        <table>
+          <thead>
+            <tr><th>role Value</th><th>Direction</th><th>Behaviour</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>(not set)</td>
+              <td>Input and Output</td>
+              <td>
+                Flow can pass a value in <em>and</em> read the value back. The component can
+                update the value and have it available to subsequent flow elements.
+              </td>
+            </tr>
+            <tr>
+              <td><code>inputOnly</code></td>
+              <td>Input only</td>
+              <td>
+                Flow passes a value in, but the component's writes to this property are
+                <em>not</em> propagated back. Use for read-only configuration data.
+              </td>
+            </tr>
+            <tr>
+              <td><code>outputOnly</code></td>
+              <td>Output only</td>
+              <td>
+                Flow cannot set this property; it only reads what the component emits via
+                <code>FlowAttributeChangeEvent</code>. Use for component-produced data.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall: Forgetting FlowAttributeChangeEvent</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Simply setting <code>this.myOutputProp = someValue</code> does <strong>not</strong>
+              make Flow aware of the new value. You must dispatch a
+              <code>FlowAttributeChangeEvent</code> for output properties. Flow only "collects"
+              the output when navigating forward — so the event must fire before the user
+              clicks Next in the flow.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="sobject-generic">Generic sObject (Generics Pattern)</h3>
+        <p>
+          For advanced Flow use cases where you want to pass a full sObject record (not just
+          an ID), you use the <code>&lt;propertyType&gt;</code> element to declare a generic
+          type parameter:
+        </p>
+        <pre><code class="language-xml">&lt;targetConfig targets="lightning__FlowScreen"&gt;
+  &lt;!-- Declare a generic type "T" that extends sObject --&gt;
+  &lt;propertyType name="T" extends="SObject" label="Record Type" description="The type of sObject record" /&gt;
+
+  &lt;!-- Reference the generic type with {T} syntax --&gt;
+  &lt;property name="inputRecord"  type="{T}"   role="inputOnly"  label="Input Record" /&gt;
+  &lt;property name="outputRecord" type="{T}"   role="outputOnly" label="Output Record" /&gt;
+&lt;/targetConfig&gt;</code></pre>
+        <p>
+          In Flow Builder, the admin selects the concrete sObject type (e.g., Account),
+          and Flow enforces that both <code>inputRecord</code> and <code>outputRecord</code>
+          are bound to the same object type. The <code>{T}</code> syntax acts like a
+          TypeScript generic — it tells Flow "both properties are the same type, whatever
+          the admin picks."
+        </p>
+        <div class="callout callout--info">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Salesforce Reference</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-flow-custom-property-editor-sobject-lwc-example.html" target="_blank" rel="noopener noreferrer">
+                Generic SObject Input for Screen Components — Salesforce Developer Guide
+              </a>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — DEPLOYMENT FLOW
+           ============================================================ -->
+      <section id="deployment-flow">
+        <h2>6. Deployment Flow</h2>
+        <p>
+          Understanding how metadata moves through Salesforce environments is essential
+          for safe, repeatable deployments.
+        </p>
+
+        <h3 id="sfdx-commands">Key SFDX / SF CLI Commands</h3>
+        <pre><code class="language-bash"># --- Scratch Org Lifecycle ---
+# Create a scratch org (uses scratch-def.json for features/settings)
+sf org create scratch --definition-file config/project-scratch-def.json --alias myScratchOrg
+
+# Push local source to scratch org (differential — only changed files)
+sf project deploy start --target-org myScratchOrg
+
+# Pull changes made in the scratch org back to local source
+sf project retrieve start --target-org myScratchOrg
+
+# Delete scratch org when done
+sf org delete scratch --target-org myScratchOrg
+
+# --- Sandbox / Production Deployment ---
+# Validate (dry-run) a deployment without committing it
+sf project deploy validate \
+  --source-dir force-app \
+  --target-org mySandbox \
+  --test-level RunLocalTests
+
+# Deploy source (real deployment)
+sf project deploy start \
+  --source-dir force-app \
+  --target-org mySandbox \
+  --test-level RunLocalTests
+
+# Deploy a specific component only
+sf project deploy start \
+  --metadata LightningComponentBundle:myComponent \
+  --target-org mySandbox
+
+# Quick deploy (reuse validated deployment by ID)
+sf project deploy quick --job-id &lt;deployId&gt; --target-org mySandbox</code></pre>
+
+        <h3 id="scratch-sandbox-prod">Scratch → Sandbox → Production</h3>
+        <p>
+          The standard Salesforce DX promotion model separates environments by purpose:
+        </p>
+        <pre><code class="language-text">Developer Machine
+    │
+    ├── Scratch Org (feature development + initial testing)
+    │       ↓ sf project deploy start
+    │
+    ├── Developer Sandbox (integration testing across teams)
+    │       ↓ sf project deploy start --test-level RunLocalTests
+    │
+    ├── QA / Staging Sandbox (UAT, regression)
+    │       ↓ sf project deploy validate → sf project deploy quick
+    │
+    └── Production (final release)
+            ↓ Requires 75% overall Apex test coverage</code></pre>
+        <p>
+          The <code>--test-level</code> flag controls which Apex tests run on deployment:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Test Level</th><th>What Runs</th><th>When to Use</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>NoTestRun</code></td>
+              <td>No tests</td>
+              <td>Scratch orgs only (they have no coverage requirement)</td>
+            </tr>
+            <tr>
+              <td><code>RunSpecifiedTests</code></td>
+              <td>Named test classes only</td>
+              <td>Fast targeted validation when you know the test coverage</td>
+            </tr>
+            <tr>
+              <td><code>RunLocalTests</code></td>
+              <td>All tests in the org except those in managed packages</td>
+              <td>Standard for sandbox and production deployments</td>
+            </tr>
+            <tr>
+              <td><code>RunAllTestsInOrg</code></td>
+              <td>All tests including managed package tests</td>
+              <td>Complete regression; slower, but required in some regulated orgs</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — CI/CD PIPELINE INTEGRATION
+           ============================================================ -->
+      <section id="cicd">
+        <h2>7. CI/CD Pipeline Integration</h2>
+        <p>
+          A mature LWC development workflow automates every deployment step so that
+          code merged to the main branch automatically flows through environments.
+        </p>
+
+        <h3 id="github-actions">GitHub Actions Example</h3>
+        <pre><code class="language-yaml"># .github/workflows/ci.yml
+name: Salesforce CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        run: npm install -g @salesforce/cli
+
+      - name: Authenticate to Salesforce (SFDX URL)
+        run: |
+          echo "${{ secrets.SFDX_AUTH_URL }}" > sfdx_auth_url.txt
+          sf org login sfdx-url --sfdx-url-file sfdx_auth_url.txt --alias targetOrg
+
+      - name: Install LWC Jest dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        run: npm run test:unit -- --coverage
+
+      - name: Validate deployment (dry run)
+        run: |
+          sf project deploy validate \
+            --source-dir force-app \
+            --target-org targetOrg \
+            --test-level RunLocalTests
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @salesforce/cli
+
+      - name: Authenticate to Production
+        run: |
+          echo "${{ secrets.PROD_SFDX_AUTH_URL }}" > prod_auth.txt
+          sf org login sfdx-url --sfdx-url-file prod_auth.txt --alias production
+
+      - name: Deploy to Production
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org production \
+            --test-level RunLocalTests</code></pre>
+
+        <h3 id="pipeline-stages">Pipeline Stages</h3>
+        <p>
+          A complete pipeline for a team typically has these stages in sequence:
+        </p>
+        <ol>
+          <li>
+            <strong>Static Analysis</strong> — Run ESLint with Salesforce's LWC ruleset
+            (<code>@salesforce/eslint-plugin-lwc</code>) to catch component anti-patterns
+            before they ever reach an org.
+          </li>
+          <li>
+            <strong>Jest Unit Tests</strong> — All LWC Jest tests with coverage thresholds.
+            Fail the build if coverage drops below the threshold (e.g., 80%).
+          </li>
+          <li>
+            <strong>Scratch Org Deploy</strong> — Push to a fresh scratch org and run Apex
+            unit tests. This validates the complete metadata package, including any
+            permission sets, flows, or objects the LWC depends on.
+          </li>
+          <li>
+            <strong>Validation Deploy</strong> — Run <code>sf project deploy validate</code>
+            against the target sandbox. This dry run checks deployment validity and runs
+            Apex tests without actually committing changes. Store the <code>deployId</code>
+            for quick deploy on success.
+          </li>
+          <li>
+            <strong>Quick Deploy</strong> — On merge to main, use the validated
+            <code>deployId</code> from step 4. Because validation already ran the tests,
+            quick deploy applies the changes instantly without rerunning them.
+          </li>
+        </ol>
+        <pre><code class="language-bash"># ESLint check with LWC ruleset
+npx eslint force-app --ext .js --rulesdir .eslintrc.json
+
+# Run Jest with coverage
+npm run test:unit -- --coverage --coverageThreshold='{"global":{"lines":80}}'
+
+# Capture validation deployId for quick deploy
+DEPLOY_ID=$(sf project deploy validate \
+  --source-dir force-app \
+  --target-org mySandbox \
+  --test-level RunLocalTests \
+  --json | jq -r '.result.id')
+
+# Quick deploy (no test re-run)
+sf project deploy quick --job-id "$DEPLOY_ID" --target-org mySandbox</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — VERSION CONTROL BEST PRACTICES
+           ============================================================ -->
+      <section id="version-control">
+        <h2>8. Version Control Best Practices</h2>
+        <p>
+          The source-first approach means your Git repository is the single source of truth
+          for all metadata. Here are the conventions that matter most for LWC teams:
+        </p>
+
+        <strong>1. Commit the full bundle atomically</strong>
+        <p>
+          Always commit all files in a component bundle together. A partial commit
+          (e.g., only the <code>.js</code> without the <code>.js-meta.xml</code>) will
+          cause deployment failures on pull.
+        </p>
+
+        <strong>2. Never manually edit XML in org — only via source</strong>
+        <p>
+          Making changes in Setup or App Builder and then retrieving produces brittle
+          workflows. Changes should originate in source, be committed to Git, and flow
+          through the CI/CD pipeline. Manual org changes that skip version control create
+          "snowflake" orgs that diverge from source.
+        </p>
+
+        <strong>3. Use feature branches per component/feature</strong>
+        <p>
+          Each new LWC feature should live in its own branch. This isolates deployment
+          scope: if <code>feature/account-dashboard</code> breaks, it doesn't block
+          deployment of <code>feature/contact-modal</code>.
+        </p>
+
+        <strong>4. Store auth credentials as CI/CD secrets only</strong>
+        <p>
+          Never commit SFDX auth URLs or connected app credentials to Git. Store them
+          as GitHub Actions secrets, Azure DevOps pipeline variables, or equivalent.
+          Rotate credentials after any accidental exposure.
+        </p>
+
+        <strong>5. Include <code>jest.config.js</code> and <code>package.json</code> in the repo</strong>
+        <p>
+          The Jest configuration and npm dependencies must be tracked in version control.
+          Without them, CI cannot run Jest tests. The <code>node_modules</code> directory
+          itself should be in <code>.gitignore</code>.
+        </p>
+
+        <strong>6. Recommended <code>.gitignore</code> entries for LWC projects</strong>
+        <pre><code class="language-text"># Salesforce DX
+.sfdx/
+.sf/
+.localDevServer/
+
+# Node
+node_modules/
+.nyc_output/
+coverage/
+
+# Auth (never commit)
+*sfdx_auth_url*
+*.sfdxurl
+
+# OS
+.DS_Store
+Thumbs.db</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>9. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 1: isExposed=true without targets</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Setting <code>&lt;isExposed&gt;true&lt;/isExposed&gt;</code> but omitting
+              <code>&lt;targets&gt;</code> — the component is marked as exposed but has no
+              builder to appear in. It will never show up in App Builder or Experience Builder.
+              Always pair these together.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 2: Property name mismatch between XML and JS</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              If the <code>name</code> attribute in <code>&lt;property name="myProp"&gt;</code>
+              does not exactly match the <code>@api myProp</code> in the JavaScript class,
+              the builder will silently fail to pass the configured value. The property panel
+              will show the field, but the component will never receive the value.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 3: Boolean default as JS boolean, not string</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In XML, all values are strings. Writing <code>default="true"</code> is correct.
+              Writing <code>default=true</code> (without quotes) is invalid XML and will cause
+              a parse error. Some developers also mistakenly write <code>default="1"</code>
+              — use <code>"true"</code> / <code>"false"</code> for Boolean type.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 4: Missing apiVersion in Spring '25+ orgs</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              As of Spring '25, every component's XML file must contain an
+              <code>&lt;apiVersion&gt;</code> element. Attempting to save a component
+              without it in Setup or via CLI will fail. This affects teams using older
+              project templates or generators that omit the element.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 5: lightning__dynamicComponent without LWS</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>lightning__dynamicComponent</code> capability only works in orgs where
+              Lightning Web Security (LWS) is enabled. Deploying a component with this
+              capability to an org using the older Locker Service will cause runtime errors
+              when the dynamic instantiation is attempted. Check org settings before deploying.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 6: Deploying without running tests in production</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Production deployments require 75% Apex code coverage across all tests. A common
+              mistake is running only the new feature's tests (<code>RunSpecifiedTests</code>)
+              and not catching a regression in an unrelated class. Always use
+              <code>RunLocalTests</code> or validate on a full-coverage sandbox first.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Pitfall 7: Not declaring objects restriction on record-page components</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              A component targeting <code>lightning__RecordPage</code> without an
+              <code>&lt;objects&gt;</code> restriction appears in the builder for every
+              single SObject. This pollutes the component panel for every object's record
+              page in the org and confuses admins. Always restrict record-page components
+              to the specific object types they support.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>10. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: Design Metadata as a Contract</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              At expert level, the metadata file is not a technical afterthought — it is a
+              <strong>formal contract</strong> between the component developer and the admin
+              who configures it. Every <code>&lt;property&gt;</code> element is a promise:
+              "I, the developer, declare that this input is valid, typed, and documented."
+              Every missing label or description forces admins to guess intent.
+            </p>
+            <p>
+              Architect-level LWC developers design the metadata first — what targets, what
+              properties, what types, what defaults — before writing a single line of JS.
+              This prevents the anti-pattern of bolting on metadata after the fact.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: Managed Package Implications</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In a managed package (ISV context), components with <code>isExposed=true</code>
+              and a global access modifier are visible in subscriber orgs. However, changing
+              a property's <code>type</code> or removing a property in a subsequent package
+              version is a <strong>breaking change</strong> — it will cause deployment failures
+              in orgs that have existing App Builder configurations using the old property.
+              The rule: property API surface in metadata is versioned and should evolve additively.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: Scratch Org Definition and Feature Flags</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>project-scratch-def.json</code> file controls which platform features
+              are enabled in scratch orgs. If a component relies on LWS
+              (<code>lightning__dynamicComponent</code> capability), the scratch definition must
+              include <code>"LightningWebSecurity": true</code> in its <code>features</code>
+              array. Forgetting this means your component works fine in scratch but fails in
+              production — or vice versa.
+            </p>
+            <pre><code class="language-json">{
+  "orgName": "My Dev Org",
+  "edition": "Developer",
+  "features": ["Communities", "LightningWebSecurity"],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    }
+  }
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" tabindex="0" role="button" aria-expanded="true">
+            <span>Expert Insight: Quick Deploy + Validate Separation in Regulated Environments</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In regulated industries (finance, healthcare), production deployments often require
+              a mandatory review window between validation and execution. The validate-then-quick-deploy
+              pattern is purpose-built for this: validate on Friday (running all 3,000 Apex tests
+              takes 20 minutes), get change board approval over the weekend, quick deploy on Monday
+              in 30 seconds. The validated deployment ID is valid for up to 10 days.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>11. Quick Recall Card</h2>
+        <table>
+          <thead>
+            <tr><th>Concept</th><th>Key Fact</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>isExposed</code></td>
+              <td>Must be <code>true</code> + have <code>&lt;targets&gt;</code> to appear in builders</td>
+            </tr>
+            <tr>
+              <td><code>apiVersion</code></td>
+              <td>Required in Spring '25+; controls compiler, not LDS/base component runtime version</td>
+            </tr>
+            <tr>
+              <td><code>targets</code></td>
+              <td>Lists surfaces where component is permitted to be placed</td>
+            </tr>
+            <tr>
+              <td><code>targetConfig targets="..."</code></td>
+              <td>Comma-separate multiple targets to share one property config block</td>
+            </tr>
+            <tr>
+              <td>Property <code>type</code></td>
+              <td>String, Integer, Boolean, sobject, or <code>apex://ClassName</code></td>
+            </tr>
+            <tr>
+              <td><code>datasource</code></td>
+              <td>Renders a picklist: static CSV, <code>sobject</code>, or <code>apex://DynamicPickList</code></td>
+            </tr>
+            <tr>
+              <td><code>&lt;objects&gt;</code></td>
+              <td>Restricts record-page component to specific SObjects; omit = all objects</td>
+            </tr>
+            <tr>
+              <td>Flow <code>role="inputOnly"</code></td>
+              <td>Flow sets it; component can read but writes are not propagated back</td>
+            </tr>
+            <tr>
+              <td>Flow <code>role="outputOnly"</code></td>
+              <td>Component writes it via <code>FlowAttributeChangeEvent</code>; Flow reads it</td>
+            </tr>
+            <tr>
+              <td><code>FlowAttributeChangeEvent</code></td>
+              <td>Must dispatch this to notify Flow of output value changes — direct assignment alone is not enough</td>
+            </tr>
+            <tr>
+              <td>Generic sObject: <code>{T}</code></td>
+              <td><code>&lt;propertyType name="T" extends="SObject"&gt;</code> + properties use <code>type="{T}"</code></td>
+            </tr>
+            <tr>
+              <td><code>lightning__dynamicComponent</code></td>
+              <td>Enables <code>lwc:is</code> dynamic components; requires LWS in org</td>
+            </tr>
+            <tr>
+              <td>Validate + Quick Deploy</td>
+              <td>Validate runs tests (ID valid 10 days); Quick Deploy applies without re-running tests</td>
+            </tr>
+            <tr>
+              <td><code>lightning__UrlAddressable</code></td>
+              <td>Makes component navigatable via <code>standard__component</code> PageReference</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>References</h3>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-configuration-tags.html" target="_blank" rel="noopener noreferrer">
+              XML Configuration File Elements — Salesforce LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-config-for-app-builder.html" target="_blank" rel="noopener noreferrer">
+              Configure a Component for Lightning App Builder — Salesforce Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-config-for-community-builder.html" target="_blank" rel="noopener noreferrer">
+              Experience Builder Sites — Salesforce Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-flow-custom-property-editor-sobject-lwc-example.html" target="_blank" rel="noopener noreferrer">
+              Generic SObject Input for Screen Components — Salesforce Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-config-for-quick-actions.html" target="_blank" rel="noopener noreferrer">
+              Configure a Component for Quick Actions — Salesforce Developer Guide
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="17-jest-testing.html" class="nav-prev">
+          ← Article 17: Jest Unit Testing
+        </a>
+        <a href="19-advanced-patterns.html" class="nav-next">
+          Article 19: Advanced Patterns →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level LWC Mastery</p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const STORE_KEY = 'lwc-theme';
+      const html      = document.documentElement;
+      const btn       = document.getElementById('themeToggle');
+      const label     = document.getElementById('themeLabel');
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      if (btn) btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

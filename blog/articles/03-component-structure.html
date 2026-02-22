@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03. Component File Structure — LWC.guide</title>
+  <meta name="description" content="Deep-dive into LWC Component File Structure: bundle anatomy, js-meta.xml, CSS scoping, naming rules, deployment targets, and Expert gotchas.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/03-component-structure.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why This Matters</a></li>
+          <li><a href="#mental-model">2. Mental Model</a></li>
+          <li class="level-3"><a href="#module-bundling">Module Bundling Concepts</a></li>
+          <li class="level-3"><a href="#co-location">The Co-location Pattern</a></li>
+          <li><a href="#the-spec">3. The Bundle Contract</a></li>
+          <li class="level-3"><a href="#file-types">Required &amp; Optional Files</a></li>
+          <li class="level-3"><a href="#naming-rules">Naming Rules</a></li>
+          <li><a href="#js-meta-xml">4. js-meta.xml Deep Dive</a></li>
+          <li class="level-3"><a href="#api-version">apiVersion</a></li>
+          <li class="level-3"><a href="#is-exposed">isExposed</a></li>
+          <li class="level-3"><a href="#targets">targets</a></li>
+          <li class="level-3"><a href="#target-configs">targetConfigs</a></li>
+          <li><a href="#css-scoping">5. CSS Scoping at Compile Time</a></li>
+          <li><a href="#additional-files">6. Additional Bundle Files</a></li>
+          <li class="level-3"><a href="#svg-icons">SVG Icons</a></li>
+          <li class="level-3"><a href="#tests-folder">__tests__ Folder</a></li>
+          <li><a href="#pitfalls">7. Common Pitfalls</a></li>
+          <li><a href="#p3-insight">8. Expert Insight</a></li>
+          <li><a href="#recall">9. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 03</div>
+        <h1>Component File Structure</h1>
+        <div class="article-meta">
+          <span>⏱ 13 min read</span>
+          <span class="tags">
+            <span class="tag">#fundamentals</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="03"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           1. HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why This Matters</h2>
+        <p>
+          The LWC bundle contract is not just a convention — it is enforced by the compiler, the
+          deployment toolchain, and the Salesforce platform at runtime. Get it wrong and your
+          component simply won't deploy. Get it subtly wrong and it deploys but doesn't appear in
+          App Builder, or it appears everywhere instead of just where you intended it.
+        </p>
+        <p>
+          More insidiously: a component that works perfectly in your scratch org can silently fail
+          in production because of a case-sensitivity mismatch (Linux servers are case-sensitive;
+          macOS and Windows are not). A component that the examiner asks you to "make available in
+          Flow" requires <em>exactly</em> the right <code>js-meta.xml</code> configuration — not
+          roughly right, exactly right.
+        </p>
+        <p>
+          This article builds a first-principles understanding of <strong>why</strong> the bundle
+          structure exists, then maps every file, every XML element, and every compiler behavior so
+          you can reason about them rather than memorize them.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           2. MENTAL MODEL
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. Mental Model</h2>
+
+        <h3 id="module-bundling">Module Bundling Concepts</h3>
+        <p>
+          Before Salesforce ever comes into the picture, think about what a module bundler (Webpack,
+          Rollup, esbuild) does: it takes a graph of JavaScript files connected by
+          <code>import</code> / <code>export</code>, resolves all the dependencies, and emits a
+          single optimized bundle. It needs a clear <strong>entry point</strong> (the root module)
+          and a <strong>resolution algorithm</strong> (how <code>import './foo'</code> maps to
+          actual files on disk).
+        </p>
+        <p>
+          LWC's compiler works on the same principle, but it extends the concept:
+        </p>
+        <ul>
+          <li>The <strong>entry point</strong> of a component is <code>componentName.js</code> — the file with the same name as the folder.</li>
+          <li>The <strong>HTML template</strong> (<code>componentName.html</code>) is automatically bound to that JS class — you don't import it explicitly.</li>
+          <li>The <strong>CSS</strong> (<code>componentName.css</code>) is automatically scoped and injected — no explicit import needed.</li>
+          <li>The <strong>metadata</strong> (<code>componentName.js-meta.xml</code>) is read by the deployment toolchain to determine where this component can live.</li>
+        </ul>
+        <p>
+          This automatic binding by name is the key mental model: <strong>the folder name IS the component name IS the module identifier</strong>. Every file inside the folder that shares that name is automatically wired together by the compiler.
+        </p>
+
+        <h3 id="co-location">The Co-location Pattern</h3>
+        <p>
+          Co-location is a software engineering principle: keep related files as close as possible
+          to the code that uses them. React popularized it by putting CSS modules, tests, and stories
+          alongside the component file rather than in separate global directories.
+        </p>
+        <p>
+          LWC enforces strict co-location: you cannot reference a CSS file from a different component's
+          folder (at least not for automatic scoping), and you cannot split a component across directories.
+          Each bundle is a <em>single directory</em> that is the complete, self-contained unit of
+          deployment. This constraint is what makes LWC's scoped CSS work reliably.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           3. THE SPEC — BUNDLE CONTRACT
+           ============================================================ -->
+      <section id="the-spec">
+        <h2>3. The Bundle Contract</h2>
+
+        <h3 id="file-types">Required &amp; Optional Files</h3>
+        <p>
+          A minimal LWC bundle looks like this on disk:
+        </p>
+        <pre class="language-text" data-lang="DIRECTORY"><code class="language-text">force-app/main/default/lwc/
+└── myComponent/                    ← folder name = component name
+    ├── myComponent.html            ← template (required)
+    ├── myComponent.js              ← controller class (required)
+    └── myComponent.js-meta.xml     ← deployment metadata (required for deploy)</code></pre>
+
+        <p>
+          The full bundle with all optional files:
+        </p>
+        <pre class="language-text" data-lang="DIRECTORY"><code class="language-text">force-app/main/default/lwc/
+└── myComponent/
+    ├── myComponent.html            ← template (required)
+    ├── myComponent.js              ← controller (required)
+    ├── myComponent.js-meta.xml     ← deployment metadata (required for deploy)
+    ├── myComponent.css             ← scoped styles (optional)
+    ├── myComponent.svg             ← custom icon for App Builder (optional)
+    ├── myComponent.ts              ← TypeScript source, compiled to .js (optional)
+    ├── __tests__/                  ← Jest test files (optional, not deployed)
+    │   └── myComponent.test.js
+    └── __mocks__/                  ← local mocks for this component (optional)
+        └── someModule.js</code></pre>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Required?</th>
+                <th>Deployed?</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>name.html</code></td>
+                <td>Yes*</td>
+                <td>Yes</td>
+                <td>Component template. *Service components can omit it with <code>&lt;template&gt;&lt;/template&gt;</code></td>
+              </tr>
+              <tr>
+                <td><code>name.js</code></td>
+                <td>Yes</td>
+                <td>Yes</td>
+                <td>ES6 class extending <code>LightningElement</code></td>
+              </tr>
+              <tr>
+                <td><code>name.js-meta.xml</code></td>
+                <td>Yes (for SFDX deploy)</td>
+                <td>Yes</td>
+                <td>Metadata: API version, target surfaces, property configs</td>
+              </tr>
+              <tr>
+                <td><code>name.css</code></td>
+                <td>No</td>
+                <td>Yes</td>
+                <td>Scoped CSS — automatically applied to this component only</td>
+              </tr>
+              <tr>
+                <td><code>name.svg</code></td>
+                <td>No</td>
+                <td>Yes</td>
+                <td>Custom icon for Lightning App Builder tile</td>
+              </tr>
+              <tr>
+                <td><code>__tests__/*.test.js</code></td>
+                <td>No</td>
+                <td><strong>No</strong></td>
+                <td>Jest unit tests — excluded from deployment by <code>.forceignore</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="naming-rules">Naming Rules</h3>
+        <p>
+          LWC naming is strictly enforced. Violations cause deploy errors, not just warnings:
+        </p>
+        <ul>
+          <li><strong>camelCase only</strong> — <code>myComponent</code> not <code>my-component</code> or <code>MyComponent</code></li>
+          <li><strong>Starts with a lowercase letter</strong> — cannot begin with a digit or capital</li>
+          <li><strong>Alphanumeric + underscore only</strong> — no hyphens in the folder/file name</li>
+          <li><strong>Max 40 characters</strong> — enforced by the platform</li>
+          <li><strong>No reserved names</strong> — cannot use Salesforce built-in names like <code>lightning</code>, <code>aura</code>, <code>force</code>, <code>forceChatter</code>, <code>ui</code>, <code>laf</code>, <code>clients</code>, <code>connect</code></li>
+        </ul>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Case Sensitivity: The Silent Production Killer</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              macOS and Windows filesystems are case-insensitive by default. This means
+              <code>myComponent</code> and <code>MyComponent</code> are the same file to your OS.
+              Your scratch org runs on Linux, which is case-sensitive. The production Salesforce
+              server also runs on Linux.
+            </p>
+            <p>
+              Result: a component named <code>MyComponent</code> with files named
+              <code>myComponent.html</code> will work locally, deploy successfully, but fail at
+              runtime on the server because the compiler can't resolve the module reference.
+            </p>
+            <p>
+              <strong>Rule:</strong> Folder name, all files inside it, and all
+              <code>import</code> statements referencing it must use exactly the same casing.
+              Use camelCase consistently. Never use PascalCase for LWC bundle names.
+            </p>
+          </div>
+        </div>
+
+        <p>
+          In HTML templates, the component tag uses <strong>kebab-case</strong> (auto-converted by
+          the platform from the camelCase folder name):
+        </p>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- Folder: lwc/myGreetingCard/ --&gt;
+&lt;!-- Used in another component's template as: --&gt;
+&lt;c-my-greeting-card&gt;&lt;/c-my-greeting-card&gt;
+
+&lt;!-- The namespace prefix 'c' is the default for custom components --&gt;
+&lt;!-- In managed packages, this becomes your package namespace --&gt;</code></pre>
+
+        <p>
+          The camelCase → kebab-case conversion is done by the compiler: each capital letter gets
+          lowercased and preceded by a hyphen. <code>myGreetingCard</code> becomes
+          <code>my-greeting-card</code>, so the full tag is <code>&lt;c-my-greeting-card&gt;</code>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           4. js-meta.xml DEEP DIVE
+           ============================================================ -->
+      <section id="js-meta-xml">
+        <h2>4. <code>js-meta.xml</code> Deep Dive</h2>
+        <p>
+          The <code>js-meta.xml</code> file is the <strong>contract between your component and the
+          Salesforce platform</strong>. It tells the platform: what API version this component
+          targets, which surfaces it can appear on, what configurable properties it exposes, and
+          what special capabilities it needs.
+        </p>
+        <p>
+          Here is the maximum-verbosity version showing every meaningful element:
+        </p>
+        <pre class="language-xml" data-lang="XML"><code class="language-xml">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+
+  &lt;!-- API version this component was written for --&gt;
+  &lt;apiVersion&gt;62.0&lt;/apiVersion&gt;
+
+  &lt;!-- Whether this component appears in the App Builder palette --&gt;
+  &lt;isExposed&gt;true&lt;/isExposed&gt;
+
+  &lt;!-- Which Lightning surfaces this component supports --&gt;
+  &lt;targets&gt;
+    &lt;target&gt;lightning__AppPage&lt;/target&gt;
+    &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+    &lt;target&gt;lightning__HomePage&lt;/target&gt;
+    &lt;target&gt;lightning__Tab&lt;/target&gt;
+    &lt;target&gt;lightning__FlowScreen&lt;/target&gt;
+    &lt;target&gt;lightningCommunity__Page&lt;/target&gt;
+    &lt;target&gt;lightningCommunity__Default&lt;/target&gt;
+    &lt;target&gt;lightning__UtilityBar&lt;/target&gt;
+    &lt;target&gt;lightning__Inbox&lt;/target&gt;
+  &lt;/targets&gt;
+
+  &lt;!-- Configuration for specific targets --&gt;
+  &lt;targetConfigs&gt;
+
+    &lt;!-- Properties exposed to App Builder drag-and-drop configuraton --&gt;
+    &lt;targetConfig targets="lightning__AppPage,lightning__RecordPage"&gt;
+
+      &lt;!-- Simple text property --&gt;
+      &lt;property
+        name="title"
+        type="String"
+        default="Hello World"
+        label="Card Title"
+        description="The heading shown on the card"
+        placeholder="Enter a title..."
+      /&gt;
+
+      &lt;!-- Integer property with range --&gt;
+      &lt;property
+        name="itemLimit"
+        type="Integer"
+        default="5"
+        label="Max Items"
+        min="1"
+        max="50"
+      /&gt;
+
+      &lt;!-- Boolean property --&gt;
+      &lt;property
+        name="showFooter"
+        type="Boolean"
+        default="false"
+        label="Show Footer"
+      /&gt;
+
+      &lt;!-- Object picker: user selects a Salesforce object --&gt;
+      &lt;property
+        name="objectApiName"
+        type="String"
+        datasource="sobject"
+        label="Object"
+        description="The object to display records from"
+      /&gt;
+
+      &lt;!-- Picklist property populated from an Apex class --&gt;
+      &lt;property
+        name="displayMode"
+        type="String"
+        datasource="apex://MyConfigApexClass"
+        label="Display Mode"
+      /&gt;
+
+      &lt;!-- Restricts this config to only these objects (for Record Pages) --&gt;
+      &lt;objects&gt;
+        &lt;object&gt;Account&lt;/object&gt;
+        &lt;object&gt;Contact&lt;/object&gt;
+      &lt;/objects&gt;
+
+    &lt;/targetConfig&gt;
+
+    &lt;!-- Flow-specific: properties passed in/out of Flow --&gt;
+    &lt;targetConfig targets="lightning__FlowScreen"&gt;
+
+      &lt;!-- Input: value passed INTO the component from Flow --&gt;
+      &lt;property
+        name="recordId"
+        type="String"
+        role="inputOnly"
+        label="Record Id"
+      /&gt;
+
+      &lt;!-- Output: value returned FROM the component to Flow --&gt;
+      &lt;property
+        name="selectedValue"
+        type="String"
+        role="outputOnly"
+        label="Selected Value"
+      /&gt;
+
+      &lt;!-- InputOutput: bidirectional (default role) --&gt;
+      &lt;property
+        name="searchTerm"
+        type="String"
+        role="inputOutput"
+        label="Search Term"
+      /&gt;
+
+    &lt;/targetConfig&gt;
+
+    &lt;!-- Special capability flags --&gt;
+    &lt;targetConfig targets="lightning__AppPage"&gt;
+      &lt;!-- Required for lwc:component / lwc:is dynamic components --&gt;
+      &lt;capabilities&gt;
+        &lt;capability&gt;lightning__dynamicComponent&lt;/capability&gt;
+      &lt;/capabilities&gt;
+    &lt;/targetConfig&gt;
+
+  &lt;/targetConfigs&gt;
+
+&lt;/LightningComponentBundle&gt;</code></pre>
+
+        <h3 id="api-version">apiVersion — More Than a Number</h3>
+        <p>
+          The <code>apiVersion</code> element tells the compiler <em>which version of the LWC
+          runtime and Salesforce APIs</em> this component was written for. It is not just metadata
+          — it actively changes the behavior of your component.
+        </p>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>apiVersion behavior</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>New features gated by version</strong></td>
+                <td><code>lwc:if</code> requires API 55+. <code>lwc:ref</code> requires API 59+. Using them below the required version causes a compile error.</td>
+              </tr>
+              <tr>
+                <td><strong>Bug fixes may break existing behavior</strong></td>
+                <td>Bumping the API version can change event propagation, rendering order, or CSS scoping. Treat bumps as a minor migration.</td>
+              </tr>
+              <tr>
+                <td><strong>Components run at their declared version</strong></td>
+                <td>Even if the org is on API 62, a component declaring <code>55.0</code> runs with v55 runtime semantics.</td>
+              </tr>
+              <tr>
+                <td><strong>All files in a bundle must use the same version</strong></td>
+                <td>You can't mix API versions within a bundle (e.g., import a submodule at a different version).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          <strong>Expert rule:</strong> Always create new components at the latest supported API version
+          for the current org. When migrating legacy components, bump incrementally and test each
+          increment — don't jump from 45 to 62 in one shot.
+        </p>
+
+        <h3 id="is-exposed">isExposed — What It Actually Gates</h3>
+        <p>
+          <code>isExposed</code> is a <strong>discovery flag</strong>, not a security boundary.
+          Setting it to <code>true</code> makes the component visible in Lightning App Builder's
+          component palette. Setting it to <code>false</code> hides it from the palette.
+        </p>
+        <p>
+          Critical nuance: <code>isExposed: false</code> does <em>not</em> prevent a developer
+          from using the component in another component's template via
+          <code>&lt;c-my-component&gt;</code>. It only controls App Builder discoverability.
+          A component with <code>isExposed: false</code> can still be imported and used by
+          other LWC components or added programmatically.
+        </p>
+        <p>
+          There is also an interaction with <code>targets</code>: if <code>isExposed</code> is
+          <code>true</code> but no <code>targets</code> are specified, the component appears in
+          App Builder but only on tabs — the platform's default surface. Always declare your
+          intended targets explicitly.
+        </p>
+
+        <h3 id="targets">targets — All Valid Values</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Target Value</th>
+                <th>Surface</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>lightning__AppPage</code></td>
+                <td>Custom App Pages in Lightning Experience</td>
+                <td>Home-like pages built in App Builder</td>
+              </tr>
+              <tr>
+                <td><code>lightning__RecordPage</code></td>
+                <td>Record detail pages</td>
+                <td>Can restrict to specific objects via <code>&lt;objects&gt;</code></td>
+              </tr>
+              <tr>
+                <td><code>lightning__HomePage</code></td>
+                <td>Lightning Experience Home page</td>
+                <td>Org default or profile-specific home</td>
+              </tr>
+              <tr>
+                <td><code>lightning__Tab</code></td>
+                <td>Custom Lightning Tabs</td>
+                <td>A tab whose content is your component</td>
+              </tr>
+              <tr>
+                <td><code>lightning__FlowScreen</code></td>
+                <td>Flow Screen components</td>
+                <td>Requires Flow-specific property <code>role</code> attributes</td>
+              </tr>
+              <tr>
+                <td><code>lightningCommunity__Page</code></td>
+                <td>Experience Cloud full pages</td>
+                <td>Formerly "Communities"</td>
+              </tr>
+              <tr>
+                <td><code>lightningCommunity__Default</code></td>
+                <td>Experience Cloud page regions</td>
+                <td>Most common for Experience Cloud components</td>
+              </tr>
+              <tr>
+                <td><code>lightning__UtilityBar</code></td>
+                <td>Utility bar of a Lightning App</td>
+                <td>Small, always-visible panel at bottom of screen</td>
+              </tr>
+              <tr>
+                <td><code>lightning__Inbox</code></td>
+                <td>Salesforce Inbox (email integration)</td>
+                <td>Rare; for email sidebar integrations</td>
+              </tr>
+              <tr>
+                <td><code>lightning__MailAppPage</code></td>
+                <td>Outlook / Gmail integrations</td>
+                <td>Email app side panel</td>
+              </tr>
+              <tr>
+                <td><code>lightning__DynamicPageRoute</code></td>
+                <td>Dynamic Lightning pages (enhanced URLs)</td>
+                <td>API 56+; used with Enhanced URLs feature</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="target-configs">targetConfigs — Property Types and datasource</h3>
+        <p>
+          The <code>type</code> attribute on a <code>&lt;property&gt;</code> element determines
+          what kind of input control App Builder renders for that property:
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>type value</th>
+                <th>App Builder UI Control</th>
+                <th>JS type received</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>String</code></td>
+                <td>Text input</td>
+                <td><code>string</code></td>
+              </tr>
+              <tr>
+                <td><code>Boolean</code></td>
+                <td>Toggle / checkbox</td>
+                <td><code>boolean</code></td>
+              </tr>
+              <tr>
+                <td><code>Integer</code></td>
+                <td>Number input</td>
+                <td><code>number</code> (integer)</td>
+              </tr>
+              <tr>
+                <td><code>String</code> + <code>datasource="sobject"</code></td>
+                <td>Object API name picker (dropdown)</td>
+                <td><code>string</code> (API name)</td>
+              </tr>
+              <tr>
+                <td><code>String</code> + <code>datasource="picklist://Object.Field"</code></td>
+                <td>Picklist field values dropdown</td>
+                <td><code>string</code></td>
+              </tr>
+              <tr>
+                <td><code>String</code> + <code>datasource="apex://ClassName"</code></td>
+                <td>Custom dropdown from Apex</td>
+                <td><code>string</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          For the <code>apex://ClassName</code> datasource, the Apex class must implement
+          <code>omnistudio.VisualPicklistProvider</code> (or the equivalent interface) and return
+          a list of label/value pairs. This is the mechanism for dynamic picklists in App Builder.
+        </p>
+
+        <h4>Flow Property Roles</h4>
+        <p>
+          When targeting <code>lightning__FlowScreen</code>, each <code>&lt;property&gt;</code>
+          can declare a <code>role</code>:
+        </p>
+        <ul>
+          <li><strong><code>inputOnly</code></strong> — Flow passes a value <em>into</em> the component (via <code>@api</code> property). The component cannot write back.</li>
+          <li><strong><code>outputOnly</code></strong> — The component sets a value on an <code>@api</code> property that Flow reads <em>after</em> the screen is submitted. The component is the producer.</li>
+          <li><strong><code>inputOutput</code></strong> (default) — Bidirectional. Flow can set an initial value and read the final value after submission.</li>
+        </ul>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// myFlowComponent.js
+// The @api property name must EXACTLY match the name in js-meta.xml
+import { LightningElement, api } from 'lwc';
+
+export default class MyFlowComponent extends LightningElement {
+  // Flow passes this IN (matches role="inputOnly" in meta)
+  @api recordId;
+
+  // Flow reads this OUT after user clicks Next (matches role="outputOnly")
+  // You must set this when the user makes a selection
+  @api selectedValue;
+
+  handleSelection(event) {
+    // Setting the @api property is what "outputs" the value to Flow
+    this.selectedValue = event.detail.value;
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           5. CSS SCOPING AT COMPILE TIME
+           ============================================================ -->
+      <section id="css-scoping">
+        <h2>5. CSS Scoping at Compile Time</h2>
+        <p>
+          One of the most important things to understand about LWC is <strong>how CSS scoping
+          actually works</strong>. The Shadow DOM provides natural encapsulation in native browsers,
+          but Salesforce uses <em>Synthetic Shadow DOM</em> — a JavaScript polyfill — so the CSS
+          isolation needs to be enforced differently.
+        </p>
+        <p>
+          The LWC compiler generates a <strong>unique attribute</strong> for each component and
+          adds it to both the HTML elements and the CSS selectors at build time. Here's what
+          that looks like:
+        </p>
+
+        <h3>What You Write</h3>
+        <pre class="language-css" data-lang="CSS"><code class="language-css">/* myComponent.css */
+p {
+  color: red;
+}
+
+.highlight {
+  background: yellow;
+}
+
+:host {
+  display: block;
+}</code></pre>
+
+        <h3>What the Compiler Generates (Synthetic Shadow)</h3>
+        <pre class="language-css" data-lang="CSS"><code class="language-css">/* Generated — never write this directly */
+
+/* Every selector gets the unique scope attribute appended */
+p[c-myComponent-host] {
+  color: red;
+}
+
+.highlight[c-myComponent-host] {
+  background: yellow;
+}
+
+/* :host maps to the component's root element */
+[c-myComponent-host] {
+  display: block;
+}</code></pre>
+
+        <p>
+          And in the rendered HTML, every element inside the component gets that attribute:
+        </p>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;!-- Rendered DOM (simplified) --&gt;
+&lt;c-my-component c-myComponent-host&gt;
+  &lt;p c-myComponent-host&gt;Hello&lt;/p&gt;
+  &lt;span class="highlight" c-myComponent-host&gt;Highlighted&lt;/span&gt;
+&lt;/c-my-component&gt;</code></pre>
+
+        <p>
+          Because the CSS selector <code>p[c-myComponent-host]</code> matches only elements with
+          that specific attribute, styles from one component cannot bleed into another. This is the
+          mechanism behind LWC's style isolation without requiring native Shadow DOM.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Why You Can't Use Class Name Overrides from Parent</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Because every CSS selector gets the component-specific scope attribute appended, a
+              parent component's CSS selector for <code>.highlight</code> becomes
+              <code>.highlight[c-parentComponent-host]</code>. When applied to the DOM, this only
+              matches elements inside the parent — <em>not</em> elements inside a child component,
+              which have <code>[c-myComponent-host]</code> instead.
+            </p>
+            <p>
+              This is why you cannot "reach into" a child component with CSS from a parent, and
+              why you must use <strong>SLDS Styling Hooks</strong> (<code>--slds-c-*</code> CSS
+              custom properties) instead. CSS custom properties (variables) are the one mechanism
+              that <em>does</em> pierce shadow boundaries naturally.
+            </p>
+          </div>
+        </div>
+
+        <h3>Sharing CSS Across Components</h3>
+        <p>
+          LWC allows you to <code>@import</code> a shared CSS file into a component's CSS:
+        </p>
+        <pre class="language-css" data-lang="CSS"><code class="language-css">/* myComponent.css */
+@import 'c/sharedStyles';  /* imports from another LWC module */
+
+/* Shared styles get the importing component's scope attribute,
+   not the shared module's — so they are still scoped to myComponent */
+.my-class {
+  color: blue;
+}</code></pre>
+
+        <p>
+          The key insight: when you <code>@import</code> a shared CSS file, the compiler applies
+          the <em>importer's</em> scope attribute to the imported selectors. This means the
+          imported styles are scoped to <code>myComponent</code>, not to the shared module. They
+          don't leak globally.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           6. ADDITIONAL BUNDLE FILES
+           ============================================================ -->
+      <section id="additional-files">
+        <h2>6. Additional Bundle Files</h2>
+
+        <h3 id="svg-icons">SVG Icons for App Builder</h3>
+        <p>
+          When you include a <code>componentName.svg</code> file in your bundle, it replaces the
+          default icon shown in the App Builder component palette tile. Without it, App Builder
+          shows a generic component icon.
+        </p>
+        <pre class="language-html" data-lang="SVG"><code class="language-html">&lt;!-- myComponent.svg --&gt;
+&lt;!-- Requirements:
+  - Must be a valid SVG
+  - Recommended size: 100x100 viewBox
+  - Only the component name should appear in the palette thumbnail
+  - Keep file size small (under 10KB)
+--&gt;
+&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"&gt;
+  &lt;circle cx="50" cy="50" r="40" fill="#0176d3"/&gt;
+  &lt;text x="50" y="55" text-anchor="middle" fill="white" font-size="14"&gt;MC&lt;/text&gt;
+&lt;/svg&gt;</code></pre>
+
+        <p>
+          Note: SVG icons are <strong>only</strong> for App Builder display. They have no effect
+          when the component is used programmatically in other templates.
+        </p>
+
+        <h3 id="tests-folder">__tests__ Folder Conventions</h3>
+        <p>
+          Jest test files live in the <code>__tests__/</code> subdirectory of the bundle. This
+          location is recognized by the <code>@salesforce/sfdx-lwc-jest</code> preset and the
+          SFDX <code>.forceignore</code> file ensures test files are never deployed to Salesforce.
+        </p>
+        <pre class="language-text" data-lang="DIRECTORY"><code class="language-text">myComponent/
+├── __tests__/
+│   ├── myComponent.test.js        ← primary test file (convention)
+│   ├── myComponent.helper.test.js ← additional test files (optional)
+│   └── __snapshots__/             ← auto-generated by Jest snapshot tests
+│       └── myComponent.test.js.snap</code></pre>
+
+        <p>
+          Test file naming conventions:
+        </p>
+        <ul>
+          <li>Primary test file: <code>componentName.test.js</code> (matches the component name)</li>
+          <li>Jest discovers all files matching <code>**/__tests__/**/*.js</code> or <code>**/*.test.js</code> based on your <code>jest.config.js</code></li>
+          <li>The <code>.forceignore</code> entry <code>**/__tests__/**</code> ensures test files are excluded from org deployment</li>
+        </ul>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// __tests__/myComponent.test.js
+// Standard Jest + LWC testing boilerplate
+
+import { createElement } from 'lwc';           // NOT window.document.createElement
+import MyComponent from 'c/myComponent';        // camelCase, no hyphen in import
+
+describe('c-my-component', () => {
+  afterEach(() => {
+    // Clean up DOM after each test — prevents cross-test contamination
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
+  });
+
+  it('renders with default title', () => {
+    // Use lwc.createElement, not document.createElement
+    const element = createElement('c-my-component', { is: MyComponent });
+    document.body.appendChild(element);
+
+    // Query inside shadow root — never document.querySelector
+    const title = element.shadowRoot.querySelector('h1');
+    expect(title.textContent).toBe('Default Title');
+  });
+});</code></pre>
+
+        <h3>Additional JavaScript Modules</h3>
+        <p>
+          A bundle can contain additional JavaScript files that are not the main controller.
+          These are utility modules private to the bundle:
+        </p>
+        <pre class="language-text" data-lang="DIRECTORY"><code class="language-text">myComponent/
+├── myComponent.js          ← main controller
+├── myComponent.html
+├── myComponent.js-meta.xml
+└── utils.js               ← private utility module (no export default class required)</code></pre>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// myComponent/utils.js
+// Private utility — only importable from within this bundle
+
+export function formatCurrency(amount, currencyCode = 'USD') {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currencyCode
+  }).format(amount);
+}
+
+export const MAX_RECORDS = 200;</code></pre>
+
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// myComponent/myComponent.js
+import { LightningElement } from 'lwc';
+import { formatCurrency, MAX_RECORDS } from './utils';  // relative import
+
+export default class MyComponent extends LightningElement {
+  get displayPrice() {
+    return formatCurrency(this.price);
+  }
+}</code></pre>
+
+        <p>
+          <strong>Key rule:</strong> These additional modules use <em>relative imports</em>
+          (<code>./utils</code>) rather than the component path (<code>c/myComponent/utils</code>).
+          They are private to the bundle and cannot be imported by other components.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           7. COMMON PITFALLS
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>7. Common Pitfalls</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 1: Component Not Appearing in App Builder</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Developer deploys a component but can't find it in App Builder's palette. Cause:
+              <code>isExposed</code> is missing or <code>false</code>, or the correct
+              <code>&lt;target&gt;</code> is not declared.
+            </p>
+            <pre class="language-xml" data-lang="XML"><code class="language-xml">&lt;!-- ❌ Wrong: isExposed is false, and no page target specified --&gt;
+&lt;LightningComponentBundle xmlns="..."&gt;
+  &lt;apiVersion&gt;62.0&lt;/apiVersion&gt;
+  &lt;isExposed&gt;false&lt;/isExposed&gt;
+&lt;/LightningComponentBundle&gt;
+
+&lt;!-- ✅ Correct: exposed with appropriate target --&gt;
+&lt;LightningComponentBundle xmlns="..."&gt;
+  &lt;apiVersion&gt;62.0&lt;/apiVersion&gt;
+  &lt;isExposed&gt;true&lt;/isExposed&gt;
+  &lt;targets&gt;
+    &lt;target&gt;lightning__RecordPage&lt;/target&gt;
+  &lt;/targets&gt;
+&lt;/LightningComponentBundle&gt;</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 2: Flow Property Not Available in Flow Builder</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              A component added to a Flow screen doesn't show its properties for wiring in Flow
+              Builder. Cause: <code>lightning__FlowScreen</code> is not in <code>targets</code>,
+              or the <code>targetConfig</code> for it is missing, or property names don't match
+              the <code>@api</code> properties in the JS class.
+            </p>
+            <pre class="language-xml" data-lang="XML"><code class="language-xml">&lt;!-- The property 'name' attribute MUST exactly match the @api property name in JS --&gt;
+&lt;targetConfig targets="lightning__FlowScreen"&gt;
+  &lt;property name="recordId" type="String" role="inputOnly" label="Record ID" /&gt;
+&lt;/targetConfig&gt;</code></pre>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// JS class must have @api property with EXACTLY the same name
+@api recordId;  // matches name="recordId" in xml</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 3: Mutating an @api Property</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LWC enforces a one-way data flow contract: <code>@api</code> properties are read-only
+              from the child's perspective. Attempting to directly assign to one at runtime throws
+              an error in production (and a console warning in dev mode).
+            </p>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Wrong: mutating an @api property directly
+@api recordId;
+
+handleClick() {
+  this.recordId = 'newValue';  // Error: Cannot assign to read-only property
+}
+
+// ✅ Correct: use a private reactive property, initialized from @api
+@api
+get recordId() { return this._recordId; }
+set recordId(value) { this._recordId = value; }
+
+_recordId;
+
+handleClick() {
+  this._recordId = 'newValue';  // OK — mutating private backing field
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 4: Reserved Namespace in Component Name</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Component names that start with reserved Salesforce namespace prefixes fail to deploy.
+              Common reserved prefixes include: <code>lightning</code>, <code>aura</code>,
+              <code>force</code>, <code>forceChatter</code>, <code>ui</code>, <code>laf</code>,
+              <code>clients</code>, <code>connect</code>, <code>slds</code>.
+            </p>
+            <pre class="language-text" data-lang="TEXT"><code class="language-text">❌ Invalid component names:
+  lightningCard/       (starts with 'lightning')
+  auraHelper/          (starts with 'aura')
+  forceUtils/          (starts with 'force')
+
+✅ Valid alternatives:
+  customCard/
+  utilsHelper/
+  coreUtils/</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 5: apiVersion Mismatch After Upgrade</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When the platform upgrades to a new API version, some components break because they
+              use deprecated or changed behavior that was silently allowed in older versions.
+              Always test after Salesforce releases (3 times per year) in a sandbox before the
+              change reaches production.
+            </p>
+            <p>
+              A component on API 45 using <code>if:true</code> still works, but a new component
+              on API 60+ should use <code>lwc:if</code>. The platform maintains backward
+              compatibility per declared API version — but only up to a point.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 6: Importing from Outside the Bundle</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              You cannot use relative paths (<code>../</code>) to import from another component's
+              bundle. Each LWC bundle is an isolated module. Cross-bundle imports use the module
+              identifier format (<code>c/componentName</code>).
+            </p>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Wrong: relative path crossing bundle boundaries
+import { something } from '../otherComponent/utils';
+
+// ✅ Correct: use the module identifier format
+// (Only works if otherComponent exports it — private bundle files cannot be imported)
+import OtherComponent from 'c/otherComponent';</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           8. EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>8. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Managed Packages Change the Namespace Contract</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In an unmanaged org or scratch org, all custom components use the <code>c</code>
+              namespace prefix. In a managed package, the namespace is the package namespace
+              registered with Salesforce (e.g., <code>mypackage</code>). This changes:
+            </p>
+            <ul>
+              <li>HTML tag: <code>&lt;c-my-component&gt;</code> becomes <code>&lt;mypackage-my-component&gt;</code></li>
+              <li>JS import: <code>'c/myComponent'</code> becomes <code>'mypackage/myComponent'</code></li>
+              <li><code>isExposed: false</code> effectively marks the component as <em>internal to the package</em> — subscribers cannot use it in App Builder but can still inherit its behavior if it's a base for other components</li>
+            </ul>
+            <p>
+              For ISV products, the access modifier decisions (exposed vs internal) are architectural
+              choices that cannot be easily changed after package release without breaking subscriber orgs.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 The API Version Strategy for Enterprise Orgs</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In enterprise orgs with hundreds of LWC components, having mixed API versions across
+              components creates a maintenance burden. Expert-level architects establish an
+              <strong>API version upgrade policy</strong>:
+            </p>
+            <ol>
+              <li>Maintain a minimum floor API version (e.g., no components below API 55)</li>
+              <li>Create a standard process to bump all components 1 version per release cycle</li>
+              <li>Test API version bumps in a dedicated sandbox, not scratch orgs (scratch orgs often have different behavior)</li>
+              <li>Use a CI/CD validation step that enforces the minimum API version via regex check on all <code>js-meta.xml</code> files</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 targetConfig Drives UX — Not Just Deployment</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Many developers think of <code>targetConfigs</code> as deployment plumbing. Expert
+              architects treat it as a <strong>user experience layer</strong> for admins. A
+              well-configured App Builder palette entry means:
+            </p>
+            <ul>
+              <li>Clear <code>label</code> and <code>description</code> on each property</li>
+              <li><code>placeholder</code> on string inputs to guide input format</li>
+              <li><code>datasource="sobject"</code> instead of a free-text field when an object API name is expected (prevents typos)</li>
+              <li>Restricting <code>&lt;objects&gt;</code> on Record Pages so the component only appears on relevant object pages</li>
+              <li>Using Apex datasource for complex dropdowns instead of free-text</li>
+            </ul>
+            <p>
+              The goal: an admin should be able to configure your component in App Builder without
+              reading any documentation.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           9. QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>9. Quick Recall Card</h2>
+        <div class="recall-card">
+          <h3>📋 Component File Structure — Key Points</h3>
+          <ul>
+            <li><strong>Bundle contract:</strong> Folder name = component name = module identifier. All files must share the same camelCase name.</li>
+            <li><strong>Naming:</strong> camelCase, lowercase start, alphanumeric+underscore only, max 40 chars, no reserved prefixes.</li>
+            <li><strong>In HTML template:</strong> camelCase → kebab-case conversion. <code>myComponent</code> → <code>&lt;c-my-component&gt;</code></li>
+            <li><strong>isExposed:</strong> Controls App Builder discovery only — not a security boundary. A <code>false</code> component can still be used in templates.</li>
+            <li><strong>apiVersion:</strong> Gates which LWC features are available. Affects runtime semantics — bump with care.</li>
+            <li><strong>targets:</strong> Must be declared explicitly. Without them, exposed components default to Tab only.</li>
+            <li><strong>Flow properties:</strong> Must declare <code>role</code> (inputOnly / outputOnly / inputOutput) and <code>@api</code> property name must exactly match <code>name</code> in XML.</li>
+            <li><strong>CSS scoping:</strong> Compiler adds a unique attribute to all selectors and DOM elements. This prevents cross-component leakage. CSS custom properties (variables) bypass this for theming.</li>
+            <li><strong>__tests__/:</strong> Never deployed (excluded by .forceignore). Use <code>c/componentName</code> module identifier, not relative paths in tests.</li>
+            <li><strong>Case sensitivity:</strong> Linux servers are case-sensitive. Folder name, filenames, and imports must all match exactly (camelCase throughout).</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Cross-links -->
+      <section>
+        <h2>Related Articles</h2>
+        <ul>
+          <li><a href="01-what-is-lwc.html">Article 01 — What is LWC &amp; Why It Matters</a></li>
+          <li><a href="02-web-standards.html">Article 02 — Core Architecture &amp; Web Standards</a></li>
+          <li><a href="04-decorators.html">Article 04 — Decorators: @api, @track, @wire</a></li>
+          <li><a href="12-slds-styling.html">Article 12 — Styling with SLDS</a></li>
+          <li><a href="17-jest-testing.html">Article 17 — Jest Unit Testing</a></li>
+          <li><a href="18-deployment-targets.html">Article 18 — Deployment Targets &amp; Metadata Configuration</a></li>
+        </ul>
+        <h3>References</h3>
+        <ul>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.create_components_introduction" target="_blank" rel="noopener noreferrer">Salesforce Docs — Create LWC Components</a></li>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.reference_configuration_file" target="_blank" rel="noopener noreferrer">Salesforce Docs — Component Configuration File (js-meta.xml)</a></li>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.reference_app_builder_configurecomponent" target="_blank" rel="noopener noreferrer">Salesforce Docs — Configure Components for Lightning App Builder</a></li>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.use_flow" target="_blank" rel="noopener noreferrer">Salesforce Docs — Use LWC Components in Flow</a></li>
+          <li><a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc/lwc.css" target="_blank" rel="noopener noreferrer">Salesforce Docs — CSS in LWC</a></li>
+        </ul>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="02-web-standards.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">02. Core Architecture &amp; Web Standards</span>
+        </a>
+        <a href="04-decorators.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">04. Decorators: @api, @track, @wire</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId  = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : '☐ Mark as Read';
+        btn.classList.toggle('is-read', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+
+      const headings = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active = headings[0];
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) { active = heading; } else { break; }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

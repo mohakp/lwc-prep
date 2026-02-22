@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LWC.guide — First-Principles Blog</title>
+  <meta name="description" content="A senior-level blog for mastering Lightning Web Components at expert-level proficiency. 21 deep-dive articles, first-principles explanations, and expert insights.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta property="og:title" content="LWC.guide — Expert-Level Lightning Web Components">
+  <meta property="og:description" content="21 first-principles articles for mastering LWC at expert level. Shadow DOM, wire adapters, Jest, performance, security, and more.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://mohakp.github.io/lwc-prep/">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       HERO
+       ================================================================ -->
+  <section class="homepage-hero" aria-labelledby="hero-heading">
+    <h1 id="hero-heading">LWC.guide — Deep Dive</h1>
+    <p class="subtitle">
+      21 first-principles articles for Salesforce developers aiming at
+      <strong>expert-level proficiency</strong>. Every concept built from browser fundamentals up.
+    </p>
+
+    <!-- Reading Progress Tracker -->
+    <div class="progress-bar-container" role="region" aria-label="Reading progress">
+      <div class="progress-bar-label">
+        <span>Reading Progress</span>
+        <span id="progressText">0 / 21 articles read</span>
+      </div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="21" aria-labelledby="progressText">
+        <div class="progress-bar__fill" id="progressFill" style="width: 0%"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       SEARCH + FILTERS
+       ================================================================ -->
+  <div class="search-container" role="search">
+    <div class="search-input-wrapper">
+      <span class="search-icon" aria-hidden="true">🔍</span>
+      <input
+        type="search"
+        id="searchInput"
+        class="search-input"
+        placeholder="Search articles…"
+        aria-label="Search articles"
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+
+    <div class="tag-filters" role="group" aria-label="Filter by topic">
+      <button class="tag-btn active" data-tag="all">All</button>
+      <button class="tag-btn" data-tag="fundamentals">Fundamentals</button>
+      <button class="tag-btn" data-tag="decorators-lifecycle">Decorators & Lifecycle</button>
+      <button class="tag-btn" data-tag="template-dom">Template & DOM</button>
+      <button class="tag-btn" data-tag="communication">Communication</button>
+      <button class="tag-btn" data-tag="data">Data</button>
+      <button class="tag-btn" data-tag="advanced">Advanced</button>
+      <button class="tag-btn" data-tag="testing">Testing</button>
+      <button class="tag-btn" data-tag="interview-prep">Interview Prep</button>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       ARTICLE GRID
+       ================================================================ -->
+  <main class="articles-section" id="articlesSection" aria-label="Articles">
+    <div class="articles-grid" id="articlesGrid">
+      <!-- Cards are rendered by JavaScript below -->
+    </div>
+  </main>
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      Built for expert-level Salesforce LWC mastery •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a> •
+      <a href="https://trailhead.salesforce.com" target="_blank" rel="noopener noreferrer">Trailhead</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       ARTICLE DATA + HOMEPAGE LOGIC
+       ================================================================ -->
+  <script src="search.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Article Manifest
+    //    All metadata lives here. Articles are rendered from this data.
+    // ----------------------------------------------------------------
+    const ARTICLES = [
+      {
+        id: '01',
+        slug: 'articles/01-what-is-lwc.html',
+        title: 'What is LWC & Why It Matters',
+        desc: 'From W3C Web Components standard to Salesforce LWC. Covers the Aura→LWC transition, design philosophy, and the Expert coexistence strategy.',
+        tags: ['fundamentals'],
+        readTime: '12 min',
+        words: 2500,
+      },
+      {
+        id: '02',
+        slug: 'articles/02-web-standards.html',
+        title: 'Core Architecture & Web Standards',
+        desc: 'Browser rendering pipeline, Custom Elements API, Shadow DOM internals, ES Modules, and LWC\'s proxy-based reactive engine.',
+        tags: ['fundamentals'],
+        readTime: '15 min',
+        words: 3000,
+      },
+      {
+        id: '03',
+        slug: 'articles/03-component-structure.html',
+        title: 'Component File Structure',
+        desc: 'The LWC bundle contract, js-meta.xml deep dive, compile-time CSS scoping, naming rules, and deployment gotchas.',
+        tags: ['fundamentals'],
+        readTime: '10 min',
+        words: 2000,
+      },
+      {
+        id: '04',
+        slug: 'articles/04-decorators.html',
+        title: 'Decorators: @api, @track, @wire',
+        desc: 'TC39 decorator proposal context. @api read-only enforcement, @track mutation scenarios, @wire adapter protocol, and custom wire adapters.',
+        tags: ['decorators-lifecycle'],
+        readTime: '18 min',
+        words: 3500,
+      },
+      {
+        id: '05',
+        slug: 'articles/05-lifecycle-hooks.html',
+        title: 'Lifecycle Hooks',
+        desc: 'Browser Custom Elements callbacks mapped to LWC. Full parent-child execution order, infinite loop traps, and errorCallback as error boundary.',
+        tags: ['decorators-lifecycle'],
+        readTime: '18 min',
+        words: 3500,
+      },
+      {
+        id: '06',
+        slug: 'articles/06-template-directives.html',
+        title: 'HTML Template Directives',
+        desc: 'One-way binding, lwc:if vs display:none, for:each key reconciliation, slots, lwc:ref, lwc:spread, and expression limitations.',
+        tags: ['template-dom'],
+        readTime: '18 min',
+        words: 3500,
+      },
+      {
+        id: '07',
+        slug: 'articles/07-shadow-dom-vs-light-dom.html',
+        title: 'Shadow DOM vs Light DOM',
+        desc: 'CSS encapsulation, event retargeting, synthetic vs native shadow, composed:true, CSS penetration selectors, and when to use Light DOM.',
+        tags: ['template-dom'],
+        readTime: '15 min',
+        words: 3000,
+      },
+      {
+        id: '08',
+        slug: 'articles/08-component-communication.html',
+        title: 'Component Communication',
+        desc: 'Observer pattern to LWC. Full taxonomy: parent-child, child-parent, siblings. LMS vs pub-sub decision table. Platform Events.',
+        tags: ['communication'],
+        readTime: '20 min',
+        words: 4000,
+      },
+      {
+        id: '09',
+        slug: 'articles/09-salesforce-data.html',
+        title: 'Working with Salesforce Data',
+        desc: 'REST API → UI API → LDS → wire adapters stack. LDS cache, CRUD without Apex, notifyRecordUpdateAvailable, refreshApex, governor limits.',
+        tags: ['data'],
+        readTime: '22 min',
+        words: 4500,
+      },
+      {
+        id: '10',
+        slug: 'articles/10-navigation.html',
+        title: 'Navigation Service (NavigationMixin)',
+        desc: 'Browser History API to PageReference abstraction. All standard__ page types, GenerateUrl, CurrentPageReference wire, testing NavigationMixin.',
+        tags: ['advanced'],
+        readTime: '12 min',
+        words: 2500,
+      },
+      {
+        id: '11',
+        slug: 'articles/11-dynamic-components.html',
+        title: 'Dynamic Components',
+        desc: 'TC39 dynamic import(), lwc:component lwc:is pattern, static analysis rules, platformResourceLoader, and third-party library patterns.',
+        tags: ['advanced'],
+        readTime: '12 min',
+        words: 2500,
+      },
+      {
+        id: '12',
+        slug: 'articles/12-slds-styling.html',
+        title: 'Styling with SLDS',
+        desc: 'CSS specificity problem, design tokens, SLDS utility classes, styling hooks (--slds-c-* vs --slds-g-*), SLDS 2.0 dark mode.',
+        tags: ['advanced'],
+        readTime: '12 min',
+        words: 2500,
+      },
+      {
+        id: '13',
+        slug: 'articles/13-security.html',
+        title: 'Security: LWS, Locker Service & CSP',
+        desc: 'Browser security model, XSS attack vectors, LWS vs Locker architecture, CSP directives, FLS/CRUD via LDS, and security anti-patterns.',
+        tags: ['advanced'],
+        readTime: '15 min',
+        words: 3000,
+      },
+      {
+        id: '14',
+        slug: 'articles/14-performance.html',
+        title: 'Performance Optimization',
+        desc: 'Browser rendering pipeline, infinite re-render diagnosis, lazy loading, IntersectionObserver, key-based list diffing, Lightning Inspector profiling.',
+        tags: ['advanced'],
+        readTime: '18 min',
+        words: 3500,
+      },
+      {
+        id: '15',
+        slug: 'articles/15-error-handling.html',
+        title: 'Error Handling',
+        desc: 'JS error taxonomy, reduceErrors pattern, errorCallback as error boundary, form validation API, and centralized error service.',
+        tags: ['advanced'],
+        readTime: '15 min',
+        words: 3000,
+      },
+      {
+        id: '16',
+        slug: 'articles/16-accessibility.html',
+        title: 'Accessibility',
+        desc: 'WCAG 2.1 principles, ARIA roles/states, keyboard navigation, focus management for modals, aria-live, and id scoping in shadow DOM.',
+        tags: ['advanced'],
+        readTime: '12 min',
+        words: 2500,
+      },
+      {
+        id: '17',
+        slug: 'articles/17-jest-testing.html',
+        title: 'Jest Unit Testing',
+        desc: 'Testing pyramid, all three wire adapter types, NavigationMixin testing, LMS mocking, flushPromises pattern, and common failure catalogue.',
+        tags: ['testing'],
+        readTime: '20 min',
+        words: 4000,
+      },
+      {
+        id: '18',
+        slug: 'articles/18-deployment-targets.html',
+        title: 'Deployment Targets & Metadata Configuration',
+        desc: 'Metadata API, js-meta.xml every element, all deployment targets, Flow input/output properties, CI/CD pipeline integration.',
+        tags: ['advanced'],
+        readTime: '10 min',
+        words: 2000,
+      },
+      {
+        id: '19',
+        slug: 'articles/19-advanced-patterns.html',
+        title: 'Advanced Patterns',
+        desc: 'Mixin factory pattern, service components, recursive LWC, compound components, provider/consumer via LMS, anti-patterns catalogue.',
+        tags: ['advanced'],
+        readTime: '18 min',
+        words: 3500,
+      },
+      {
+        id: '20',
+        slug: 'articles/20-scenario-qa.html',
+        title: 'Scenario-Based Interview Q&A (Expert)',
+        desc: '20 architecture-level questions with code answers: LDS sync, lazy charting libraries, multi-step forms, accessible dropdowns, code review checklist.',
+        tags: ['interview-prep'],
+        readTime: '25 min',
+        words: 5000,
+      },
+      {
+        id: '21',
+        slug: 'articles/21-study-resources.html',
+        title: 'Study Resources & Learning Roadmap',
+        desc: '8-week structured study plan, Trailhead priority map, dev org setup, VS Code extensions, and mock assessment strategy.',
+        tags: ['interview-prep'],
+        readTime: '8 min',
+        words: 1500,
+      },
+    ];
+
+    const TAG_LABELS = {
+      'fundamentals':          'Fundamentals',
+      'decorators-lifecycle':  'Decorators & Lifecycle',
+      'template-dom':          'Template & DOM',
+      'communication':         'Communication',
+      'data':                  'Data',
+      'advanced':              'Advanced',
+      'testing':               'Testing',
+      'interview-prep':        'Interview Prep',
+    };
+
+    // ----------------------------------------------------------------
+    // 2. localStorage Progress Tracking
+    // ----------------------------------------------------------------
+    const PROGRESS_KEY = 'lwc_blog_read';
+
+    function getReadSet() {
+      try {
+        const raw = localStorage.getItem(PROGRESS_KEY);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+      } catch {
+        return new Set();
+      }
+    }
+
+    function saveReadSet(set) {
+      try {
+        localStorage.setItem(PROGRESS_KEY, JSON.stringify([...set]));
+      } catch { /* storage disabled */ }
+    }
+
+    function updateProgressBar(readSet) {
+      const count = readSet.size;
+      const total = ARTICLES.length;
+      const pct   = Math.round((count / total) * 100);
+      const fill  = document.getElementById('progressFill');
+      const text  = document.getElementById('progressText');
+      const bar   = fill.parentElement;
+      if (fill)  fill.style.width = `${pct}%`;
+      if (text)  text.textContent = `${count} / ${total} articles read`;
+      if (bar)   bar.setAttribute('aria-valuenow', count);
+    }
+
+    // ----------------------------------------------------------------
+    // 3. Card Rendering
+    // ----------------------------------------------------------------
+    function renderCard(article, readSet) {
+      const isRead   = readSet.has(article.id);
+      const tagHtml  = article.tags
+        .map(t => `<span class="tag">${TAG_LABELS[t] || t}</span>`)
+        .join('');
+
+      return `
+        <a
+          href="${article.slug}"
+          class="article-card${isRead ? ' is-read' : ''}"
+          data-id="${article.id}"
+          data-tags="${article.tags.join(',')}"
+          data-title="${article.title.toLowerCase()}"
+          data-desc="${article.desc.toLowerCase()}"
+          aria-label="Article ${article.id}: ${article.title}"
+        >
+          <div class="article-card__number">Article ${article.id}</div>
+          <div class="article-card__title">${article.title}</div>
+          <div class="article-card__desc">${article.desc}</div>
+          <div class="article-card__footer">
+            <span class="article-card__meta">⏱ ${article.readTime}</span>
+            <div class="article-card__tags">${tagHtml}</div>
+          </div>
+        </a>
+      `;
+    }
+
+    function renderGrid(articles, readSet) {
+      const grid = document.getElementById('articlesGrid');
+      if (!grid) return;
+
+      if (articles.length === 0) {
+        grid.innerHTML = '<div class="no-results">No articles match your search.</div>';
+        return;
+      }
+
+      grid.innerHTML = articles.map(a => renderCard(a, readSet)).join('');
+    }
+
+    // ----------------------------------------------------------------
+    // 4. Filter Logic
+    // ----------------------------------------------------------------
+    let activeTag = 'all';
+    let searchQuery = '';
+
+    function getFilteredArticles() {
+      return ARTICLES.filter(a => {
+        const matchTag  = activeTag === 'all' || a.tags.includes(activeTag);
+        const matchText = !searchQuery
+          || a.title.toLowerCase().includes(searchQuery)
+          || a.desc.toLowerCase().includes(searchQuery)
+          || a.tags.some(t => t.includes(searchQuery));
+        return matchTag && matchText;
+      });
+    }
+
+    function refresh() {
+      const readSet = getReadSet();
+      updateProgressBar(readSet);
+      renderGrid(getFilteredArticles(), readSet);
+    }
+
+    // ----------------------------------------------------------------
+    // 5. Event Wiring
+    // ----------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initial render
+      refresh();
+
+      // Search
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        let debounceTimer;
+        searchInput.addEventListener('input', e => {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            searchQuery = e.target.value.trim().toLowerCase();
+            refresh();
+          }, 200);
+        });
+      }
+
+      // Tag filters
+      document.querySelectorAll('.tag-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeTag = btn.dataset.tag;
+          refresh();
+        });
+      });
+
+      // Dark/Light toggle
+      const toggle    = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html      = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      // Restore saved theme
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    });
+
+    // ----------------------------------------------------------------
+    // 6. Expose progress API for article pages to call back into
+    // ----------------------------------------------------------------
+    window.LWCBlog = {
+      markRead(id) {
+        const readSet = getReadSet();
+        readSet.add(id);
+        saveReadSet(readSet);
+        updateProgressBar(readSet);
+        // Re-render card if visible
+        const card = document.querySelector(`[data-id="${id}"]`);
+        if (card) card.classList.add('is-read');
+      },
+      isRead(id) {
+        return getReadSet().has(id);
+      },
+      getReadSet,
+      saveReadSet,
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>10. Navigation Service (NavigationMixin) — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC navigation: the Browser History API, why Salesforce needs PageReference, every standard__ page type, NavigationMixin.Navigate vs GenerateUrl, CurrentPageReference, URL state, and Jest testing patterns.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/10-navigation.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Navigation Is Complicated</a></li>
+          <li><a href="#mental-model">2. Browser History API</a></li>
+          <li class="level-3"><a href="#pushstate">pushState &amp; replaceState</a></li>
+          <li class="level-3"><a href="#popstate">The popstate Event</a></li>
+          <li><a href="#why-pagereference">3. Why Salesforce Needs PageReference</a></li>
+          <li class="level-3"><a href="#multi-context">Multi-Context Problem</a></li>
+          <li class="level-3"><a href="#pagereference-anatomy">PageReference Anatomy</a></li>
+          <li><a href="#navigationmixin">4. NavigationMixin Pattern</a></li>
+          <li class="level-3"><a href="#mixin-factory">The Mixin Factory</a></li>
+          <li class="level-3"><a href="#navigate-method">NavigationMixin.Navigate</a></li>
+          <li class="level-3"><a href="#generateurl-method">NavigationMixin.GenerateUrl</a></li>
+          <li><a href="#page-types">5. All Standard Page Types</a></li>
+          <li class="level-3"><a href="#record-page">standard__recordPage</a></li>
+          <li class="level-3"><a href="#object-page">standard__objectPage</a></li>
+          <li class="level-3"><a href="#named-page">standard__namedPage</a></li>
+          <li class="level-3"><a href="#web-page">standard__webPage</a></li>
+          <li class="level-3"><a href="#component-page">standard__component</a></li>
+          <li class="level-3"><a href="#app-page">standard__app</a></li>
+          <li><a href="#new-tab">6. Opening in a New Tab</a></li>
+          <li><a href="#current-page-ref">7. CurrentPageReference</a></li>
+          <li class="level-3"><a href="#reading-url-state">Reading URL State</a></li>
+          <li class="level-3"><a href="#reacting-to-changes">Reacting to URL Changes</a></li>
+          <li><a href="#url-state">8. Passing URL State</a></li>
+          <li><a href="#experience-cloud">9. Experience Cloud Navigation</a></li>
+          <li><a href="#mobile-flow">10. Mobile &amp; Flow Constraints</a></li>
+          <li><a href="#jest-testing">11. Testing NavigationMixin in Jest</a></li>
+          <li class="level-3"><a href="#jest-navigate">Testing Navigate Calls</a></li>
+          <li class="level-3"><a href="#jest-current-page">Testing CurrentPageReference</a></li>
+          <li><a href="#pitfalls">12. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">13. Expert Insight</a></li>
+          <li><a href="#recall">14. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 10</div>
+        <h1>Navigation Service (NavigationMixin)</h1>
+        <div class="article-meta">
+          <span>⏱ 18 min read</span>
+          <span class="tags">
+            <span class="tag">#navigation</span>
+            <span class="tag">#pagereference</span>
+            <span class="tag">#routing</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="10"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Navigation Is Complicated</h2>
+        <p>
+          In a standard web app, navigation is simple: change the URL, the browser loads a new
+          page (or the SPA router intercepts and swaps components). But Salesforce is not a standard
+          web app. Your LWC component might be running in the Lightning Experience desktop shell,
+          a Salesforce mobile app, an Experience Cloud community, Salesforce1, a Visualforce page
+          embedding Lightning Out, or even a standalone web app via Communities. Each container
+          handles URLs and navigation differently.
+        </p>
+        <p>
+          If you hard-code a URL like <code>/lightning/r/Account/001xxxx/view</code> it breaks in
+          mobile, breaks in Experience Cloud (where paths are community-relative), and breaks in
+          managed packages where the namespace prefix matters. You need an abstraction layer that
+          produces the correct URL for the current execution context.
+        </p>
+        <p>
+          That abstraction is <strong>PageReference</strong>, and the mechanism that translates
+          PageReferences into actual navigation is <strong>NavigationMixin</strong>.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Core Rule</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Never hard-code Salesforce URLs. Always use <code>NavigationMixin.Navigate</code>
+              with a <code>PageReference</code> object. This ensures your component works in all
+              deployment contexts: Salesforce Classic (partially), Lightning Experience,
+              Experience Cloud, Salesforce Mobile, and Lightning Out.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — MENTAL MODEL: BROWSER HISTORY API
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. Browser History API</h2>
+        <p>
+          Before understanding why Salesforce built an abstraction, you need to understand the
+          browser primitive it builds on: the History API.
+        </p>
+        <p>
+          Before HTML5, every navigation meant a full page reload. Developers who wanted SPA-like
+          behavior had to use URL hash fragments (<code>#/route</code>) because changing the
+          hash didn't reload the page. HTML5 introduced the History API to solve this properly.
+        </p>
+
+        <h3 id="pushstate">pushState &amp; replaceState</h3>
+        <p>
+          The History API provides two key methods:
+        </p>
+        <pre><code class="language-javascript">// pushState: adds a new entry to the browser's history stack
+// The user can press "Back" to return to the previous state
+window.history.pushState(
+  { userId: 42 },       // state object (serialized, stored in browser history)
+  '',                   // title (ignored by most browsers)
+  '/users/42/profile'   // URL (must be same-origin)
+);
+
+// replaceState: replaces the CURRENT entry (no new back-step)
+// Use when you don't want "Back" to undo the navigation
+window.history.replaceState(
+  { page: 2 },
+  '',
+  '/search?q=apex&page=2'
+);</code></pre>
+        <p>
+          After <code>pushState</code>, the browser's address bar shows the new URL and the
+          current page's JavaScript state changes — but no HTTP request is made. The page doesn't
+          reload. This is the foundation of all SPAs.
+        </p>
+
+        <h3 id="popstate">The popstate Event</h3>
+        <p>
+          When the user clicks Back or Forward, the browser fires a <code>popstate</code> event.
+          SPAs listen to this event to update the UI to match the new URL:
+        </p>
+        <pre><code class="language-javascript">window.addEventListener('popstate', (event) => {
+  // event.state is the state object from pushState/replaceState
+  console.log('Navigated back to:', event.state);
+  // Update the UI to match the current URL
+  renderRoute(window.location.pathname);
+});</code></pre>
+        <p>
+          This is how React Router, Vue Router, and Angular Router work at their core. They wrap
+          the History API and add a routing layer on top. Salesforce's NavigationMixin is
+          conceptually similar — but it has to work across contexts where
+          <code>window.history</code> may not be the correct mechanism.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — WHY PAGEREFERENCE
+           ============================================================ -->
+      <section id="why-pagereference">
+        <h2>3. Why Salesforce Needs PageReference</h2>
+
+        <h3 id="multi-context">The Multi-Context Problem</h3>
+        <p>
+          Consider navigating to an Account record. In different contexts, the URL looks completely
+          different:
+        </p>
+        <pre><code class="language-text">Lightning Experience (desktop):
+  /lightning/r/Account/001xxxx/view
+
+Experience Cloud (community):
+  /my-community/s/account/001xxxx
+
+Salesforce Mobile App (Salesforce1):
+  Uses a native container routing mechanism, not a URL
+
+Lightning Out (in a Visualforce page):
+  Embedded in an iframe — no top-level URL change possible
+
+Managed Package (namespace: acme):
+  /lightning/cmp/acme__myApp?...</code></pre>
+        <p>
+          If your component hard-codes a Lightning Experience URL, it silently breaks in every
+          other context. The platform cannot fix it because it doesn't know what destination
+          you intended — just the literal string you passed.
+        </p>
+        <p>
+          <code>PageReference</code> solves this by expressing <em>intent</em> rather than a
+          URL. You say "navigate to this Account record in view mode" and the platform resolves
+          the correct URL for the current container at runtime.
+        </p>
+
+        <h3 id="pagereference-anatomy">PageReference Anatomy</h3>
+        <p>
+          A PageReference is a plain JavaScript object with three properties:
+        </p>
+        <pre><code class="language-javascript">const pageRef = {
+  type: 'standard__recordPage',   // (required) Page type identifier
+  attributes: {                    // (required) Type-specific parameters
+    recordId: '001xxxx',
+    objectApiName: 'Account',
+    actionName: 'view'
+  },
+  state: {                         // (optional) Additional URL query parameters
+    backgroundContext: '/lightning/o/Case/home'
+  }
+};</code></pre>
+        <ul>
+          <li><strong><code>type</code></strong> — Identifies the page type. Always a
+            <code>standard__*</code> string for built-in types.</li>
+          <li><strong><code>attributes</code></strong> — Required parameters for the page type.
+            Different page types require different attributes.</li>
+          <li><strong><code>state</code></strong> — Optional key-value pairs appended as URL
+            query parameters. Used for passing context or reading current URL state.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — NAVIGATIONMIXIN
+           ============================================================ -->
+      <section id="navigationmixin">
+        <h2>4. NavigationMixin Pattern</h2>
+
+        <h3 id="mixin-factory">The Mixin Factory</h3>
+        <p>
+          NavigationMixin is implemented as a <strong>mixin factory function</strong>: a function
+          that takes a base class and returns a new class with additional capabilities mixed in.
+          This is a well-established JavaScript pattern for adding behavior to classes without
+          inheritance chains.
+        </p>
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
+
+// NavigationMixin(LightningElement) returns a NEW class that:
+//   1. Extends LightningElement
+//   2. Has this[NavigationMixin.Navigate] and this[NavigationMixin.GenerateUrl] methods
+export default class MyComponent extends NavigationMixin(LightningElement) {
+  // ...
+}</code></pre>
+        <p>
+          Why a factory function instead of a plain base class? Because a component might need
+          to apply multiple mixins:
+        </p>
+        <pre><code class="language-javascript">// Multiple mixins compose cleanly with factory functions
+export default class MyComponent
+  extends NavigationMixin(OtherMixin(LightningElement)) {
+  // NavigationMixin wraps OtherMixin, which wraps LightningElement
+}</code></pre>
+        <p>
+          The factory pattern avoids the diamond inheritance problem that would arise if every
+          mixin extended a different base class. Each factory wraps the previous class in the chain.
+        </p>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Symbol-Based Method Names</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The navigation methods are accessed via <strong>computed property syntax</strong>
+              using <code>NavigationMixin.Navigate</code> and
+              <code>NavigationMixin.GenerateUrl</code> as property keys. These keys are
+              unique symbols — not strings. This prevents name collisions with your component's
+              own methods. You cannot call them as <code>this.Navigate(...)</code>; you must
+              use the bracket syntax: <code>this[NavigationMixin.Navigate](...)</code>.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="navigate-method">NavigationMixin.Navigate</h3>
+        <p>
+          <code>this[NavigationMixin.Navigate](pageReference, replace?)</code> navigates
+          to the given PageReference. The optional second argument controls whether to use
+          <code>pushState</code> (default, <code>false</code>) or
+          <code>replaceState</code> (<code>true</code>). Pass <code>true</code> when you want
+          to replace the current history entry so "Back" doesn't return to the previous page.
+        </p>
+        <pre><code class="language-javascript">// Default: adds a Back-navigable history entry (pushState)
+this[NavigationMixin.Navigate]({
+  type: 'standard__recordPage',
+  attributes: { recordId: this.accountId, actionName: 'view' }
+});
+
+// replace = true: replaces the current history entry (replaceState)
+// Useful in wizards/flows where you don't want "Back" to re-trigger a step
+this[NavigationMixin.Navigate]({
+  type: 'standard__namedPage',
+  attributes: { pageName: 'home' }
+}, true); // &lt;-- replace flag</code></pre>
+
+        <h3 id="generateurl-method">NavigationMixin.GenerateUrl</h3>
+        <p>
+          <code>this[NavigationMixin.GenerateUrl](pageReference)</code> returns a
+          <strong>Promise</strong> that resolves to the URL string for the given PageReference
+          — without navigating. Use this when you need the URL for:
+        </p>
+        <ul>
+          <li>Opening a link in a new tab</li>
+          <li>Copying a URL to the clipboard</li>
+          <li>Rendering an <code>&lt;a href&gt;</code> with the correct resolved URL</li>
+          <li>Pre-fetching the target URL for analytics</li>
+        </ul>
+        <pre><code class="language-javascript">async connectedCallback() {
+  this.accountUrl = await this[NavigationMixin.GenerateUrl]({
+    type: 'standard__recordPage',
+    attributes: {
+      recordId: this.recordId,
+      actionName: 'view'
+    }
+  });
+}
+
+// In the template: &lt;a href={accountUrl}&gt;View Account&lt;/a&gt;</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — ALL PAGE TYPES
+           ============================================================ -->
+      <section id="page-types">
+        <h2>5. All Standard Page Types</h2>
+
+        <h3 id="record-page">standard__recordPage</h3>
+        <p>Navigate to a specific Salesforce record.</p>
+        <pre><code class="language-javascript">// View a record
+this[NavigationMixin.Navigate]({
+  type: 'standard__recordPage',
+  attributes: {
+    recordId: '001xxxx',          // (required) The record's 15 or 18-char Id
+    objectApiName: 'Account',     // (optional but recommended) Enables faster routing
+    actionName: 'view'            // 'view' | 'edit' | 'clone'
+  }
+});
+
+// Edit a record directly
+this[NavigationMixin.Navigate]({
+  type: 'standard__recordPage',
+  attributes: {
+    recordId: this.caseId,
+    actionName: 'edit'
+  }
+});
+
+// Clone a record
+this[NavigationMixin.Navigate]({
+  type: 'standard__recordPage',
+  attributes: {
+    recordId: this.opportunityId,
+    actionName: 'clone'
+  }
+});</code></pre>
+        <p>
+          <strong>Note on <code>objectApiName</code>:</strong> Including it is optional but
+          improves navigation performance because the platform can resolve the page layout without
+          first looking up the object type from the record ID.
+        </p>
+
+        <h3 id="object-page">standard__objectPage</h3>
+        <p>Navigate to an object's home page (list view) or the new-record dialog.</p>
+        <pre><code class="language-javascript">// Navigate to the Account list view
+this[NavigationMixin.Navigate]({
+  type: 'standard__objectPage',
+  attributes: {
+    objectApiName: 'Account',
+    actionName: 'list'           // 'list' | 'new' | 'home'
+  },
+  state: {
+    filterName: 'Recent'         // Optional: pre-select a list view by developer name
+  }
+});
+
+// Open the New Account quick-create dialog
+this[NavigationMixin.Navigate]({
+  type: 'standard__objectPage',
+  attributes: {
+    objectApiName: 'Lead',
+    actionName: 'new'
+  }
+});
+
+// Navigate to an object's home page
+this[NavigationMixin.Navigate]({
+  type: 'standard__objectPage',
+  attributes: {
+    objectApiName: 'Contact',
+    actionName: 'home'
+  }
+});</code></pre>
+
+        <h3 id="named-page">standard__namedPage</h3>
+        <p>Navigate to a named Salesforce page such as the home page, Chatter, or a custom app page.</p>
+        <pre><code class="language-javascript">// Navigate to the Salesforce home page
+this[NavigationMixin.Navigate]({
+  type: 'standard__namedPage',
+  attributes: {
+    pageName: 'home'
+  }
+});
+
+// Navigate to Chatter
+this[NavigationMixin.Navigate]({
+  type: 'standard__namedPage',
+  attributes: {
+    pageName: 'chatter'
+  }
+});
+
+// Navigate to a custom App Builder page (Lightning Page)
+this[NavigationMixin.Navigate]({
+  type: 'standard__namedPage',
+  attributes: {
+    pageName: 'My_Custom_Page__c' // The Lightning Page's developer name
+  }
+});</code></pre>
+        <p>Common <code>pageName</code> values: <code>home</code>, <code>chatter</code>,
+          <code>today</code>, <code>dataAssessment</code>, <code>filePreview</code>.</p>
+
+        <h3 id="web-page">standard__webPage</h3>
+        <p>Navigate to an external URL. In Lightning Experience this opens in a new tab by default.</p>
+        <pre><code class="language-javascript">this[NavigationMixin.Navigate]({
+  type: 'standard__webPage',
+  attributes: {
+    url: 'https://developer.salesforce.com/docs/component-library'
+  }
+});</code></pre>
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">standard__webPage Opens a New Tab</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In Lightning Experience, <code>standard__webPage</code> always opens the URL in a
+              new browser tab. It does not navigate the current tab. If you want to navigate
+              within the same tab to an external URL (rare), you need to set
+              <code>window.location.href</code> directly — but this breaks the platform container.
+              In most cases, opening an external URL in a new tab is the correct behavior.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="component-page">standard__component</h3>
+        <p>Navigate to a standalone Aura application page that hosts an Aura component.</p>
+        <pre><code class="language-javascript">// Navigate to a Lightning component tab (Aura)
+this[NavigationMixin.Navigate]({
+  type: 'standard__component',
+  attributes: {
+    componentName: 'c__myAuraComponent' // namespace__componentName
+  },
+  state: {
+    // Passed to the Aura component's recordId or other @AuraEnabled attributes
+    c__param1: 'value1'
+  }
+});</code></pre>
+        <p>
+          This page type is primarily for navigating to Aura component tabs. For LWC, you
+          would typically navigate to a record page or a named page instead.
+        </p>
+
+        <h3 id="app-page">standard__app</h3>
+        <p>Navigate to a Salesforce Lightning app.</p>
+        <pre><code class="language-javascript">this[NavigationMixin.Navigate]({
+  type: 'standard__app',
+  attributes: {
+    appTarget: 'c__MyApp'   // The App's developer name
+  }
+});</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Complete Page Type Reference</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The complete list of supported page types (including Experience Cloud-specific types
+              like <code>comm__namedPage</code>) is in the official Salesforce docs:
+              <a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-page-reference-type.html"
+                 target="_blank" rel="noopener noreferrer">PageReference Types</a>. For managed packages,
+              use <code>standard__component</code> with the full namespace prefix.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — OPENING IN A NEW TAB
+           ============================================================ -->
+      <section id="new-tab">
+        <h2>6. Opening in a New Tab</h2>
+        <p>
+          <code>NavigationMixin.Navigate</code> always navigates the current tab.
+          To open a record (or any PageReference) in a <em>new tab</em>, you must:
+        </p>
+        <ol>
+          <li>Use <code>GenerateUrl</code> to get the resolved URL string</li>
+          <li>Call <code>window.open(url, '_blank')</code></li>
+        </ol>
+        <pre><code class="language-javascript">import { LightningElement, api } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
+
+export default class OpenInNewTab extends NavigationMixin(LightningElement) {
+  @api recordId;
+
+  async handleOpenNewTab() {
+    const url = await this[NavigationMixin.GenerateUrl]({
+      type: 'standard__recordPage',
+      attributes: {
+        recordId: this.recordId,
+        actionName: 'view'
+      }
+    });
+    window.open(url, '_blank'); // Opens in new browser tab
+  }
+}</code></pre>
+        <p>
+          This pattern is also used to render anchor tags with correct Salesforce URLs:
+        </p>
+        <pre><code class="language-javascript">// component.js
+async connectedCallback() {
+  this.recordUrl = await this[NavigationMixin.GenerateUrl]({
+    type: 'standard__recordPage',
+    attributes: { recordId: this.recordId, actionName: 'view' }
+  });
+}</code></pre>
+        <pre><code class="language-html">&lt;!-- component.html --&gt;
+&lt;template&gt;
+  &lt;!-- Native anchor — middle-click to open in new tab works naturally --&gt;
+  &lt;a href={recordUrl} target="_blank" rel="noopener noreferrer"&gt;
+    Open Record
+  &lt;/a&gt;
+&lt;/template&gt;</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Prefer Anchor Tags Over window.open</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When rendering a link in a template, prefer the
+              <code>&lt;a href={resolvedUrl}&gt;</code> approach over programmatic
+              <code>window.open</code>. Native anchor tags support middle-click, Ctrl+click,
+              right-click menu, and screen reader "open in new tab" semantics. The
+              <code>window.open</code> approach loses all of these.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — CURRENTPAGEREFERENCE
+           ============================================================ -->
+      <section id="current-page-ref">
+        <h2>7. CurrentPageReference</h2>
+        <p>
+          <code>CurrentPageReference</code> is a wire adapter that provides the
+          PageReference object for the <em>current page</em> the component is displayed on.
+          It's the read-side counterpart to <code>NavigationMixin.Navigate</code> (the
+          write-side).
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { CurrentPageReference } from 'lightning/navigation';
+
+export default class MyComponent extends LightningElement {
+  // The current page's PageReference object is wired here
+  @wire(CurrentPageReference)
+  currentPageRef;
+
+  // Access the current page type
+  get pageType() {
+    return this.currentPageRef?.type;
+  }
+}</code></pre>
+
+        <h3 id="reading-url-state">Reading URL State</h3>
+        <p>
+          The <code>state</code> property of <code>CurrentPageReference</code> maps to the
+          URL query parameters. This is how you read values that were passed via the
+          <code>state</code> object of a PageReference navigate call, or values present in
+          the URL when the component loads.
+        </p>
+        <pre><code class="language-javascript">// Imagine the URL is: /lightning/n/My_Page__c?c__activeTab=Cases&c__mode=compact
+
+@wire(CurrentPageReference)
+wiredPageRef({ data }) {
+  if (data) {
+    this.activeTab = data.state.c__activeTab;   // 'Cases'
+    this.displayMode = data.state.c__mode;      // 'compact'
+  }
+}</code></pre>
+        <p>
+          <strong>Important:</strong> URL state key names must be prefixed with
+          <code>c__</code> (for unmanaged components) or <code>namespace__</code> (for
+          managed packages). Unprefixed keys are reserved by Salesforce.
+        </p>
+
+        <h3 id="reacting-to-changes">Reacting to URL Changes</h3>
+        <p>
+          Because <code>CurrentPageReference</code> is a wire adapter, it is <em>reactive</em>:
+          when the user navigates to a different page (or when the URL state changes), the wire
+          re-provisions with the new PageReference. Your component automatically re-renders with
+          updated data.
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, wire, track } from 'lwc';
+import { CurrentPageReference } from 'lightning/navigation';
+
+export default class PageAwareComponent extends LightningElement {
+  activeTab = 'overview';
+
+  @wire(CurrentPageReference)
+  pageRefChanged(pageRef) {
+    if (pageRef) {
+      // This runs on initial load AND on every URL change
+      this.activeTab = pageRef.state?.c__tab ?? 'overview';
+    }
+  }
+}</code></pre>
+        <p>
+          Note: On most component placements (record pages, app pages), the component doesn't
+          survive navigation — it is destroyed and recreated. The main use case for
+          <code>CurrentPageReference</code> reacting to <em>live changes</em> is on globally
+          persistent components like utility bars, which persist across navigation events.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — URL STATE
+           ============================================================ -->
+      <section id="url-state">
+        <h2>8. Passing URL State</h2>
+        <p>
+          The <code>state</code> property of a PageReference carries key-value pairs that
+          appear as query parameters in the URL. This enables sharable, bookmarkable state —
+          a user can copy the URL and another user will see the same state when they open it.
+        </p>
+        <pre><code class="language-javascript">// Navigate to a page and pass URL state
+this[NavigationMixin.Navigate]({
+  type: 'standard__namedPage',
+  attributes: {
+    pageName: 'My_Dashboard__c'
+  },
+  state: {
+    c__activeTab: 'pipeline',    // Prefixed with c__ for custom namespace
+    c__timeframe: 'Q1_2025',
+    c__ownerId: this.userId
+  }
+});
+// Resulting URL: /lightning/n/My_Dashboard__c?c__activeTab=pipeline&c__timeframe=Q1_2025&...</code></pre>
+        <p>
+          On the receiving page, read the state via <code>@wire(CurrentPageReference)</code>:
+        </p>
+        <pre><code class="language-javascript">@wire(CurrentPageReference)
+wiredPageRef(pageRef) {
+  if (pageRef?.state) {
+    this.activeTab  = pageRef.state.c__activeTab  ?? 'overview';
+    this.timeframe  = pageRef.state.c__timeframe  ?? 'current';
+    this.ownerId    = pageRef.state.c__ownerId    ?? null;
+  }
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">URL State Is Not Secure</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              URL state is visible to users and can be modified by anyone. Never put
+              security-sensitive data (user permissions, prices, access flags) in URL state.
+              Always re-validate on the server side. URL state is suitable only for UI
+              preferences: active tab, sort order, filter selection, display mode, etc.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — EXPERIENCE CLOUD
+           ============================================================ -->
+      <section id="experience-cloud">
+        <h2>9. Experience Cloud Navigation</h2>
+        <p>
+          In Experience Cloud (formerly Community Cloud), the same NavigationMixin API works,
+          but there are Experience-specific page types and naming conventions:
+        </p>
+        <pre><code class="language-javascript">// Navigate to an Experience Cloud Named Page
+this[NavigationMixin.Navigate]({
+  type: 'comm__namedPage',      // comm__ prefix for community pages
+  attributes: {
+    name: 'Home'                // The community page's API name
+  }
+});
+
+// Navigate to a record in a community
+this[NavigationMixin.Navigate]({
+  type: 'standard__recordPage', // Works the same as in core
+  attributes: {
+    recordId: this.contactId,
+    actionName: 'view'
+  }
+});
+
+// Navigate to a login page
+this[NavigationMixin.Navigate]({
+  type: 'comm__loginPage',
+  attributes: {
+    actionName: 'logout'
+  }
+});</code></pre>
+        <p>
+          Community paths are relative to the community's base URL — you never need to
+          hard-code the community prefix. The platform resolves it correctly.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — MOBILE & FLOW
+           ============================================================ -->
+      <section id="mobile-flow">
+        <h2>10. Mobile &amp; Flow Constraints</h2>
+
+        <h4>Salesforce Mobile App (Salesforce1)</h4>
+        <ul>
+          <li>NavigationMixin works and is the correct API to use.</li>
+          <li>Not all page types are supported — <code>standard__webPage</code> opens the
+            device's browser instead of an in-app webview.</li>
+          <li>The mobile app does not support all actionNames: <code>clone</code> is
+            not supported in Salesforce1.</li>
+          <li>When building components for mobile, test in the Salesforce mobile app or the
+            Salesforce preview option in Setup.</li>
+        </ul>
+
+        <h4>Lightning Flows</h4>
+        <ul>
+          <li>Components embedded in Flow cannot navigate away from the Flow screen using
+            NavigationMixin — the Flow controls the navigation lifecycle.</li>
+          <li>To navigate within a Flow, use Flow's <code>NavigateNext</code>,
+            <code>NavigatePrev</code>, or <code>Finish</code> actions via the
+            <code>flowNavigate</code> event dispatched to the parent Flow.</li>
+          <li>If you <em>must</em> navigate from a Flow component, dispatch a custom event and
+            handle it in a containing screen flow component configured with a navigate
+            outcome.</li>
+        </ul>
+        <pre><code class="language-javascript">// Triggering Flow navigation from within a screen component
+// Dispatch a 'navigate' event — the Flow runtime listens for it
+this.dispatchEvent(new CustomEvent('next')); // Advances to the next screen</code></pre>
+
+        <h4>Lightning Out</h4>
+        <p>
+          When LWC runs inside a Visualforce page via Lightning Out, navigation is severely
+          limited. <code>NavigationMixin.Navigate</code> may redirect the entire browser
+          window because there's no Lightning container to intercept it. In this context, use
+          <code>GenerateUrl</code> to get URLs and handle navigation with Visualforce's
+          own navigation APIs or plain <code>window.location</code>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — JEST TESTING
+           ============================================================ -->
+      <section id="jest-testing">
+        <h2>11. Testing NavigationMixin in Jest</h2>
+        <p>
+          <code>lightning/navigation</code> is a Salesforce platform module that doesn't
+          exist in a Jest environment. The <code>@salesforce/sfdx-lwc-jest</code> package
+          provides stubs for it, but you must configure them to assert navigation calls.
+        </p>
+
+        <h3 id="jest-navigate">Testing Navigate Calls</h3>
+        <pre><code class="language-javascript">// __tests__/myComponent.test.js
+import { createElement } from 'lwc';
+import MyComponent from 'c/myComponent';
+
+// Import the mock from the jest setup
+import { NavigationMixin } from 'lightning/navigation';
+// The mock exposes a getMock() helper to access the last navigate call
+import { getNavigateCalledWith } from 'lightning/navigation';
+
+describe('MyComponent Navigation', () => {
+  let element;
+
+  beforeEach(() => {
+    element = createElement('c-my-component', { is: MyComponent });
+    document.body.appendChild(element);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(element);
+  });
+
+  it('navigates to account record on button click', async () => {
+    // Set up the component with a recordId
+    element.recordId = '001xxxx';
+    await Promise.resolve(); // flush
+
+    // Trigger the navigation
+    element.shadowRoot.querySelector('button').click();
+    await Promise.resolve();
+
+    // Assert the PageReference that was passed to Navigate
+    const { pageReference } = getNavigateCalledWith();
+    expect(pageReference.type).toBe('standard__recordPage');
+    expect(pageReference.attributes.recordId).toBe('001xxxx');
+    expect(pageReference.attributes.actionName).toBe('view');
+  });
+});</code></pre>
+        <p>
+          The <code>getNavigateCalledWith()</code> utility is provided by the
+          <code>@salesforce/sfdx-lwc-jest</code> mock for <code>lightning/navigation</code>.
+          It returns the most recent call to <code>NavigationMixin.Navigate</code>.
+        </p>
+
+        <h3 id="jest-current-page">Testing CurrentPageReference</h3>
+        <p>
+          To test components that read from <code>CurrentPageReference</code>, emit mock
+          page reference data via the wire adapter:
+        </p>
+        <pre><code class="language-javascript">import { createElement } from 'lwc';
+import PageAwareComponent from 'c/pageAwareComponent';
+import { CurrentPageReference } from 'lightning/navigation';
+import { registerLdsTestWireAdapter } from '@salesforce/sfdx-lwc-jest';
+
+// If using the standard LDS test wire adapter for CurrentPageReference:
+const currentPageRefAdapter = registerLdsTestWireAdapter(CurrentPageReference);
+
+describe('PageAwareComponent', () => {
+  let element;
+
+  beforeEach(() => {
+    element = createElement('c-page-aware-component', { is: PageAwareComponent });
+    document.body.appendChild(element);
+  });
+
+  afterEach(() => { document.body.removeChild(element); });
+
+  it('reads activeTab from URL state', async () => {
+    // Emit a mock PageReference with state
+    currentPageRefAdapter.emit({
+      type: 'standard__namedPage',
+      attributes: { pageName: 'My_Dashboard__c' },
+      state: { c__activeTab: 'pipeline' }
+    });
+    await Promise.resolve();
+
+    expect(element.shadowRoot.querySelector('.active-tab').textContent)
+      .toBe('pipeline');
+  });
+});</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Jest Mock Setup</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>lightning/navigation</code> mock file should be configured in your
+              <code>jest.config.js</code> module name mapper:
+            </p>
+            <pre><code class="language-javascript">// jest.config.js
+moduleNameMapper: {
+  '^lightning/navigation$':
+    '&lt;rootDir&gt;/.jest/mocks/lightning/navigation.js'
+}</code></pre>
+            <p>
+              The official <code>@salesforce/sfdx-lwc-jest</code> package handles this
+              automatically when configured. The mock provides
+              <code>NavigationMixin</code>, <code>CurrentPageReference</code>,
+              and the <code>getNavigateCalledWith</code> utility.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — PITFALLS
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>12. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 1: Hard-coding Salesforce URLs</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p><strong>Wrong:</strong> <code>window.location.href = '/lightning/r/Account/001xx/view'</code></p>
+            <p><strong>Right:</strong> Use <code>NavigationMixin.Navigate</code> with a PageReference.
+              Hard-coded URLs break in mobile, Experience Cloud, and managed packages.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 2: Calling Navigate Before DOM Connection</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>NavigationMixin</code> requires the component to be connected to the DOM
+              (i.e., past <code>connectedCallback</code>). Never call
+              <code>this[NavigationMixin.Navigate]</code> in the constructor.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 3: Forgetting the c__ URL State Prefix</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              URL state keys without a <code>c__</code> (or namespace) prefix are silently
+              ignored by the platform. Always prefix custom state keys.
+              E.g., <code>state: { activeTab: 'x' }</code> will not appear in the URL;
+              <code>state: { c__activeTab: 'x' }</code> will.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 4: Not Awaiting GenerateUrl</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>this[NavigationMixin.GenerateUrl](...)</code> returns a <strong>Promise</strong>.
+              If you don't <code>await</code> it (or chain <code>.then()</code>), you'll get a
+              Promise object where you expected a URL string, and your template will render
+              <code>[object Promise]</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 5: Using NavigationMixin in Flows</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Components embedded inside a Flow screen should NOT use
+              <code>NavigationMixin.Navigate</code> to navigate between flow screens.
+              Use Flow navigation events (<code>FlowNavigationNextEvent</code>,
+              <code>FlowNavigationFinishEvent</code>) imported from
+              <code>lightning/flowSupport</code> instead.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 6: Missing objectApiName in recordPage</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Omitting <code>objectApiName</code> from <code>standard__recordPage</code>
+              forces the platform to make an extra server call to look up the object type.
+              Always include it when you know it. This is especially noticeable in performance
+              profiling of components that navigate frequently.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>13. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">🏆</span>
+            <span class="callout__title">Navigation Architecture Decision Framework</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p><strong>When to use each approach:</strong></p>
+            <ul>
+              <li><strong>Standard navigation (same tab):</strong> <code>NavigationMixin.Navigate</code>
+                — always the default choice.</li>
+              <li><strong>New tab link in template:</strong> <code>GenerateUrl</code> + native
+                <code>&lt;a href&gt;</code> — preserves browser native link behavior
+                (right-click, middle-click).</li>
+              <li><strong>Programmatic new tab:</strong> <code>GenerateUrl</code> +
+                <code>window.open</code> — use only when the navigation must be triggered by
+                a non-anchor element (e.g., a programmatic event).</li>
+              <li><strong>Read current URL state:</strong> <code>@wire(CurrentPageReference)</code>
+                — reactive, works on both initial load and live URL changes.</li>
+              <li><strong>Pass state between pages:</strong> PageReference <code>state</code>
+                object with <code>c__</code>-prefixed keys.</li>
+            </ul>
+
+            <p><strong>Utility bar components and navigation reactivity:</strong></p>
+            <p>
+              Utility bar components are unique because they persist across navigations. They are
+              NOT destroyed when the user navigates to a different page — unlike most other LWC
+              placements. This means <code>@wire(CurrentPageReference)</code> will re-fire
+              every time the user navigates, making utility bar components the primary use case
+              for reacting to live page changes. Use this pattern to build context-aware sidebars,
+              navigation breadcrumbs, or activity trackers.
+            </p>
+
+            <p><strong>Cross-namespace navigation with managed packages:</strong></p>
+            <p>
+              In managed packages, the namespace prefix is important. State keys must use the
+              package namespace: <code>myns__tabId</code> not <code>c__tabId</code>. The
+              <code>componentName</code> in <code>standard__component</code> must include the
+              namespace: <code>myns__componentName</code>. Forgetting this is a common bug
+              when a component works in the subscriber org's scratch org but breaks in the
+              managed package.
+            </p>
+
+            <p><strong>The replace flag for wizard navigation:</strong></p>
+            <p>
+              When building multi-step wizards or onboarding flows as Lightning pages (not
+              Flow), use <code>replace: true</code> for intermediate steps so the browser's
+              Back button skips back to the wizard's starting point rather than allowing the
+              user to navigate backwards through each step. This matches the UX expectation
+              users have from native apps.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 14 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>14. Quick Recall Card</h2>
+        <pre><code class="language-text">SETUP:
+  import { NavigationMixin } from 'lightning/navigation';
+  export default class Foo extends NavigationMixin(LightningElement) { }
+
+NAVIGATE (same tab):
+  this[NavigationMixin.Navigate](pageRef);
+  this[NavigationMixin.Navigate](pageRef, true); // replace = true (no Back)
+
+GET URL (no navigate):
+  const url = await this[NavigationMixin.GenerateUrl](pageRef);
+  window.open(url, '_blank'); // new tab
+
+PAGE TYPES:
+  standard__recordPage    → { recordId, objectApiName?, actionName: view|edit|clone }
+  standard__objectPage    → { objectApiName, actionName: list|new|home }
+  standard__namedPage     → { pageName: 'home'|'chatter'|'Custom_Page__c' }
+  standard__webPage       → { url: 'https://...' }   (opens new tab in LEX)
+  standard__component     → { componentName: 'ns__Name' }
+  standard__app           → { appTarget: 'ns__AppName' }
+  comm__namedPage         → { name: 'Community_Page_Name' }  (Experience Cloud)
+
+CURRENT PAGE REFERENCE:
+  @wire(CurrentPageReference) pageRef;
+  // pageRef.type, pageRef.attributes, pageRef.state
+
+URL STATE (read/write):
+  Navigate state: { c__key: 'value' }   // c__ prefix required
+  Read: pageRef.state.c__key
+
+FLOW NAVIGATION:
+  import { FlowNavigationNextEvent } from 'lightning/flowSupport';
+  this.dispatchEvent(new FlowNavigationNextEvent());  // NOT NavigationMixin
+
+JEST TESTING:
+  import { getNavigateCalledWith } from 'lightning/navigation';
+  const { pageReference } = getNavigateCalledWith();
+  expect(pageReference.type).toBe('standard__recordPage');</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">📚</span>
+            <span class="callout__title">Official Documentation &amp; Resources</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <ul>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate-basic.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Navigate to a Page</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-page-reference-type.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: PageReference Types (full reference)</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate-add-params-url.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Add URL Parameters</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-current-page-reference.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: CurrentPageReference</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/navigate-using-url.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Generate a URL to a Page</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/testing-lwc-components-navigating.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Test Navigation in LWC</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/lightning-flow-support.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Flow Navigation Support</a></li>
+              <li><a href="https://github.com/trailheadapps/lwc-recipes" target="_blank" rel="noopener noreferrer">LWC Recipes: Navigation examples on GitHub</a></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="09-salesforce-data.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">09. Working with Salesforce Data</span>
+        </a>
+        <a href="11-dynamic-components.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">11. Dynamic Components</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme') || 'light';
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read (localStorage)
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      const articleId = btn ? btn.getAttribute('data-article-id') : null;
+      const key       = articleId ? `lwc_read_${articleId}` : null;
+
+      function syncBtn(read) {
+        if (!btn) return;
+        btn.textContent    = read ? '✓ Read' : 'Mark as Read';
+        btn.setAttribute('aria-pressed', read ? 'true' : 'false');
+        btn.classList.toggle('mark-read-btn--done', read);
+      }
+
+      if (key) {
+        try { syncBtn(localStorage.getItem(key) === '1'); } catch { /* */ }
+        if (btn) {
+          btn.addEventListener('click', () => {
+            const wasRead = btn.getAttribute('aria-pressed') === 'true';
+            try { localStorage.setItem(key, wasRead ? '0' : '1'); } catch { /* */ }
+            syncBtn(!wasRead);
+          });
+        }
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = Array.from(document.querySelectorAll('.toc-list a'));
+      const headings = tocLinks
+        .map(a => document.querySelector(a.getAttribute('href')))
+        .filter(Boolean);
+
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active    = headings[0];
+        for (const h of headings) {
+          if (h.offsetTop <= scrollY) active = h;
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

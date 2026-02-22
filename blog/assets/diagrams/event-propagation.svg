@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#0070d2"/>
+    </marker>
+    <marker id="arr-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#c0392b"/>
+    </marker>
+    <marker id="arr-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#1e7e34"/>
+    </marker>
+    <marker id="arr-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#e67e22"/>
+    </marker>
+    <marker id="arr-purple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#7e3af2"/>
+    </marker>
+    <marker id="arr-gray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#868e96"/>
+    </marker>
+  </defs>
+
+  <!-- BACKGROUND -->
+  <rect width="960" height="740" fill="#f8f9fa" rx="12"/>
+  <rect x="1" y="1" width="958" height="738" fill="none" stroke="#dee2e6" stroke-width="1.5" rx="12"/>
+
+  <!-- HEADER -->
+  <rect x="0" y="0" width="960" height="56" fill="#c0392b" rx="12"/>
+  <rect x="0" y="44" width="960" height="12" fill="#c0392b"/>
+  <text x="480" y="25" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">LWC Event Propagation: bubbles &amp; composed Matrix</text>
+  <text x="480" y="43" text-anchor="middle" font-size="11" fill="#f5b7b1">How CustomEvents travel through Shadow DOM boundaries — retargeting · stopping · cross-shadow propagation</text>
+
+  <!-- ══════════════════════════════════ -->
+  <!--   TOP: 4-scenario matrix           -->
+  <!-- ══════════════════════════════════ -->
+
+  <!-- Matrix header row -->
+  <rect x="16" y="68" width="928" height="36" fill="#ecf0f1" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="82" width="928" height="22" fill="#ecf0f1"/>
+  <text x="226" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">bubbles: false, composed: false</text>
+  <text x="480" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">bubbles: true, composed: false</text>
+  <text x="700" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">bubbles: false, composed: true</text>
+  <text x="880" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">bubbles: true, composed: true</text>
+  <!-- vertical dividers -->
+  <line x1="348" y1="68" x2="348" y2="104" stroke="#dee2e6" stroke-width="1"/>
+  <line x1="602" y1="68" x2="602" y2="104" stroke="#dee2e6" stroke-width="1"/>
+  <line x1="800" y1="68" x2="800" y2="104" stroke="#dee2e6" stroke-width="1"/>
+
+  <!-- ── Scenario A: bubbles:false composed:false ── -->
+  <rect x="16" y="104" width="332" height="220" fill="#fff5f5" rx="0" stroke="#dee2e6" stroke-width="1"/>
+  <!-- DOM tree for scenario A -->
+  <!-- document -->
+  <rect x="128" y="116" width="108" height="24" fill="#adb5bd" rx="4"/>
+  <text x="182" y="133" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">document</text>
+  <line x1="182" y1="140" x2="182" y2="154" stroke="#adb5bd" stroke-width="1.5"/>
+  <!-- parent shadow host -->
+  <rect x="104" y="154" width="156" height="24" fill="#0070d2" rx="4"/>
+  <text x="182" y="171" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-parent&gt; (shadow host)</text>
+  <!-- shadow boundary -->
+  <rect x="80" y="182" width="204" height="70" fill="#fff" rx="4" stroke="#7e3af2" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="182" y="196" text-anchor="middle" font-size="9" fill="#7e3af2">── shadow boundary ──</text>
+  <line x1="182" y1="178" x2="182" y2="186" stroke="#7e3af2" stroke-width="1.5"/>
+  <!-- child component -->
+  <rect x="100" y="198" width="164" height="24" fill="#0070d2" rx="4"/>
+  <text x="182" y="215" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-child&gt;</text>
+  <!-- button fires event -->
+  <rect x="130" y="228" width="104" height="20" fill="#c0392b" rx="4"/>
+  <text x="182" y="242" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">button fires event</text>
+  <!-- stop mark (X) -->
+  <circle cx="182" cy="263" r="10" fill="#c0392b"/>
+  <text x="182" y="268" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">✕</text>
+  <text x="182" y="285" text-anchor="middle" font-size="10" fill="#c0392b" font-weight="700">STOPS here</text>
+  <text x="182" y="300" text-anchor="middle" font-size="10" fill="#6c757d">only same component</text>
+  <text x="182" y="313" text-anchor="middle" font-size="10" fill="#6c757d">can listen (this.template)</text>
+
+  <!-- ── Scenario B: bubbles:true composed:false ── -->
+  <rect x="348" y="104" width="254" height="220" fill="#fff8e1" rx="0" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="418" y="116" width="108" height="24" fill="#adb5bd" rx="4"/>
+  <text x="472" y="133" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">document</text>
+  <line x1="472" y1="140" x2="472" y2="154" stroke="#adb5bd" stroke-width="1.5"/>
+  <rect x="396" y="154" width="152" height="24" fill="#adb5bd" rx="4"/>
+  <text x="472" y="171" text-anchor="middle" font-size="11" fill="#495057">&lt;c-parent&gt; (host)</text>
+  <!-- shadow boundary -->
+  <rect x="370" y="180" width="204" height="72" fill="#fff" rx="4" stroke="#7e3af2" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="472" y="194" text-anchor="middle" font-size="9" fill="#7e3af2">── shadow boundary ──</text>
+  <line x1="472" y1="178" x2="472" y2="184" stroke="#7e3af2" stroke-width="1.5"/>
+  <!-- child -->
+  <rect x="392" y="196" width="160" height="24" fill="#e67e22" rx="4"/>
+  <text x="472" y="213" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-child&gt; ← caught here</text>
+  <!-- button -->
+  <rect x="418" y="226" width="108" height="20" fill="#c0392b" rx="4"/>
+  <text x="472" y="240" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">button fires event</text>
+  <!-- bubble up inside shadow only -->
+  <path d="M472 246 L472 214" stroke="#e67e22" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#arr-orange)"/>
+  <!-- stop at boundary -->
+  <circle cx="472" cy="263" r="10" fill="#c0392b"/>
+  <text x="472" y="268" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">✕</text>
+  <text x="472" y="285" text-anchor="middle" font-size="10" fill="#c0392b" font-weight="700">STOPS at boundary</text>
+  <text x="472" y="300" text-anchor="middle" font-size="10" fill="#6c757d">bubbles inside shadow tree</text>
+  <text x="472" y="313" text-anchor="middle" font-size="10" fill="#6c757d">parent cannot see it</text>
+
+  <!-- ── Scenario C: bubbles:false composed:true ── -->
+  <rect x="602" y="104" width="198" height="220" fill="#f0fff4" rx="0" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="642" y="116" width="120" height="24" fill="#1e7e34" rx="4"/>
+  <text x="702" y="133" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">document ← caught!</text>
+  <!-- arrow straight up -->
+  <path d="M702 162 L702 140" stroke="#1e7e34" stroke-width="2" marker-end="url(#arr-green)"/>
+  <rect x="644" y="162" width="116" height="24" fill="#1e7e34" rx="4"/>
+  <text x="702" y="179" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-parent&gt; ← caught!</text>
+  <!-- shadow boundary -->
+  <rect x="618" y="190" width="168" height="66" fill="#fff" rx="4" stroke="#7e3af2" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="702" y="204" text-anchor="middle" font-size="9" fill="#7e3af2">── shadow boundary ──</text>
+  <path d="M702 188 L702 196" stroke="#1e7e34" stroke-width="2" marker-end="url(#arr-green)"/>
+  <rect x="640" y="208" width="124" height="24" fill="#0070d2" rx="4"/>
+  <text x="702" y="225" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-child&gt;</text>
+  <rect x="650" y="238" width="104" height="20" fill="#c0392b" rx="4"/>
+  <text x="702" y="252" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">button fires event</text>
+  <text x="702" y="280" text-anchor="middle" font-size="10" fill="#1e7e34" font-weight="700">crosses boundary</text>
+  <text x="702" y="295" text-anchor="middle" font-size="10" fill="#6c757d">but does NOT bubble</text>
+  <text x="702" y="310" text-anchor="middle" font-size="10" fill="#6c757d">(only target listeners)</text>
+
+  <!-- ── Scenario D: bubbles:true composed:true ── -->
+  <rect x="800" y="104" width="144" height="220" fill="#f9f0ff" rx="0" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="814" y="116" width="116" height="24" fill="#7e3af2" rx="4"/>
+  <text x="872" y="133" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">document ← caught!</text>
+  <path d="M872 160 L872 140" stroke="#7e3af2" stroke-width="2" marker-end="url(#arr-purple)"/>
+  <rect x="814" y="160" width="116" height="24" fill="#7e3af2" rx="4"/>
+  <text x="872" y="177" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-parent&gt; ← caught!</text>
+  <rect x="822" y="188" width="100" height="20" fill="#7e3af2" rx="4" opacity="0.5"/>
+  <text x="872" y="202" text-anchor="middle" font-size="9" fill="#7e3af2">── shadow ──</text>
+  <path d="M872 184 L872 178" stroke="#7e3af2" stroke-width="2" marker-end="url(#arr-purple)"/>
+  <rect x="822" y="210" width="100" height="24" fill="#0070d2" rx="4"/>
+  <text x="872" y="227" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">&lt;c-child&gt;</text>
+  <rect x="830" y="240" width="84" height="20" fill="#c0392b" rx="4"/>
+  <text x="872" y="254" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">fires event</text>
+  <path d="M872 238 L872 234" stroke="#7e3af2" stroke-width="2" marker-end="url(#arr-purple)"/>
+  <text x="872" y="282" text-anchor="middle" font-size="10" fill="#7e3af2" font-weight="700">Full propagation</text>
+  <text x="872" y="296" text-anchor="middle" font-size="10" fill="#6c757d">crosses boundary</text>
+  <text x="872" y="310" text-anchor="middle" font-size="10" fill="#6c757d">AND bubbles up</text>
+
+  <!-- ══════════════════════════════════ -->
+  <!--  MIDDLE: Event Retargeting         -->
+  <!-- ══════════════════════════════════ -->
+
+  <rect x="16" y="332" width="600" height="176" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="332" width="600" height="28" fill="#fff3cd" rx="8"/>
+  <rect x="16" y="348" width="600" height="12" fill="#fff3cd"/>
+  <text x="316" y="350" text-anchor="middle" font-size="13" font-weight="700" fill="#856404">Event Retargeting: event.target Across Shadow Boundaries</text>
+
+  <text x="30" y="374" font-size="12" font-weight="600" fill="#0d1117">What is retargeting?</text>
+  <text x="30" y="390" font-size="11" fill="#495057">When a composed event crosses a shadow boundary, the browser changes event.target to the shadow host</text>
+  <text x="30" y="404" font-size="11" fill="#495057">so the internal DOM structure is never exposed outside the component. This is part of the encapsulation contract.</text>
+
+  <text x="30" y="426" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">// Inside child shadow tree: event.target = &lt;button&gt;</text>
+  <text x="30" y="442" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">// In parent template:       event.target = &lt;c-child&gt;  ← retargeted</text>
+  <text x="30" y="458" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">// In document:              event.target = &lt;c-parent&gt; ← retargeted again</text>
+
+  <text x="30" y="480" font-size="11" fill="#c0392b">⚠  Anti-pattern: relying on event.target.dataset inside a cross-shadow handler — target is the host, not the original element</text>
+  <text x="30" y="495" font-size="11" fill="#1e7e34">✓  Best practice: put data in event.detail so it's always accessible regardless of retargeting</text>
+
+  <!-- ══════════════════════════════════ -->
+  <!--  MIDDLE RIGHT: Common Patterns     -->
+  <!-- ══════════════════════════════════ -->
+
+  <rect x="626" y="332" width="318" height="176" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="626" y="332" width="318" height="28" fill="#e8f4fd" rx="8"/>
+  <rect x="626" y="348" width="318" height="12" fill="#e8f4fd"/>
+  <text x="785" y="350" text-anchor="middle" font-size="13" font-weight="700" fill="#0070d2">LWC Event Dispatch Patterns</text>
+
+  <text x="638" y="374" font-size="11" font-weight="700" fill="#0d1117">Child → Parent (most common):</text>
+  <text x="638" y="389" font-size="11" font-family="'Cascadia Code',monospace" fill="#1e7e34">// bubbles:false, composed:false</text>
+  <text x="638" y="403" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">this.dispatchEvent(new CustomEvent(</text>
+  <text x="638" y="417" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">  'selected', &#123; detail: this.value &#125;));</text>
+
+  <text x="638" y="437" font-size="11" font-weight="700" fill="#0d1117">Cross-shadow (e.g. button inside slot):</text>
+  <text x="638" y="451" font-size="11" font-family="'Cascadia Code',monospace" fill="#c0392b">// bubbles:true, composed:true</text>
+  <text x="638" y="465" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">this.dispatchEvent(new CustomEvent(</text>
+  <text x="638" y="479" font-size="11" font-family="'Cascadia Code',monospace" fill="#0d1117">  'action', &#123;bubbles:true,composed:true&#125;));</text>
+  <text x="638" y="497" font-size="10" fill="#6c757d">Note: avoid composed:true when possible — it leaks events</text>
+
+  <!-- ══════════════════════════════════ -->
+  <!--  BOTTOM: stopPropagation           -->
+  <!-- ══════════════════════════════════ -->
+
+  <rect x="16" y="516" width="928" height="82" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="516" width="928" height="28" fill="#ffeeba" rx="8"/>
+  <rect x="16" y="532" width="928" height="12" fill="#ffeeba"/>
+  <text x="480" y="534" text-anchor="middle" font-size="13" font-weight="700" fill="#856404">stopPropagation() vs stopImmediatePropagation() in LWC</text>
+
+  <text x="30" y="558" font-size="11" font-weight="700" fill="#0d1117">event.stopPropagation():</text>
+  <text x="30" y="572" font-size="11" fill="#495057">Stops event from propagating further up the DOM tree. Other handlers on the SAME element still fire.</text>
+  <text x="30" y="586" font-size="11" fill="#495057">Use when you handle an event in a parent template and don't want grandparents to see it.</text>
+
+  <text x="500" y="558" font-size="11" font-weight="700" fill="#0d1117">event.stopImmediatePropagation():</text>
+  <text x="500" y="572" font-size="11" fill="#495057">Stops propagation AND prevents other handlers on the same element from firing. Use with caution.</text>
+  <text x="500" y="586" font-size="11" fill="#c0392b">⚠  Do NOT call stopPropagation() inside LWC by default — it can break parent components that need to hear the event.</text>
+
+  <!-- ══════════════════════════════════ -->
+  <!--  BOTTOM ROW: Quick Reference       -->
+  <!-- ══════════════════════════════════ -->
+
+  <rect x="16" y="606" width="928" height="116" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="606" width="928" height="26" fill="#ecf0f1" rx="8"/>
+  <rect x="16" y="620" width="928" height="12" fill="#ecf0f1"/>
+  <text x="480" y="622" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">Quick Reference: bubbles &amp; composed Decision Matrix</text>
+
+  <!-- 4 quadrant cells -->
+  <!-- Q1 -->
+  <rect x="26" y="636" width="218" height="78" fill="#fff5f5" rx="4" stroke="#c0392b" stroke-width="1"/>
+  <text x="135" y="652" text-anchor="middle" font-size="11" font-weight="700" fill="#c0392b">bubbles:F composed:F (default)</text>
+  <text x="135" y="666" text-anchor="middle" font-size="10.5" fill="#495057">Stays in dispatching component</text>
+  <text x="135" y="680" text-anchor="middle" font-size="10.5" fill="#495057">Only same component listeners fire</text>
+  <text x="135" y="694" text-anchor="middle" font-size="10.5" fill="#1e7e34">✓ Safest — use for internal events</text>
+
+  <!-- Q2 -->
+  <rect x="252" y="636" width="218" height="78" fill="#fff8e1" rx="4" stroke="#f39c12" stroke-width="1"/>
+  <text x="361" y="652" text-anchor="middle" font-size="11" font-weight="700" fill="#856404">bubbles:T composed:F</text>
+  <text x="361" y="666" text-anchor="middle" font-size="10.5" fill="#495057">Bubbles inside its shadow tree</text>
+  <text x="361" y="680" text-anchor="middle" font-size="10.5" fill="#495057">Stops at shadow boundary</text>
+  <text x="361" y="694" text-anchor="middle" font-size="10.5" fill="#1e7e34">✓ Use for sibling-in-shadow events</text>
+
+  <!-- Q3 -->
+  <rect x="478" y="636" width="218" height="78" fill="#f0fff4" rx="4" stroke="#1e7e34" stroke-width="1"/>
+  <text x="587" y="652" text-anchor="middle" font-size="11" font-weight="700" fill="#1e7e34">bubbles:F composed:T</text>
+  <text x="587" y="666" text-anchor="middle" font-size="10.5" fill="#495057">Crosses shadow boundary once</text>
+  <text x="587" y="680" text-anchor="middle" font-size="10.5" fill="#495057">Doesn't bubble — target listeners only</text>
+  <text x="587" y="694" text-anchor="middle" font-size="10.5" fill="#856404">⚡ Rare — targeted cross-shadow signal</text>
+
+  <!-- Q4 -->
+  <rect x="704" y="636" width="228" height="78" fill="#f9f0ff" rx="4" stroke="#7e3af2" stroke-width="1"/>
+  <text x="818" y="652" text-anchor="middle" font-size="11" font-weight="700" fill="#7e3af2">bubbles:T composed:T</text>
+  <text x="818" y="666" text-anchor="middle" font-size="10.5" fill="#495057">Crosses ALL shadow boundaries</text>
+  <text x="818" y="680" text-anchor="middle" font-size="10.5" fill="#495057">Bubbles up to document</text>
+  <text x="818" y="694" text-anchor="middle" font-size="10.5" fill="#c0392b">⚠ Use carefully — wide blast radius</text>
+</svg>

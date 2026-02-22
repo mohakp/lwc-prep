@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>09. Working with Salesforce Data — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into Salesforce data access in LWC: the REST API → UI API → LDS → Wire Adapter stack, uiRecordApi adapters, CRUD without Apex, refreshApex, notifyRecordUpdateAvailable, and the data strategy decision framework.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/09-salesforce-data.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Data Access Is Hard</a></li>
+          <li><a href="#mental-model">2. The Salesforce Data Stack</a></li>
+          <li class="level-3"><a href="#rest-api">REST API Layer</a></li>
+          <li class="level-3"><a href="#ui-api">UI API Layer</a></li>
+          <li class="level-3"><a href="#lds">Lightning Data Service</a></li>
+          <li class="level-3"><a href="#wire-adapters">Wire Adapters</a></li>
+          <li><a href="#lds-deep-dive">3. LDS Deep Dive</a></li>
+          <li class="level-3"><a href="#lds-cache">The Client-Side Cache</a></li>
+          <li class="level-3"><a href="#lds-invalidation">Cache Invalidation</a></li>
+          <li class="level-3"><a href="#lds-fls">FLS &amp; Sharing Rules</a></li>
+          <li><a href="#uirecordapi">4. uiRecordApi Wire Adapters</a></li>
+          <li class="level-3"><a href="#getrecord">getRecord</a></li>
+          <li class="level-3"><a href="#getfieldvalue">getFieldValue Helper</a></li>
+          <li class="level-3"><a href="#schema-imports">Schema Imports</a></li>
+          <li class="level-3"><a href="#getobjectinfo">getObjectInfo</a></li>
+          <li class="level-3"><a href="#getpicklistvalues">getPicklistValues</a></li>
+          <li class="level-3"><a href="#getlistui">getListUi</a></li>
+          <li><a href="#crud-no-apex">5. CRUD Without Apex</a></li>
+          <li class="level-3"><a href="#createrecord">createRecord</a></li>
+          <li class="level-3"><a href="#updaterecord">updateRecord</a></li>
+          <li class="level-3"><a href="#deleterecord">deleteRecord</a></li>
+          <li class="level-3"><a href="#generate-helpers">generateRecordInput Helpers</a></li>
+          <li><a href="#notify-record">6. notifyRecordUpdateAvailable</a></li>
+          <li><a href="#when-apex">7. When LDS Is NOT Enough</a></li>
+          <li><a href="#wire-apex">8. @wire with Apex</a></li>
+          <li class="level-3"><a href="#cacheable">cacheable=true Constraints</a></li>
+          <li class="level-3"><a href="#reactive-params">Reactive Parameters</a></li>
+          <li class="level-3"><a href="#wire-error">Wire Error Handling</a></li>
+          <li><a href="#imperative-apex">9. Imperative Apex</a></li>
+          <li class="level-3"><a href="#async-await">async/await Pattern</a></li>
+          <li class="level-3"><a href="#loading-state">Loading &amp; Error States</a></li>
+          <li><a href="#refresh-apex">10. refreshApex</a></li>
+          <li><a href="#governor-limits">11. Governor Limits &amp; Batching</a></li>
+          <li><a href="#decision-framework">12. Decision Framework</a></li>
+          <li><a href="#pitfalls">13. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">14. Expert Insight</a></li>
+          <li><a href="#recall">15. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 09</div>
+        <h1>Working with Salesforce Data</h1>
+        <div class="article-meta">
+          <span>⏱ 32 min read</span>
+          <span class="tags">
+            <span class="tag">#data</span>
+            <span class="tag">#wire</span>
+            <span class="tag">#lds</span>
+            <span class="tag">#apex</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="09"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Data Access Is Hard</h2>
+        <p>
+          Every non-trivial Salesforce component eventually needs to read or write data. In a
+          multi-tenant cloud platform serving millions of orgs simultaneously, "just query the
+          database" is not an option — every data access decision carries security, performance,
+          governor limit, and cache-coherence implications.
+        </p>
+        <p>
+          LWC developers who don't understand the data access stack make the same mistakes
+          repeatedly: they call Apex when LDS would have done the job (and maintained cache
+          coherence automatically), they mutate wire results directly (causing unpredictable UI
+          states), they call <code>refreshApex</code> with <code>this.wiredResult.data</code>
+          instead of <code>this.wiredResult</code> (and wonder why the data never refreshes),
+          or they neglect <code>notifyRecordUpdateAvailable</code> after imperative DML (and
+          wonder why the UI shows stale data).
+        </p>
+        <p>
+          This article builds the data access mental model from the bottom of the stack upward,
+          then gives you complete, annotated patterns for every scenario — with the decision
+          framework to choose between them.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">The Core Rule</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Prefer Lightning Data Service (via <code>lightning/uiRecordApi</code> wire adapters)
+              for standard CRUD on single records. Use Apex only when LDS cannot satisfy the
+              requirement: complex SOQL, aggregate queries, multi-object transactions, or objects
+              not supported by UI API. When Apex modifies records, always call
+              <code>notifyRecordUpdateAvailable</code> to keep the LDS cache coherent.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — MENTAL MODEL
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. The Salesforce Data Stack</h2>
+        <p>
+          Understanding the layers between your component and the database is the foundation
+          of every data access decision.
+        </p>
+
+        <pre><code class="language-text">┌─────────────────────────────────────────────────────┐
+│                  LWC Component                       │
+│        (wire adapters / imperative calls)            │
+└─────────────────────┬───────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────┐
+│           Wire Service / LDS Client Cache            │
+│   (deduplication, batching, reactive provisioning)   │
+└─────────────────────┬───────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────┐
+│               UI API (REST-based)                    │
+│     /ui-api/records/{id}  /ui-api/object-info/...    │
+│   Handles FLS, sharing, metadata, layout info        │
+└─────────────────────┬───────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────┐
+│          Salesforce Database (Force.com)             │
+│             SOQL / DML / Apex / Rules                │
+└─────────────────────────────────────────────────────┘</code></pre>
+
+        <h3 id="rest-api">REST API Layer</h3>
+        <p>
+          At the bottom of the stack sits the Salesforce REST API — the same API that external
+          integrations use. It exposes standard endpoints for every Salesforce object. This layer
+          enforces all security rules and governor limits.
+        </p>
+
+        <h3 id="ui-api">UI API Layer</h3>
+        <p>
+          The <strong>User Interface API</strong> is a higher-level REST API designed specifically
+          for building UIs. Unlike the generic REST API, UI API:
+        </p>
+        <ul>
+          <li>Returns field metadata (labels, data types, required, picklist values) alongside record data in a single call — no N+1 round trips for rendering a form</li>
+          <li>Automatically respects Field-Level Security and object sharing</li>
+          <li>Supports layout-aware responses (which fields appear on a page layout)</li>
+          <li>Is the foundation for <code>lightning-record-form</code>, <code>lightning-record-edit-form</code>, and all <code>lightning/uiRecordApi</code> adapters</li>
+        </ul>
+
+        <h3 id="lds">Lightning Data Service</h3>
+        <p>
+          LDS is the <strong>client-side cache layer</strong> that sits on top of UI API.
+          It is not an API you call directly — it is an infrastructure service that:
+        </p>
+        <ul>
+          <li>Maintains a shared, normalized record cache keyed by record ID and field set</li>
+          <li>De-duplicates network requests: if three components all wire to the same record ID, only one network call is made</li>
+          <li>Reactively notifies all subscribers when a cached record changes</li>
+          <li>Automatically refreshes its cache after component-level DML via <code>createRecord</code>, <code>updateRecord</code>, <code>deleteRecord</code></li>
+          <li>Provides a bridge back to Apex DML via <code>notifyRecordUpdateAvailable</code></li>
+        </ul>
+
+        <h3 id="wire-adapters">Wire Adapters</h3>
+        <p>
+          Wire adapters are the <strong>developer-facing interface to LDS</strong>. They are
+          functions registered with the wire service protocol; when decorated with
+          <code>@wire</code>, they reactively provision data to your component whenever their
+          configuration parameters change. You do not manage fetching, caching, or re-fetching
+          manually — the wire service handles all of it.
+        </p>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">The Deprecated API: getRecordUi</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>getRecordUi</code> is deprecated and exists only for evaluation purposes —
+              not for production use. Use <code>getRecord</code> + <code>getObjectInfo</code>
+              instead. Similarly, the older <code>getRecordNotifyChange</code> function has been
+              superseded by <code>notifyRecordUpdateAvailable</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — LDS DEEP DIVE
+           ============================================================ -->
+      <section id="lds-deep-dive">
+        <h2>3. LDS Deep Dive</h2>
+
+        <h3 id="lds-cache">The Client-Side Cache</h3>
+        <p>
+          The LDS cache is a <strong>normalized, field-level store</strong>. Each record is
+          stored once, keyed by its ID. Fields are stored individually — so if Component A
+          requests Account fields <code>Name, Phone</code> and Component B later requests
+          Account fields <code>Name, Industry</code> on the same record ID, LDS:
+        </p>
+        <ol>
+          <li>Serves <code>Name</code> from cache (already fetched by Component A)</li>
+          <li>Fetches only <code>Industry</code> from the server (missing field)</li>
+          <li>Merges the result into the cache entry for that record</li>
+          <li>Notifies both components with the complete merged record</li>
+        </ol>
+        <p>
+          This field-merging behavior means the cache is <em>additive</em> — requesting more
+          fields never invalidates existing cached fields.
+        </p>
+
+        <h3 id="lds-invalidation">Cache Invalidation</h3>
+        <p>
+          The LDS cache is automatically invalidated and refreshed when:
+        </p>
+        <ul>
+          <li>A record is modified via <code>updateRecord</code> or <code>deleteRecord</code> (LDS-native DML)</li>
+          <li><code>notifyRecordUpdateAvailable([{recordId}])</code> is called (after imperative Apex DML)</li>
+          <li>The platform detects a change via real-time infrastructure (e.g., streaming events)</li>
+        </ul>
+        <p>
+          When invalidated, LDS re-fetches the stale records from UI API and reactively
+          pushes the updated data to all wired subscribers — no manual re-render required.
+        </p>
+
+        <h3 id="lds-fls">FLS &amp; Sharing Rules</h3>
+        <p>
+          Every UI API call automatically enforces:
+        </p>
+        <ul>
+          <li><strong>Object CRUD</strong>: Can the running user read/create/update/delete this object?</li>
+          <li><strong>Field-Level Security</strong>: Can the running user read/edit this field?</li>
+          <li><strong>Record sharing</strong>: Does the running user's sharing context allow access?</li>
+        </ul>
+        <p>
+          Fields that a user cannot read are simply omitted from the response. This is
+          fundamentally different from Apex, where you must explicitly add <code>WITH SECURITY_ENFORCED</code>
+          or call <code>Security.stripInaccessible()</code> to enforce FLS.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — uiRecordApi Wire Adapters
+           ============================================================ -->
+      <section id="uirecordapi">
+        <h2>4. uiRecordApi Wire Adapters</h2>
+        <p>
+          All the following adapters are imported from <code>lightning/uiRecordApi</code>.
+        </p>
+
+        <h3 id="getrecord">getRecord</h3>
+        <p>
+          The most commonly used adapter. Retrieves a single record's field values by record ID.
+        </p>
+
+        <pre><code class="language-javascript">// contactCard.js
+import { LightningElement, api, wire } from 'lwc';
+import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+
+// Schema imports (strongly recommended — see below)
+import NAME_FIELD   from '@salesforce/schema/Contact.Name';
+import EMAIL_FIELD  from '@salesforce/schema/Contact.Email';
+import PHONE_FIELD  from '@salesforce/schema/Contact.Phone';
+
+const FIELDS = [NAME_FIELD, EMAIL_FIELD, PHONE_FIELD];
+
+export default class ContactCard extends LightningElement {
+  @api recordId;  // Automatically set when placed on a record page
+
+  // Wire result is an object: { data, error }
+  // Assign to a property so refreshApex can reference it later
+  @wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+  wiredContact;  // NOT wiredContact({ data, error }) — see note below
+
+  get name() {
+    return getFieldValue(this.wiredContact.data, NAME_FIELD);
+  }
+
+  get email() {
+    return getFieldValue(this.wiredContact.data, EMAIL_FIELD);
+  }
+
+  get phone() {
+    return getFieldValue(this.wiredContact.data, PHONE_FIELD);
+  }
+
+  get isLoading() {
+    return !this.wiredContact.data &amp;&amp; !this.wiredContact.error;
+  }
+
+  get error() {
+    return this.wiredContact.error;
+  }
+}</code></pre>
+
+        <pre><code class="language-html">&lt;!-- contactCard.html --&gt;
+&lt;template&gt;
+  &lt;template lwc:if={isLoading}&gt;
+    &lt;lightning-spinner alternative-text="Loading"&gt;&lt;/lightning-spinner&gt;
+  &lt;/template&gt;
+
+  &lt;template lwc:elseif={error}&gt;
+    &lt;p class="slds-text-color_error"&gt;Error loading contact.&lt;/p&gt;
+  &lt;/template&gt;
+
+  &lt;template lwc:else&gt;
+    &lt;p&gt;{name}&lt;/p&gt;
+    &lt;p&gt;{email}&lt;/p&gt;
+    &lt;p&gt;{phone}&lt;/p&gt;
+  &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Wire to Property vs Wire to Function</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <strong>Wiring to a property</strong> (<code>@wire(...) wiredContact;</code>) stores
+              the entire <code>{ data, error }</code> object on <code>this.wiredContact</code>.
+              This is <em>required</em> if you plan to call <code>refreshApex</code> later,
+              because <code>refreshApex</code> needs the full wired result object, not just
+              <code>.data</code>.
+            </p>
+            <p>
+              <strong>Wiring to a function</strong> (<code>@wire(...) wiredContact({ data, error })</code>)
+              calls your handler every time new data arrives. More flexible for side effects
+              (e.g., transforming data on arrival) but <strong>cannot</strong> be used with
+              <code>refreshApex</code> directly unless you save the raw result.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="getfieldvalue">getFieldValue Helper</h3>
+        <p>
+          <strong>Always use <code>getFieldValue(record, fieldApiName)</code></strong> to extract
+          values from a wired record. Direct property access like
+          <code>record.fields.Name.value</code> works but is fragile — it breaks if the field is
+          not present in the record (e.g., due to FLS), and it bypasses span tracking used by LDS
+          for cache optimization.
+        </p>
+
+        <pre><code class="language-javascript">import { getFieldValue } from 'lightning/uiRecordApi';
+import NAME_FIELD from '@salesforce/schema/Contact.Name';
+
+// CORRECT — safe, handles missing/null fields gracefully
+const name = getFieldValue(record, NAME_FIELD);
+
+// INCORRECT — brittle, bypasses LDS field tracking
+const name = record.fields.Name.value; // throws if Name is not in fields</code></pre>
+
+        <h3 id="schema-imports">Schema Imports</h3>
+        <p>
+          Schema imports (<code>@salesforce/schema/Object.Field</code>) are <strong>strongly
+          recommended</strong> by Salesforce for three reasons:
+        </p>
+        <ol>
+          <li><strong>Compile-time validation</strong>: the platform verifies the object/field exists during deployment</li>
+          <li><strong>Rename tracking</strong>: if a field is renamed, Salesforce cascades the rename into your component source</li>
+          <li><strong>Dependency tracking</strong>: ensures dependent fields are included in change sets and packages</li>
+        </ol>
+
+        <pre><code class="language-javascript">// STRONGLY RECOMMENDED — compile-time checked
+import ACCOUNT_NAME  from '@salesforce/schema/Account.Name';
+import ACCOUNT_PHONE from '@salesforce/schema/Account.Phone';
+import ACCOUNT_OBJ   from '@salesforce/schema/Account';
+
+// You can also import object references for createRecord:
+import { createRecord } from 'lightning/uiRecordApi';
+
+async handleCreate() {
+  const fields = {};
+  fields[ACCOUNT_NAME.fieldApiName] = 'Acme Corp';
+  fields[ACCOUNT_PHONE.fieldApiName] = '555-0100';
+
+  await createRecord({
+    apiName: ACCOUNT_OBJ.objectApiName,
+    fields
+  });
+}</code></pre>
+
+        <h3 id="getobjectinfo">getObjectInfo</h3>
+        <p>
+          Returns metadata about an object: its fields, data types, required flags, labels,
+          picklist field references, and more. Use this to build dynamic forms or understand
+          field structure without hardcoding metadata.
+        </p>
+
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { getObjectInfo } from 'lightning/uiRecordApi';
+import ACCOUNT_OBJ from '@salesforce/schema/Account';
+
+export default class AccountMeta extends LightningElement {
+  @wire(getObjectInfo, { objectApiName: ACCOUNT_OBJ })
+  accountInfo;
+
+  get labelMap() {
+    if (!this.accountInfo.data) return {};
+    // Returns a map of fieldApiName -> label strings
+    return Object.fromEntries(
+      Object.entries(this.accountInfo.data.fields)
+        .map(([apiName, meta]) => [apiName, meta.label])
+    );
+  }
+}</code></pre>
+
+        <h3 id="getpicklistvalues">getPicklistValues</h3>
+        <p>
+          Returns the active picklist values for a specific field. Requires a
+          <code>recordTypeId</code> — use <code>getObjectInfo.data.defaultRecordTypeId</code>
+          when you don't have a specific record type.
+        </p>
+
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { getObjectInfo, getPicklistValues } from 'lightning/uiRecordApi';
+import LEAD_OBJ    from '@salesforce/schema/Lead';
+import STATUS_FIELD from '@salesforce/schema/Lead.Status';
+
+export default class LeadStatusPicker extends LightningElement {
+  @wire(getObjectInfo, { objectApiName: LEAD_OBJ })
+  leadInfo;
+
+  // Wire picklist values — depends on the default record type ID
+  // The '$' prefix makes leadInfo.data.defaultRecordTypeId reactive
+  @wire(getPicklistValues, {
+    recordTypeId: '$leadInfo.data.defaultRecordTypeId',
+    fieldApiName: STATUS_FIELD
+  })
+  statusPicklist;
+
+  get statusOptions() {
+    if (!this.statusPicklist.data) return [];
+    return this.statusPicklist.data.values;
+    // Each value: { label: 'Open', value: 'Open', validFor: [...] }
+  }
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Wire Config: undefined Properties Halt Provisioning</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              If any property in a wire adapter's config object is <code>undefined</code>, the
+              wire service <strong>will not provision data</strong> — it silently waits.
+              In the <code>getPicklistValues</code> example above, if
+              <code>leadInfo.data.defaultRecordTypeId</code> is undefined (because
+              <code>getObjectInfo</code> hasn't loaded yet), the picklist wire simply waits.
+              This is intentional — it creates automatic sequential dependency without explicit
+              chaining. Once the object info loads, the reactive parameter changes from
+              <code>undefined</code> to the actual record type ID, and the wire fires.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="getlistui">getListUi</h3>
+        <p>
+          Returns records from a list view — both the records themselves and the list view
+          metadata (columns, filters, sort order). Useful for replicating list view UI in a
+          custom component, or for building table components on top of a predefined list view.
+        </p>
+
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { getListUi } from 'lightning/uiRecordApi';
+import ACCOUNT_OBJ from '@salesforce/schema/Account';
+
+export default class AccountList extends LightningElement {
+  @wire(getListUi, {
+    objectApiName: ACCOUNT_OBJ,
+    listViewApiName: 'AllAccounts',
+    pageSize: 10
+  })
+  accountList;
+
+  get records() {
+    return this.accountList.data?.records?.records ?? [];
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — CRUD WITHOUT APEX
+           ============================================================ -->
+      <section id="crud-no-apex">
+        <h2>5. CRUD Without Apex</h2>
+        <p>
+          For standard single-record CRUD on UI API-supported objects, you can create, update,
+          and delete records entirely from the client — no Apex required. All operations respect
+          FLS and sharing automatically.
+        </p>
+
+        <h3 id="createrecord">createRecord</h3>
+
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+import { createRecord } from 'lightning/uiRecordApi';
+import ACCOUNT_OBJ   from '@salesforce/schema/Account';
+import NAME_FIELD    from '@salesforce/schema/Account.Name';
+import PHONE_FIELD   from '@salesforce/schema/Account.Phone';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+export default class CreateAccount extends LightningElement {
+  name  = '';
+  phone = '';
+  isLoading = false;
+
+  handleNameChange(e)  { this.name  = e.target.value; }
+  handlePhoneChange(e) { this.phone = e.target.value; }
+
+  async handleCreate() {
+    this.isLoading = true;
+    try {
+      const fields = {
+        [NAME_FIELD.fieldApiName]:  this.name,
+        [PHONE_FIELD.fieldApiName]: this.phone
+      };
+
+      const record = await createRecord({
+        apiName: ACCOUNT_OBJ.objectApiName,
+        fields
+      });
+
+      // LDS cache automatically updated — other getRecord wires
+      // on this same record ID will receive the new data
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Success',
+        message: `Account ${record.id} created`,
+        variant: 'success'
+      }));
+    } catch (error) {
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Error',
+        message: error.body?.message ?? 'Unknown error',
+        variant: 'error'
+      }));
+    } finally {
+      this.isLoading = false;
+    }
+  }
+}</code></pre>
+
+        <h3 id="updaterecord">updateRecord</h3>
+
+        <pre><code class="language-javascript">import { LightningElement, api, wire } from 'lwc';
+import { getRecord, updateRecord, getFieldValue } from 'lightning/uiRecordApi';
+import NAME_FIELD  from '@salesforce/schema/Account.Name';
+import PHONE_FIELD from '@salesforce/schema/Account.Phone';
+
+export default class EditAccount extends LightningElement {
+  @api recordId;
+  draftName  = '';
+  draftPhone = '';
+
+  @wire(getRecord, { recordId: '$recordId', fields: [NAME_FIELD, PHONE_FIELD] })
+  wiredAccount;
+
+  connectedCallback() {
+    // Pre-fill draft values once loaded
+    // (Better done in a getter or in the wire function callback)
+  }
+
+  async handleSave() {
+    const fields = {
+      Id: this.recordId,  // REQUIRED for updateRecord
+      [NAME_FIELD.fieldApiName]:  this.draftName,
+      [PHONE_FIELD.fieldApiName]: this.draftPhone
+    };
+
+    try {
+      await updateRecord({ fields });
+      // LDS cache automatically invalidated and re-fetched.
+      // All wired subscribers on this recordId get fresh data.
+    } catch (error) {
+      // handle error
+    }
+  }
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">updateRecord Requires the Id Field</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>Id</code> field <strong>must</strong> be included in the <code>fields</code>
+              object passed to <code>updateRecord</code>. Omitting it causes a runtime error.
+              Also note: only the fields you include are sent to the server — omitted fields
+              are not cleared; they retain their existing values.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="deleterecord">deleteRecord</h3>
+
+        <pre><code class="language-javascript">import { deleteRecord } from 'lightning/uiRecordApi';
+
+async handleDelete() {
+  try {
+    await deleteRecord(this.recordId);
+    // LDS automatically removes this record from its cache
+    // and notifies all subscribers with an error shape
+    // (since the record no longer exists)
+
+    // Navigate away after deletion:
+    this[NavigationMixin.Navigate]({
+      type: 'standard__objectPage',
+      attributes: { objectApiName: 'Account', actionName: 'list' }
+    });
+  } catch (error) {
+    // Handle: user may lack delete permission, or record is locked
+  }
+}</code></pre>
+
+        <h3 id="generate-helpers">generateRecordInput Helpers</h3>
+        <p>
+          When you need to build a record input object for update from an existing record
+          (e.g., pre-populating a form), these helpers simplify the construction:
+        </p>
+
+        <pre><code class="language-javascript">import {
+  generateRecordInputForCreate,
+  generateRecordInputForUpdate,
+  getRecordCreateDefaults
+} from 'lightning/uiRecordApi';
+
+// For CREATE — builds a properly structured RecordInput
+// from the object's create defaults (respects required fields, defaults)
+@wire(getRecordCreateDefaults, { objectApiName: ACCOUNT_OBJ })
+accountDefaults;
+
+handlePrepareCreate() {
+  const recordInput = generateRecordInputForCreate(
+    this.accountDefaults.data.record,
+    this.accountDefaults.data.objectInfos
+  );
+  // recordInput is ready to pass to createRecord after setting field values
+}
+
+// For UPDATE — creates a minimal delta object containing only
+// the editable fields present in getObjectInfo
+handlePrepareUpdate(record, objectInfo) {
+  const recordInput = generateRecordInputForUpdate(record, objectInfo);
+  // Modify fields as needed, then pass to updateRecord({ fields: recordInput.fields })
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — notifyRecordUpdateAvailable
+           ============================================================ -->
+      <section id="notify-record">
+        <h2>6. notifyRecordUpdateAvailable</h2>
+        <p>
+          When Apex performs DML — creating, updating, or deleting records — the LDS cache
+          does not automatically know about it. If your component also has <code>@wire(getRecord)</code>
+          on that same record, it will continue showing stale data until the user manually
+          refreshes the page.
+        </p>
+        <p>
+          <code>notifyRecordUpdateAvailable</code> is the bridge: it signals to LDS that
+          specific records are stale, triggering a cache refresh and re-notification of all
+          subscribers.
+        </p>
+
+        <pre><code class="language-javascript">import { LightningElement, api, wire } from 'lwc';
+import { getRecord, notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+import updateAccountName from '@salesforce/apex/AccountController.updateAccountName';
+import NAME_FIELD from '@salesforce/schema/Account.Name';
+
+export default class UpdateViaApex extends LightningElement {
+  @api recordId;
+  newName = '';
+
+  @wire(getRecord, { recordId: '$recordId', fields: [NAME_FIELD] })
+  wiredAccount;  // This will auto-refresh after notifyRecordUpdateAvailable
+
+  async handleUpdate() {
+    try {
+      // 1. Call imperative Apex to perform DML
+      await updateAccountName({ recordId: this.recordId, name: this.newName });
+
+      // 2. Tell LDS: this record is now stale — please re-fetch it
+      //    Takes an ARRAY of { recordId } objects
+      await notifyRecordUpdateAvailable([{ recordId: this.recordId }]);
+
+      // 3. All components on the page wired to this recordId
+      //    automatically receive the fresh data — no refresh needed
+    } catch (error) {
+      // handle
+    }
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">notifyRecordUpdateAvailable vs refreshApex</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <table>
+              <thead>
+                <tr><th>Scenario</th><th>Use</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Apex DML on a record; UI wired via <code>getRecord</code> / LDS adapter</td>
+                  <td><code>notifyRecordUpdateAvailable([{recordId}])</code></td>
+                </tr>
+                <tr>
+                  <td>Apex DML; UI fetched via <code>@wire(myApexMethod)</code></td>
+                  <td><code>refreshApex(this.wiredResult)</code></td>
+                </tr>
+                <tr>
+                  <td>CRUD via <code>createRecord</code> / <code>updateRecord</code> / <code>deleteRecord</code></td>
+                  <td>Nothing — LDS handles it automatically</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — WHEN LDS IS NOT ENOUGH
+           ============================================================ -->
+      <section id="when-apex">
+        <h2>7. When LDS Is NOT Enough</h2>
+        <p>
+          LDS and UI API have real limitations. Reach for Apex when:
+        </p>
+
+        <table>
+          <thead>
+            <tr><th>Scenario</th><th>Reason LDS Can't Help</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Aggregate SOQL (<code>COUNT</code>, <code>SUM</code>, <code>GROUP BY</code>)</td>
+              <td>UI API does not expose aggregate query endpoints</td>
+            </tr>
+            <tr>
+              <td>Multi-object transactions with rollback</td>
+              <td>LDS operates one record at a time; no SAVEPOINT support</td>
+            </tr>
+            <tr>
+              <td>Activity objects: Task, Event, ContentVersion</td>
+              <td>Not fully supported by UI API</td>
+            </tr>
+            <tr>
+              <td>Custom objects with complex SOQL (subqueries, multi-level relationships)</td>
+              <td>UI API supports simple field references only</td>
+            </tr>
+            <tr>
+              <td>Large result sets (thousands of records)</td>
+              <td>UI API has page size limits; SOQL with OFFSET/LIMIT is more efficient</td>
+            </tr>
+            <tr>
+              <td>Complex business logic validation before DML</td>
+              <td>Client-side validation is fine; server-side logic belongs in Apex</td>
+            </tr>
+            <tr>
+              <td>Callouts to external systems during DML</td>
+              <td>Apex <code>@future(callout=true)</code> or Queueable required</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — @wire WITH APEX
+           ============================================================ -->
+      <section id="wire-apex">
+        <h2>8. @wire with Apex</h2>
+        <p>
+          Apex methods can be wired to LWC components, but with important constraints and
+          behavioral differences compared to <code>uiRecordApi</code> adapters.
+        </p>
+
+        <h3 id="cacheable">cacheable=true Constraints</h3>
+        <p>
+          An Apex method must be annotated with <code>@AuraEnabled(cacheable=true)</code>
+          to be used with <code>@wire</code>. The <code>cacheable=true</code> flag is not
+          cosmetic — it carries a binding contract:
+        </p>
+        <ul>
+          <li>The method <strong>must not</strong> perform DML, callouts, or any side effects</li>
+          <li>The method <strong>must be deterministic</strong>: same inputs → same output</li>
+          <li>The result is stored in an <strong>LDS-managed client cache</strong> keyed by the method name + parameters</li>
+          <li>The Salesforce platform can serve cached results without hitting the server</li>
+        </ul>
+
+        <pre><code class="language-apex">// AccountController.cls
+public with sharing class AccountController {
+
+  // cacheable=true — safe for @wire; returns same result for same query
+  @AuraEnabled(cacheable=true)
+  public static List&lt;Account&gt; getTopAccounts(Integer limitCount) {
+    return [SELECT Id, Name, Phone FROM Account LIMIT :limitCount];
+  }
+
+  // NOT cacheable — performs DML; must be called imperatively
+  @AuraEnabled
+  public static void updateAccountName(Id recordId, String name) {
+    Account acc = new Account(Id = recordId, Name = name);
+    update acc;
+  }
+}</code></pre>
+
+        <h3 id="reactive-params">Reactive Parameters</h3>
+        <p>
+          Parameters passed to a wired Apex method with the <code>$</code> prefix are
+          <strong>reactive</strong> — when the referenced property changes, the wire service
+          automatically re-calls the Apex method with the new value.
+        </p>
+
+        <pre><code class="language-javascript">import { LightningElement, track, wire } from 'lwc';
+import getTopAccounts from '@salesforce/apex/AccountController.getTopAccounts';
+
+export default class AccountBrowser extends LightningElement {
+  limitCount = 5; // reactive property — changing it re-triggers the wire
+
+  @wire(getTopAccounts, { limitCount: '$limitCount' })
+  wiredAccounts;
+
+  get accounts() {
+    return this.wiredAccounts.data ?? [];
+  }
+
+  handleLimitChange(e) {
+    // Changing this.limitCount triggers the wire to re-fire
+    this.limitCount = parseInt(e.target.value, 10);
+  }
+}</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">null vs undefined in Wire Parameters</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              If a reactive parameter evaluates to <code>undefined</code>, the wire service
+              <strong>will not call the Apex method</strong>. It silently waits. This is by design —
+              use it to guard against premature calls (e.g., when <code>recordId</code> is
+              not yet set). However, <code>null</code> is sent to the server. If your Apex
+              method receives <code>null</code> and queries against it, you may get unexpected
+              results or errors.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="wire-error">Wire Error Handling</h3>
+        <p>
+          The wire <code>error</code> object from an Apex call has this shape:
+        </p>
+
+        <pre><code class="language-javascript">// Wire error shape from @AuraEnabled Apex
+{
+  status: 400,  // HTTP status code
+  body: {
+    message: "Error message from Apex",
+    exceptionType: "System.AuraHandledException",
+    stackTrace: "..."
+  },
+  headers: {},
+  ok: false
+}
+
+// Safely extract the error message:
+get errorMessage() {
+  const err = this.wiredAccounts.error;
+  if (!err) return '';
+  if (typeof err === 'string') return err;
+  if (err.body?.message) return err.body.message;
+  if (Array.isArray(err.body)) return err.body.map(e => e.message).join(', ');
+  return JSON.stringify(err);
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — IMPERATIVE APEX
+           ============================================================ -->
+      <section id="imperative-apex">
+        <h2>9. Imperative Apex</h2>
+        <p>
+          Imperative Apex calls happen on-demand — triggered by user actions, lifecycle hooks,
+          or other events. Unlike <code>@wire</code>, they return a <code>Promise</code> and do
+          not cache results or react to property changes automatically.
+        </p>
+        <p>
+          Use imperative Apex when:
+        </p>
+        <ul>
+          <li>The call performs DML (cannot be <code>cacheable=true</code>)</li>
+          <li>The call should only happen when the user explicitly triggers it</li>
+          <li>You need full control over loading state and error handling</li>
+          <li>You need to chain multiple calls sequentially</li>
+        </ul>
+
+        <h3 id="async-await">async/await Pattern</h3>
+
+        <pre><code class="language-javascript">import { LightningElement, api } from 'lwc';
+import updateAccountName from '@salesforce/apex/AccountController.updateAccountName';
+import { notifyRecordUpdateAvailable } from 'lightning/uiRecordApi';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+export default class InlineEdit extends LightningElement {
+  @api recordId;
+  newName = '';
+  isLoading = false;
+  errorMessage = '';
+
+  handleNameInput(e) {
+    this.newName = e.target.value;
+  }
+
+  async handleSave() {
+    // Guard against double-clicks
+    if (this.isLoading) return;
+
+    this.isLoading   = true;
+    this.errorMessage = '';
+
+    try {
+      await updateAccountName({ recordId: this.recordId, name: this.newName });
+
+      // Sync the LDS cache — any @wire(getRecord) on this record will refresh
+      await notifyRecordUpdateAvailable([{ recordId: this.recordId }]);
+
+      this.dispatchEvent(new ShowToastEvent({
+        title: 'Saved',
+        message: 'Account name updated.',
+        variant: 'success'
+      }));
+    } catch (err) {
+      this.errorMessage = err.body?.message ?? 'Unknown error';
+    } finally {
+      // Always runs — clears loading state even on error
+      this.isLoading = false;
+    }
+  }
+}</code></pre>
+
+        <h3 id="loading-state">Loading &amp; Error States</h3>
+        <p>
+          The <code>finally</code> block is the correct place to clear loading state — it runs
+          whether the try block succeeds or throws. Never put <code>this.isLoading = false</code>
+          at the end of the try block, because if the Apex call throws, it is skipped.
+        </p>
+
+        <pre><code class="language-html">&lt;template&gt;
+  &lt;lightning-button
+    label="Save"
+    onclick={handleSave}
+    disabled={isLoading}
+  &gt;&lt;/lightning-button&gt;
+
+  &lt;template lwc:if={isLoading}&gt;
+    &lt;lightning-spinner size="small"&gt;&lt;/lightning-spinner&gt;
+  &lt;/template&gt;
+
+  &lt;template lwc:if={errorMessage}&gt;
+    &lt;p class="slds-text-color_error"&gt;{errorMessage}&lt;/p&gt;
+  &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — refreshApex
+           ============================================================ -->
+      <section id="refresh-apex">
+        <h2>10. refreshApex</h2>
+        <p>
+          <code>refreshApex</code> re-executes a wired Apex call with its current
+          configuration, bypassing the client cache. It is used when:
+        </p>
+        <ul>
+          <li>Apex DML (your own or another component's) may have changed the records returned by a <code>@wire(apexMethod)</code></li>
+          <li>You want to give the user an explicit "Refresh" button to re-load the list</li>
+        </ul>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Critical: refreshApex takes the full wired result, NOT .data</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              This is one of the most common bugs in LWC. <code>refreshApex</code> needs the
+              entire wired result object so it can re-use the original configuration. Passing
+              <code>this.wiredAccounts.data</code> instead of <code>this.wiredAccounts</code>
+              throws a runtime error or silently does nothing.
+            </p>
+          </div>
+        </div>
+
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { refreshApex } from '@salesforce/apex';
+import getTopAccounts from '@salesforce/apex/AccountController.getTopAccounts';
+
+export default class AccountBrowser extends LightningElement {
+  limitCount = 10;
+
+  // MUST wire to a property (not a function) to use refreshApex
+  @wire(getTopAccounts, { limitCount: '$limitCount' })
+  wiredAccounts;  // { data: [...], error: undefined }
+
+  get accounts() {
+    return this.wiredAccounts.data ?? [];
+  }
+
+  async handleRefresh() {
+    // CORRECT — pass the full wired result object
+    await refreshApex(this.wiredAccounts);
+
+    // WRONG — do NOT do this:
+    // await refreshApex(this.wiredAccounts.data);  // Error!
+  }
+
+  async handleAfterDml() {
+    await saveMyRecords();                       // some Apex DML
+    await refreshApex(this.wiredAccounts);        // refresh the list wire
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">refreshApex import location</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Note the import path: <code>import { refreshApex } from '@salesforce/apex'</code> —
+              not from <code>lightning/uiRecordApi</code>. This trips up developers who mix up
+              the two. <code>notifyRecordUpdateAvailable</code> is from <code>lightning/uiRecordApi</code>;
+              <code>refreshApex</code> is from <code>@salesforce/apex</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — GOVERNOR LIMITS & BATCHING
+           ============================================================ -->
+      <section id="governor-limits">
+        <h2>11. Governor Limits &amp; LDS Batching</h2>
+        <p>
+          LDS is architected to minimize the number of server round trips, which directly
+          reduces pressure on governor limits.
+        </p>
+
+        <h4>How LDS Batches Requests</h4>
+        <ul>
+          <li>
+            <strong>Request deduplication</strong>: If multiple components wire to the same
+            record ID and fields, LDS issues a single UI API call and fans out the result.
+          </li>
+          <li>
+            <strong>Field merging</strong>: LDS tracks which fields have been fetched per record.
+            Only missing fields trigger new network requests.
+          </li>
+          <li>
+            <strong>Micro-batch window</strong>: LDS collects wire requests that arrive in the
+            same JavaScript event loop tick and batches them into one HTTP call.
+          </li>
+        </ul>
+
+        <h4>Governor Limits Context</h4>
+        <ul>
+          <li>UI API calls do not count against SOQL query limits the same way direct Apex SOQL does — they use a separate governor</li>
+          <li>Each <code>@AuraEnabled</code> Apex call consumes one SOQL call from the per-transaction 100-query limit (synchronous context)</li>
+          <li>LDS caching means repeat calls for the same record ID within a session often hit the cache, not the server</li>
+          <li>For large list operations, always use server-side pagination (<code>OFFSET</code> + <code>LIMIT</code> in SOQL, or UI API <code>pageSize</code>) rather than loading all records to the client</li>
+        </ul>
+
+        <pre><code class="language-apex">// Server-side pagination pattern — never load 10,000 records at once
+@AuraEnabled(cacheable=true)
+public static List&lt;Account&gt; getAccountPage(Integer pageSize, Integer offset) {
+  return [SELECT Id, Name, Phone FROM Account
+          ORDER BY Name
+          LIMIT :pageSize OFFSET :offset];
+}
+
+@AuraEnabled(cacheable=true)
+public static Integer getAccountCount() {
+  return [SELECT COUNT() FROM Account];
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — DECISION FRAMEWORK
+           ============================================================ -->
+      <section id="decision-framework">
+        <h2>12. Decision Framework</h2>
+        <p>
+          Use this flowchart to choose the right data strategy for any scenario:
+        </p>
+
+        <pre><code class="language-text">Is the object supported by UI API (standard/custom objects, not Task/Event)?
+├── YES
+│   Is this a simple single-record CRUD operation?
+│   ├── YES
+│   │   Is this a READ operation?
+│   │   ├── YES → @wire(getRecord) with uiRecordApi
+│   │   └── NO  → createRecord / updateRecord / deleteRecord
+│   └── NO (complex query, aggregate, multi-object)
+│       └── Apex @AuraEnabled
+└── NO (Task, Event, ContentVersion, etc.)
+    └── Apex @AuraEnabled
+
+After choosing Apex:
+Is this called reactively (re-runs when a property changes)?
+├── YES → @wire(apexMethod)  [must be cacheable=true]
+└── NO  → Imperative Apex (async/await)
+
+After Apex DML:
+Did you use @wire(getRecord) elsewhere for this record?
+├── YES → notifyRecordUpdateAvailable([{recordId}])
+└── Did you use @wire(apexMethod) for a list?
+    └── YES → refreshApex(this.wiredList)</code></pre>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Mechanism</th>
+              <th>Use When</th>
+              <th>Cache?</th>
+              <th>FLS?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>@wire(getRecord)</code></td><td>Read single record fields</td><td>Auto LDS</td><td>Auto</td></tr>
+            <tr><td><code>createRecord</code></td><td>Create record, no server logic</td><td>Auto LDS</td><td>Auto</td></tr>
+            <tr><td><code>updateRecord</code></td><td>Update record, no server logic</td><td>Auto LDS</td><td>Auto</td></tr>
+            <tr><td><code>deleteRecord</code></td><td>Delete record, no server logic</td><td>Auto LDS</td><td>Auto</td></tr>
+            <tr><td><code>@wire(apexMethod)</code></td><td>Reactive read with custom SOQL</td><td>LDS (cacheable)</td><td>Manual</td></tr>
+            <tr><td>Imperative Apex</td><td>DML, callouts, complex logic</td><td>None</td><td>Manual</td></tr>
+            <tr><td><code>refreshApex</code></td><td>Re-fetch after Apex DML (wire list)</td><td>Bypasses</td><td>N/A</td></tr>
+            <tr><td><code>notifyRecordUpdateAvailable</code></td><td>Sync LDS after Apex DML</td><td>Invalidates</td><td>N/A</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>13. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 1: Mutating the Wired Data Directly</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Wire results are <strong>read-only</strong>. Attempting to mutate
+              <code>this.wiredAccounts.data[0].Name = 'foo'</code> will throw in strict mode or
+              cause unpredictable behavior. Always create a copy before mutating:
+            </p>
+            <pre><code class="language-javascript">// WRONG
+this.wiredAccounts.data[0].Name = 'New Name'; // Error in LWS
+
+// CORRECT — spread into a new array of new objects
+this.accounts = this.wiredAccounts.data.map(acc => ({ ...acc }));
+this.accounts[0].Name = 'New Name';</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 2: Calling refreshApex with .data</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// WRONG
+await refreshApex(this.wiredAccounts.data);
+
+// CORRECT
+await refreshApex(this.wiredAccounts);</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 3: Using @wire with a Non-Cacheable Apex Method</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Apex methods without <code>cacheable=true</code> cannot be wired. The error is:
+              <em>"You can't use a method that performs DML operation as a cacheable method."</em>
+              If your method must perform DML, it <strong>cannot</strong> be <code>cacheable=true</code>
+              and <strong>cannot</strong> be used with <code>@wire</code>. Call it imperatively.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 4: Updating Wire Config in renderedCallback</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Changing a reactive wire parameter inside <code>renderedCallback</code> causes
+              the wire to re-fire → component re-renders → <code>renderedCallback</code> runs
+              again → infinite loop. Never update wire config properties in <code>renderedCallback</code>.
+              Computed values that feed wire config belong in <em>getters</em>, not lifecycle hooks.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 5: Forgetting notifyRecordUpdateAvailable After Apex DML</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              After any imperative Apex that performs DML on a record that is also being
+              watched by <code>@wire(getRecord)</code> on the page, you must call
+              <code>notifyRecordUpdateAvailable</code>. Without it, the wired component
+              continues showing the pre-DML data until the user navigates away and back.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 6: Accessing Field Values Without getFieldValue</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Accessing <code>record.fields.Name.value</code> directly can throw
+              <code>TypeError: Cannot read property 'value' of undefined</code> when
+              the field is not in the record (FLS restriction, or field not requested).
+              <code>getFieldValue(record, FIELD)</code> returns <code>undefined</code>
+              safely instead of throwing.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 14 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>14. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">🏆</span>
+            <span class="callout__title">Expert Insight: Architect-Level Data Access Decisions</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <h4>1. LDS Shared Cache Is a Cross-Component Contract</h4>
+            <p>
+              The LDS cache is <em>shared across all components on the same page</em>. When
+              Component A updates a record via <code>updateRecord</code>, Component B — which
+              has never interacted with that record in code — automatically receives fresh data
+              if it is wired to the same record ID. This is intentional cache coherence. Architects
+              must design with this in mind: avoid competing writers (multiple components updating
+              the same record simultaneously), as the last write wins.
+            </p>
+
+            <h4>2. notifyRecordUpdateAvailable is a Cache Poison Signal</h4>
+            <p>
+              Calling <code>notifyRecordUpdateAvailable([{recordId}])</code> marks the LDS cache
+              entry for that record as stale and triggers a re-fetch. This re-fetch is async —
+              the UI does not immediately show new data; it shows it when the network round trip
+              completes. Under slow network conditions, the component may briefly show
+              "loading" state. Design your loading states accordingly.
+            </p>
+
+            <h4>3. The Apex cacheable=true Cache Is Separate From LDS</h4>
+            <p>
+              Apex <code>@AuraEnabled(cacheable=true)</code> results are cached by the wire
+              service per (method, parameters) tuple. This cache is <em>not</em> the same as
+              the record-level LDS cache. <code>notifyRecordUpdateAvailable</code> does NOT
+              invalidate Apex wire caches — that requires <code>refreshApex</code>. Understand
+              which cache you are dealing with before choosing the refresh mechanism.
+            </p>
+
+            <h4>4. The getRecord Fields Optimization</h4>
+            <p>
+              Request only the fields you need. Each field in the <code>fields</code> array
+              increases payload size and may cause additional UI API round trips to resolve
+              spanning field references. For display-only components showing 2–3 fields,
+              specifying exactly those fields avoids over-fetching.
+            </p>
+
+            <h4>5. optionalFields vs fields</h4>
+            <p>
+              <code>getRecord</code> supports an <code>optionalFields</code> parameter in addition
+              to <code>fields</code>. Fields listed in <code>optionalFields</code> are returned
+              if the user has access; if not (FLS restriction), the record is still returned without
+              throwing an error. Fields listed in <code>fields</code> will cause an error if the
+              user lacks access. Use <code>optionalFields</code> for fields that might not be
+              accessible to all user profiles in your org.
+            </p>
+
+            <h4>6. Schema Imports Are Package-Safe</h4>
+            <p>
+              In managed packages, using string literals like
+              <code>'Account.Name'</code> instead of schema imports
+              (<code>@salesforce/schema/Account.Name</code>) can cause breakage when the
+              subscriber org has customized field names or the field is in a namespace.
+              Schema imports resolve correctly at compile time within the package context.
+              This is a subtle but critical point for architects building installable solutions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 15 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>15. Quick Recall Card</h2>
+
+        <pre><code class="language-text">DATA ACCESS STACK:
+  REST API → UI API → LDS Cache → Wire Adapters → LWC Component
+
+KEY IMPORTS:
+  import { getRecord, getFieldValue, createRecord,
+           updateRecord, deleteRecord, getObjectInfo,
+           getPicklistValues, getListUi,
+           notifyRecordUpdateAvailable }  from 'lightning/uiRecordApi';
+  import { refreshApex }                 from '@salesforce/apex';
+  import FIELD from '@salesforce/schema/Object.Field';
+
+WIRE ADAPTER RULES:
+  - Config property = undefined → wire does NOT fire (waits)
+  - Config property = null      → wire fires (null sent to server)
+  - Wire to property for refreshApex; wire to function for side effects
+  - Never update wire config in renderedCallback (infinite loop)
+
+FIELD ACCESS:
+  getFieldValue(record, FIELD)  // safe, FLS-aware
+  record.fields.Name.value      // brittle — can throw TypeError
+
+CRUD:
+  createRecord({ apiName, fields })          → auto LDS cache update
+  updateRecord({ fields: { Id, ...fields }}) → auto LDS cache update (Id required)
+  deleteRecord(recordId)                      → auto LDS cache update
+
+APEX DML AFTERMATH:
+  notifyRecordUpdateAvailable([{recordId}])  → use when getRecord is wired
+  refreshApex(this.wiredResult)              → use when @wire(apexMethod) is wired
+  (pass full wired result, NOT .data)
+
+WHEN TO USE APEX (not LDS):
+  - Aggregate SOQL, multi-object DML, Task/Event, complex queries
+  - Any DML → NOT cacheable=true → call imperatively
+
+LOADING STATE PATTERN:
+  isLoading = true → try { await apex() } catch { } finally { isLoading = false }
+  (always clear loading in finally, not in try)</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">📚</span>
+            <span class="callout__title">Official Documentation &amp; Resources</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <ul>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/data-wire-service-about.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Understand the Wire Service</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-wire-adapters-record.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: getRecord Wire Adapter</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-notify-record-update.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: notifyRecordUpdateAvailable</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/apex-result-caching.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Client-Side Caching</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/data-refreshview.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Refresh Component Data with RefreshView API</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-wire-adapters-records.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: getRecords Wire Adapter</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/data-wire-service.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Use the Wire Service to Get Data</a></li>
+              <li><a href="https://github.com/trailheadapps/lwc-recipes" target="_blank" rel="noopener noreferrer">LWC Recipes: Data examples on GitHub</a></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="08-component-communication.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">08. Component Communication</span>
+        </a>
+        <a href="10-navigation.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">10. Navigation Service</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme') || 'light';
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read (localStorage)
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      const articleId = btn ? btn.getAttribute('data-article-id') : null;
+      const key       = articleId ? `lwc_read_${articleId}` : null;
+
+      function syncBtn(read) {
+        if (!btn) return;
+        btn.textContent    = read ? '✓ Read' : 'Mark as Read';
+        btn.setAttribute('aria-pressed', read ? 'true' : 'false');
+        btn.classList.toggle('mark-read-btn--done', read);
+      }
+
+      if (key) {
+        try { syncBtn(localStorage.getItem(key) === '1'); } catch { /* */ }
+        if (btn) {
+          btn.addEventListener('click', () => {
+            const wasRead = btn.getAttribute('aria-pressed') === 'true';
+            try { localStorage.setItem(key, wasRead ? '0' : '1'); } catch { /* */ }
+            syncBtn(!wasRead);
+          });
+        }
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = Array.from(document.querySelectorAll('.toc-list a'));
+      const headings = tocLinks
+        .map(a => document.querySelector(a.getAttribute('href')))
+        .filter(Boolean);
+
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active    = headings[0];
+        for (const h of headings) {
+          if (h.offsetTop <= scrollY) active = h;
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06. HTML Template Directives — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC HTML template directives: one-way binding, lwc:if/elseif/else, for:each key reconciliation, iterator, slots, lwc:ref, lwc:spread, and expression limitations.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/06-template-directives.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Template Directives Matter</a></li>
+          <li><a href="#mental-model">2. Mental Model: The Browser &lt;template&gt; Element</a></li>
+          <li class="level-3"><a href="#document-fragment">DocumentFragment and Inert Markup</a></li>
+          <li class="level-3"><a href="#lwc-compilation">How LWC Compiles Templates</a></li>
+          <li><a href="#one-way-binding">3. One-Way Data Binding</a></li>
+          <li class="level-3"><a href="#binding-rules">Binding Rules &amp; Expression Limitations</a></li>
+          <li class="level-3"><a href="#why-no-two-way">Why No Two-Way Binding by Design</a></li>
+          <li><a href="#conditional">4. Conditional Rendering</a></li>
+          <li class="level-3"><a href="#lwc-if">lwc:if / lwc:elseif / lwc:else</a></li>
+          <li class="level-3"><a href="#dom-vs-display">DOM Removal vs CSS display:none</a></li>
+          <li class="level-3"><a href="#if-deprecated">if:true / if:false — Deprecated</a></li>
+          <li class="level-3"><a href="#conditional-pitfalls">Conditional Rendering Pitfalls</a></li>
+          <li><a href="#list-rendering">5. List Rendering</a></li>
+          <li class="level-3"><a href="#for-each">for:each — The Basics</a></li>
+          <li class="level-3"><a href="#key-reconciliation">Key Reconciliation Algorithm</a></li>
+          <li class="level-3"><a href="#key-choice">Choosing the Right key</a></li>
+          <li class="level-3"><a href="#iterator">iterator Directive</a></li>
+          <li><a href="#slots">6. Slots</a></li>
+          <li class="level-3"><a href="#default-slot">Default Slot</a></li>
+          <li class="level-3"><a href="#named-slots">Named Slots</a></li>
+          <li class="level-3"><a href="#slot-fallback">Slot Fallback Content</a></li>
+          <li class="level-3"><a href="#scoped-slots">Scoped Slots (Light DOM only)</a></li>
+          <li><a href="#lwc-ref">7. lwc:ref vs querySelector</a></li>
+          <li class="level-3"><a href="#refs-api">The this.refs API</a></li>
+          <li class="level-3"><a href="#ref-limitations">Limitations &amp; Lifecycle Timing</a></li>
+          <li><a href="#lwc-spread">8. lwc:spread</a></li>
+          <li class="level-3"><a href="#spread-override">Property Override Order</a></li>
+          <li class="level-3"><a href="#spread-gotchas">Gotchas &amp; Restrictions</a></li>
+          <li><a href="#expression-restrictions">9. Template Expression Restrictions</a></li>
+          <li><a href="#pitfalls">10. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">11. Expert Insight</a></li>
+          <li><a href="#recall">12. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 06</div>
+        <h1>HTML Template Directives</h1>
+        <div class="article-meta">
+          <span>⏱ 22 min read</span>
+          <span class="tags">
+            <span class="tag">#template-dom</span>
+            <span class="tag">#fundamentals</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="06"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           1. HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Template Directives Matter</h2>
+        <p>
+          LWC templates are not HTML. They look like HTML, but every expression, conditional block,
+          and list is processed by the LWC compiler and turned into imperative JavaScript at build
+          time. The directives — <code>lwc:if</code>, <code>for:each</code>, <code>lwc:ref</code>,
+          <code>lwc:spread</code> — are the vocabulary of that compilation.
+        </p>
+        <p>
+          Understanding directives at the spec level matters because the surface-level API hides
+          critical performance and correctness implications. When you write <code>lwc:if={condition}</code>,
+          the DOM node is <em>created and destroyed</em>, not hidden. Child components inside that
+          block run their full lifecycle — including <code>connectedCallback</code> and
+          <code>disconnectedCallback</code> — every time the condition toggles. That's intentional
+          design, but it catches developers off-guard.
+        </p>
+        <p>
+          The <code>for:each</code> directive's <code>key</code> attribute is not a hint — it is a
+          mandatory reconciliation key that drives the virtual DOM diffing algorithm. Pick the wrong
+          key and you'll get stale component state, duplicated event handlers, and subtle UI bugs
+          that are nearly impossible to reproduce in isolation.
+        </p>
+        <p>
+          A expert developer must know not just what each directive does, but <em>how the compiler
+          translates it</em>, what DOM operations result, and which patterns cause performance
+          problems at scale.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           2. MENTAL MODEL
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. Mental Model: The Browser &lt;template&gt; Element</h2>
+
+        <h3 id="document-fragment">DocumentFragment and Inert Markup</h3>
+        <p>
+          HTML5 introduced the <code>&lt;template&gt;</code> element — a mechanism to hold
+          client-side content that is <em>parsed but not rendered</em>. Its content lives in
+          a <code>DocumentFragment</code>, completely inert: no scripts execute, no images load,
+          no styles apply. The fragment only becomes live when you explicitly clone and insert it
+          into the active document.
+        </p>
+        <pre><code class="language-markup">&lt;!-- Native browser template element --&gt;
+&lt;template id="card-template"&gt;
+  &lt;div class="card"&gt;
+    &lt;h2 class="card-title"&gt;&lt;/h2&gt;
+    &lt;p class="card-body"&gt;&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script&gt;
+  const tmpl = document.getElementById('card-template');
+  // content is a DocumentFragment — nothing is in the DOM yet
+  const clone = tmpl.content.cloneNode(true);
+  clone.querySelector('.card-title').textContent = 'Hello';
+  document.body.appendChild(clone); // NOW it renders
+&lt;/script&gt;</code></pre>
+        <p>
+          This "define structure separately, instantiate on demand" model is the conceptual
+          foundation for every templating system — React JSX, Vue <code>&lt;template&gt;</code>,
+          and LWC's <code>.html</code> files alike.
+        </p>
+
+        <h3 id="lwc-compilation">How LWC Compiles Templates</h3>
+        <p>
+          LWC takes the <code>.html</code> file in your component bundle and runs it through the
+          <strong>LWC compiler</strong> at build time (Salesforce CLI / scratch org push). The
+          compiler does several things:
+        </p>
+        <ol>
+          <li>Parses the template and validates directive syntax</li>
+          <li>Generates a JavaScript render function that produces a virtual DOM tree (a plain JS
+              object tree, not actual DOM nodes)</li>
+          <li>Adds unique <em>scope attributes</em> to every element for CSS scoping (e.g.
+              <code>c-myComponent_myComponent</code>)</li>
+          <li>Validates that all referenced property names exist (static analysis)</li>
+        </ol>
+        <p>
+          The render function is called by the LWC engine every time a reactive property changes.
+          The engine diffs the new virtual DOM tree against the previous one and applies the
+          minimal set of DOM mutations needed. This is <em>not</em> React's virtual DOM — LWC uses
+          a simpler, flatter diffing algorithm optimized for Salesforce's multi-tenant environment —
+          but the concept is similar.
+        </p>
+        <p>
+          Implication: every directive you use in a template directly shapes what that render
+          function emits. Knowing the compiler output helps you predict runtime behavior precisely.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           3. ONE-WAY BINDING
+           ============================================================ -->
+      <section id="one-way-binding">
+        <h2>3. One-Way Data Binding</h2>
+        <p>
+          LWC uses <strong>one-way data binding</strong>: data flows from the JavaScript class to
+          the template. The template never writes back to the class directly. This is a deliberate
+          architectural constraint that makes data flow predictable and traceable.
+        </p>
+        <pre><code class="language-markup">&lt;!-- greetingCard.html --&gt;
+&lt;template&gt;
+  &lt;p&gt;Hello, {firstName} {lastName}!&lt;/p&gt;
+  &lt;lightning-input
+    label="First Name"
+    value={firstName}
+    onchange={handleFirstNameChange}
+  &gt;&lt;/lightning-input&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-javascript">// greetingCard.js
+import { LightningElement, track } from 'lwc';
+
+export default class GreetingCard extends LightningElement {
+  firstName = 'Ada';
+  lastName  = 'Lovelace';
+
+  handleFirstNameChange(event) {
+    // The template doesn't write back — we explicitly update the property
+    this.firstName = event.detail.value;
+  }
+}</code></pre>
+        <p>
+          The <code>value={firstName}</code> binding renders the current value. When the user types
+          in the input, <em>nothing changes in the class automatically</em>. The component fires an
+          <code>onchange</code> event, the handler reads <code>event.detail.value</code>, and the
+          handler explicitly sets <code>this.firstName</code>. Only then does LWC re-render.
+        </p>
+        <p>
+          This is the exact opposite of Angular's <code>[(ngModel)]</code> two-way binding or
+          Vue's <code>v-model</code>. LWC chose explicit over implicit to make large component
+          trees easier to reason about.
+        </p>
+
+        <h3 id="binding-rules">Binding Rules &amp; Expression Limitations</h3>
+        <p>
+          Expressions inside <code>{ }</code> in templates support only a restricted subset of
+          JavaScript. The compiler enforces these rules at build time:
+        </p>
+        <ul>
+          <li><strong>Property access:</strong> <code>{name}</code>, <code>{user.name}</code>, <code>{address.city.zipCode}</code></li>
+          <li><strong>Negation (only one level):</strong> Supported via a getter, not inline</li>
+          <li><strong>No method calls:</strong> <code>{getLabel()}</code> — invalid</li>
+          <li><strong>No operators:</strong> <code>{count + 1}</code>, <code>{items.length > 0}</code> — invalid</li>
+          <li><strong>No ternaries:</strong> <code>{isLoading ? 'Loading...' : 'Done'}</code> — invalid</li>
+          <li><strong>No optional chaining:</strong> <code>{user?.name}</code> — invalid in older API versions</li>
+        </ul>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Common Mistake: Calling Methods in Templates</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-markup">&lt;!-- ❌ Invalid — will fail at compile time --&gt;
+&lt;template&gt;
+  &lt;p&gt;{getGreeting()}&lt;/p&gt;
+  &lt;p&gt;{items.length > 0 ? 'Has items' : 'Empty'}&lt;/p&gt;
+&lt;/template&gt;
+
+&lt;!-- ✅ Correct — use getters --&gt;
+&lt;template&gt;
+  &lt;p&gt;{greeting}&lt;/p&gt;
+  &lt;p&gt;{hasItems}&lt;/p&gt;
+&lt;/template&gt;</code></pre>
+            <pre><code class="language-javascript">// greeting.js
+get greeting() {
+  return `Hello, ${this.name}!`;
+}
+
+get hasItems() {
+  return this.items.length > 0 ? 'Has items' : 'Empty';
+}</code></pre>
+            <p>Getters are re-evaluated whenever a reactive property they depend on changes,
+            so they integrate seamlessly with LWC's reactive engine.</p>
+          </div>
+        </div>
+
+        <h3 id="why-no-two-way">Why No Two-Way Binding by Design</h3>
+        <p>
+          Two-way binding creates an <em>implicit change channel</em>: the template can change
+          a property, which may trigger a re-render, which triggers the binding again — a potential
+          infinite update loop. LWC's designers saw this pattern break large Angular 1.x
+          applications and chose explicit event handling instead.
+        </p>
+        <p>
+          More critically, in a multi-tenant Salesforce environment where thousands of components
+          can be on one page, implicit mutation would make debugging nearly impossible. The
+          one-way model ensures that every state change has a traceable handler.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           4. CONDITIONAL RENDERING
+           ============================================================ -->
+      <section id="conditional">
+        <h2>4. Conditional Rendering</h2>
+
+        <h3 id="lwc-if">lwc:if / lwc:elseif / lwc:else</h3>
+        <p>
+          Introduced in Spring '23 (API version 59+), the modern conditional directives
+          <code>lwc:if</code>, <code>lwc:elseif</code>, and <code>lwc:else</code> replace the
+          deprecated <code>if:true</code> / <code>if:false</code> directives. They support
+          multi-branch conditional logic directly in the template.
+        </p>
+        <pre><code class="language-markup">&lt;template&gt;
+  &lt;template lwc:if={isLoading}&gt;
+    &lt;lightning-spinner alternative-text="Loading..."&gt;&lt;/lightning-spinner&gt;
+  &lt;/template&gt;
+  &lt;template lwc:elseif={hasError}&gt;
+    &lt;p class="error"&gt;{errorMessage}&lt;/p&gt;
+  &lt;/template&gt;
+  &lt;template lwc:else&gt;
+    &lt;c-data-table records={records}&gt;&lt;/c-data-table&gt;
+  &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+
+        <p>Key rules for <code>lwc:if</code> / <code>lwc:elseif</code> / <code>lwc:else</code>:</p>
+        <ul>
+          <li><code>lwc:if</code> and <code>lwc:elseif</code> require an expression: <code>lwc:if={condition}</code></li>
+          <li><code>lwc:else</code> must NOT have an attribute value</li>
+          <li>Expressions support simple dot notation only. For complex conditions (negation, comparison, null checks), use a JavaScript getter</li>
+          <li>No text nodes or HTML elements may appear between an <code>lwc:if</code> block and its <code>lwc:elseif</code> / <code>lwc:else</code> siblings</li>
+          <li>These directives can be applied to <code>&lt;template&gt;</code> tags, plain HTML elements (<code>&lt;div&gt;</code>), and custom component tags</li>
+        </ul>
+
+        <pre><code class="language-markup">&lt;!-- ❌ Invalid: text between lwc:if and lwc:else --&gt;
+&lt;template lwc:if={isAdmin}&gt;Admin view&lt;/template&gt;
+&lt;p&gt;Some text here&lt;/p&gt; &lt;!-- breaks the chain --&gt;
+&lt;template lwc:else&gt;Viewer view&lt;/template&gt;
+
+&lt;!-- ✅ Valid: siblings with no content between --&gt;
+&lt;template lwc:if={isAdmin}&gt;Admin view&lt;/template&gt;
+&lt;template lwc:else&gt;Viewer view&lt;/template&gt;</code></pre>
+
+        <h3 id="dom-vs-display">DOM Removal vs CSS display:none</h3>
+        <p>
+          This is the most important conceptual distinction in conditional rendering. When
+          <code>lwc:if={condition}</code> evaluates to false:
+        </p>
+        <ul>
+          <li>The DOM nodes are <strong>completely removed</strong> from the document</li>
+          <li>Child components inside the block have their <code>disconnectedCallback()</code> called</li>
+          <li>When condition becomes true again, the nodes are <strong>recreated</strong> and
+              child components run <code>constructor()</code> + <code>connectedCallback()</code> again</li>
+          <li>Any state held in a child component's JavaScript class is <strong>lost</strong></li>
+        </ul>
+
+        <p>
+          Compare this with the CSS approach:
+        </p>
+        <pre><code class="language-markup">&lt;!-- CSS approach: node stays in DOM, just invisible --&gt;
+&lt;div class={panelClass}&gt;
+  &lt;c-heavy-chart data={chartData}&gt;&lt;/c-heavy-chart&gt;
+&lt;/div&gt;</code></pre>
+        <pre><code class="language-javascript">get panelClass() {
+  return this.isVisible ? '' : 'slds-hide';
+}</code></pre>
+
+        <p>When to use each approach:</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Situation</th>
+              <th>Use</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Toggle an expensive chart that should preserve its zoom/state</td>
+              <td>CSS <code>slds-hide</code></td>
+              <td>Keeps component alive, preserves internal state</td>
+            </tr>
+            <tr>
+              <td>Show/hide a login form that should reset on each show</td>
+              <td><code>lwc:if</code></td>
+              <td>Full lifecycle reset is the desired behavior</td>
+            </tr>
+            <tr>
+              <td>Conditional loading spinner (no state needed)</td>
+              <td><code>lwc:if</code></td>
+              <td>Cleaner DOM; no point keeping hidden spinner</td>
+            </tr>
+            <tr>
+              <td>Accordion panels with user-entered data</td>
+              <td>CSS <code>slds-hide</code></td>
+              <td>Preserves user input while panel is collapsed</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="if-deprecated">if:true / if:false — Deprecated</h3>
+        <p>
+          The legacy directives <code>if:true={condition}</code> and <code>if:false={condition}</code>
+          are available on API versions below 59 and in older components, but Salesforce has
+          officially deprecated them. They have two major limitations compared to the modern syntax:
+        </p>
+        <ol>
+          <li>No <code>else</code> or <code>else-if</code> chains — you had to nest multiple
+              <code>&lt;template if:true&gt;</code> blocks</li>
+          <li><code>if:false</code> required passing the negated property, which forced you to
+              create unnecessary boolean getters (e.g., <code>get isNotLoading()</code>)</li>
+        </ol>
+        <pre><code class="language-markup">&lt;!-- ❌ Old style — verbose, deprecated --&gt;
+&lt;template if:true={isLoading}&gt;
+  &lt;lightning-spinner&gt;&lt;/lightning-spinner&gt;
+&lt;/template&gt;
+&lt;template if:false={isLoading}&gt;
+  &lt;c-data-table&gt;&lt;/c-data-table&gt;
+&lt;/template&gt;
+
+&lt;!-- ✅ Modern style — clean, supported --&gt;
+&lt;template lwc:if={isLoading}&gt;
+  &lt;lightning-spinner&gt;&lt;/lightning-spinner&gt;
+&lt;/template&gt;
+&lt;template lwc:else&gt;
+  &lt;c-data-table&gt;&lt;/c-data-table&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3 id="conditional-pitfalls">Conditional Rendering Pitfalls</h3>
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall: Negating a condition in a template</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>LWC templates do not support the <code>!</code> negation operator directly in
+            expressions. You cannot write <code>lwc:if={!isLoading}</code>. Create a getter:</p>
+            <pre><code class="language-javascript">get isNotLoading() {
+  return !this.isLoading;
+}</code></pre>
+            <pre><code class="language-markup">&lt;template lwc:if={isNotLoading}&gt;
+  &lt;c-data-table&gt;&lt;/c-data-table&gt;
+&lt;/template&gt;</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           5. LIST RENDERING
+           ============================================================ -->
+      <section id="list-rendering">
+        <h2>5. List Rendering</h2>
+
+        <h3 id="for-each">for:each — The Basics</h3>
+        <p>
+          To render a list of items, add <code>for:each={array}</code> to a
+          <code>&lt;template&gt;</code> tag. Use <code>for:item="varName"</code> to name the
+          loop variable, and optionally <code>for:index="indexVar"</code> for the current index.
+        </p>
+        <pre><code class="language-markup">&lt;template&gt;
+  &lt;ul&gt;
+    &lt;template for:each={contacts} for:item="contact" for:index="i"&gt;
+      &lt;li key={contact.Id}&gt;
+        {i}: {contact.Name} — {contact.Email}
+      &lt;/li&gt;
+    &lt;/template&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { getListUi } from 'lightning/uiListApi';
+import CONTACT_OBJECT from '@salesforce/schema/Contact';
+
+export default class ContactList extends LightningElement {
+  contacts = [
+    { Id: '001', Name: 'Alice Nguyen',  Email: 'alice@example.com' },
+    { Id: '002', Name: 'Bob Marley',    Email: 'bob@example.com'   },
+    { Id: '003', Name: 'Carol Danvers', Email: 'carol@example.com' },
+  ];
+}</code></pre>
+
+        <p>
+          Important constraint: the <code>key</code> attribute is <strong>mandatory</strong> on
+          the top-level element or component inside the <code>for:each</code> block. Omitting it
+          causes a compilation error.
+        </p>
+
+        <h3 id="key-reconciliation">Key Reconciliation Algorithm</h3>
+        <p>
+          Understanding why <code>key</code> matters requires understanding how LWC's rendering
+          engine reconciles list changes. When the array changes, the engine must figure out which
+          DOM nodes to keep, move, update, or destroy. Without keys, the engine's only option is
+          positional matching: the first item in the new array maps to the first DOM node, the
+          second to the second, and so on. This is O(n) but causes correctness problems:
+        </p>
+
+        <div class="callout callout--p3">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Expert Insight: What Actually Happens Without Stable Keys</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Imagine a list of child components: <code>[A, B, C]</code>, where each child has
+            local state (e.g. a selected row). If the user deletes item B, the array becomes
+            <code>[A, C]</code>. Without a key, the engine sees two DOM nodes where there were
+            three. It updates the first node with A's data (fine), updates the second node with
+            C's data — but this is the <em>same DOM node</em> that was previously B. B's
+            component instance, including its local state, is now being driven with C's props.
+            The third node is destroyed.</p>
+            <p>With a stable key (e.g. <code>Id</code>), the engine knows: node with key
+            <code>'002'</code> (B) should be destroyed; nodes <code>'001'</code> (A) and
+            <code>'003'</code> (C) should be kept and updated in place. No state leak.</p>
+          </div>
+        </div>
+
+        <p>
+          LWC's key reconciliation algorithm works as follows:
+        </p>
+        <ol>
+          <li>Build a map of <code>key → vnode</code> from the old virtual DOM tree</li>
+          <li>For each item in the new array, look up its key in the old map</li>
+          <li>If found: reuse the existing DOM node, patch its props/children</li>
+          <li>If not found: create a new DOM node</li>
+          <li>Any old keys not present in the new array: destroy those DOM nodes</li>
+        </ol>
+
+        <h3 id="key-choice">Choosing the Right key</h3>
+        <p>
+          The <code>key</code> must be a <strong>string or a number</strong>. Objects are not valid
+          keys. The key must be <strong>unique within the list</strong> — not globally, but per
+          sibling group.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Key strategy</th>
+              <th>Stability</th>
+              <th>Use case</th>
+              <th>Pitfall</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>record.Id</code> (Salesforce Id)</td>
+              <td>Stable</td>
+              <td>Salesforce records</td>
+              <td>None — this is the gold standard</td>
+            </tr>
+            <tr>
+              <td>Index (<code>for:index</code>)</td>
+              <td>Unstable</td>
+              <td>Static, never-reordered lists</td>
+              <td>Causes state leaks on delete/reorder</td>
+            </tr>
+            <tr>
+              <td>Composite key (<code>{item.type + '-' + item.id}</code>)</td>
+              <td>Stable</td>
+              <td>Items from multiple types sharing a list</td>
+              <td>Must compute via getter to avoid string concat in template</td>
+            </tr>
+            <tr>
+              <td>UUID generated at runtime</td>
+              <td>Stable (per session)</td>
+              <td>Local-only objects with no DB Id</td>
+              <td>Regenerating UUIDs on each render defeats the purpose</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Never Use Array Index as Key for Sortable/Filterable Lists</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>If the user can sort, filter, or delete items, index keys cause the engine to
+            update all DOM nodes downstream of the changed item. Performance degrades and stateful
+            children (like open dropdowns or focused inputs) lose their state. Always use a
+            domain-unique identifier.</p>
+          </div>
+        </div>
+
+        <h3 id="iterator">iterator Directive</h3>
+        <p>
+          The <code>iterator</code> directive is like <code>for:each</code> but provides
+          additional metadata about each item's position in the list: <code>first</code> (boolean)
+          and <code>last</code> (boolean). This is useful for rendering separators, applying
+          special styling to the first/last element, or adding "Add" buttons only after the last
+          item.
+        </p>
+        <pre><code class="language-markup">&lt;template&gt;
+  &lt;ul&gt;
+    &lt;template iterator:it={items}&gt;
+      &lt;li key={it.value.Id}
+          class={it.first ? 'slds-item first-item' : 'slds-item'}
+      &gt;
+        {it.value.Name}
+        &lt;!-- Render separator between items, not after the last --&gt;
+        &lt;template lwc:if={it.last}&gt;&lt;!-- nothing --&gt;&lt;/template&gt;
+        &lt;template lwc:else&gt;&lt;hr&gt;&lt;/template&gt;
+      &lt;/li&gt;
+    &lt;/template&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;</code></pre>
+
+        <p>
+          The loop variable (<code>it</code> above) exposes:
+        </p>
+        <ul>
+          <li><code>it.value</code> — the current array item</li>
+          <li><code>it.index</code> — zero-based position</li>
+          <li><code>it.first</code> — <code>true</code> only for the first element</li>
+          <li><code>it.last</code> — <code>true</code> only for the last element</li>
+        </ul>
+        <p>
+          The <code>key</code> directive is still required on the top-level element inside the
+          block, and it must reference <code>it.value.Id</code> (not <code>it.Id</code>).
+        </p>
+      </section>
+
+      <!-- ============================================================
+           6. SLOTS
+           ============================================================ -->
+      <section id="slots">
+        <h2>6. Slots</h2>
+        <p>
+          Slots are the Web Components mechanism for <em>content projection</em>: a parent
+          component can inject markup into designated holes in a child component's template.
+          This is how you build container components — wrappers, cards, modals, accordions —
+          that are layout-agnostic about the content they host.
+        </p>
+
+        <h3 id="default-slot">Default Slot</h3>
+        <pre><code class="language-markup">&lt;!-- card.html (child) --&gt;
+&lt;template&gt;
+  &lt;div class="slds-card"&gt;
+    &lt;div class="slds-card__header"&gt;{title}&lt;/div&gt;
+    &lt;div class="slds-card__body"&gt;
+      &lt;slot&gt;&lt;/slot&gt; &lt;!-- default slot --&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-markup">&lt;!-- parent.html --&gt;
+&lt;template&gt;
+  &lt;c-card title="My Card"&gt;
+    &lt;!-- This markup is projected into the slot --&gt;
+    &lt;p&gt;This paragraph appears inside the card body.&lt;/p&gt;
+    &lt;c-contact-tile record-id={contactId}&gt;&lt;/c-contact-tile&gt;
+  &lt;/c-card&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          The slotted content is rendered in the parent's scope, not the child's. Styles defined
+          in <code>card.css</code> do not automatically apply to the slotted content —
+          those elements remain in the parent's shadow tree. This is a critical nuance explained
+          further in Article 07 (Shadow DOM).
+        </p>
+
+        <h3 id="named-slots">Named Slots</h3>
+        <p>
+          A child can define multiple named slots to allow the parent to project different content
+          into different locations:
+        </p>
+        <pre><code class="language-markup">&lt;!-- modal.html (child) --&gt;
+&lt;template&gt;
+  &lt;div class="slds-modal"&gt;
+    &lt;div class="slds-modal__header"&gt;
+      &lt;slot name="header"&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+    &lt;div class="slds-modal__content"&gt;
+      &lt;slot&gt;&lt;/slot&gt; &lt;!-- default slot for body --&gt;
+    &lt;/div&gt;
+    &lt;div class="slds-modal__footer"&gt;
+      &lt;slot name="footer"&gt;&lt;/slot&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-markup">&lt;!-- parent.html --&gt;
+&lt;template&gt;
+  &lt;c-modal&gt;
+    &lt;h2 slot="header"&gt;Confirm Delete&lt;/h2&gt;
+
+    &lt;!-- no slot attribute = goes into default slot --&gt;
+    &lt;p&gt;Are you sure you want to delete this record?&lt;/p&gt;
+
+    &lt;div slot="footer"&gt;
+      &lt;lightning-button label="Cancel" onclick={handleCancel}&gt;&lt;/lightning-button&gt;
+      &lt;lightning-button variant="destructive" label="Delete" onclick={handleDelete}&gt;&lt;/lightning-button&gt;
+    &lt;/div&gt;
+  &lt;/c-modal&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3 id="slot-fallback">Slot Fallback Content</h3>
+        <p>
+          A slot can define fallback content that renders if the parent provides no slotted markup
+          for that slot. This is useful for providing sensible defaults:
+        </p>
+        <pre><code class="language-markup">&lt;!-- infoPanel.html --&gt;
+&lt;template&gt;
+  &lt;div class="panel"&gt;
+    &lt;slot name="title"&gt;
+      &lt;!-- Fallback renders if parent doesn't fill this slot --&gt;
+      &lt;h3&gt;Information&lt;/h3&gt;
+    &lt;/slot&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+  &lt;/div&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3 id="scoped-slots">Scoped Slots (Light DOM Only)</h3>
+        <p>
+          Scoped slots allow a child component to pass data <em>back up</em> to the parent
+          for use in the projected template. This is the inverse of normal slot flow and enables
+          powerful patterns like renderable tables where the parent controls cell rendering.
+        </p>
+        <p>
+          <strong>Scoped slots require Light DOM</strong> — they are not available in Shadow DOM
+          components. The child must declare <code>static renderMode = 'light'</code>.
+        </p>
+        <pre><code class="language-markup">&lt;!-- dataGrid.html (Light DOM child) --&gt;
+&lt;template&gt;
+  &lt;table&gt;
+    &lt;template for:each={rows} for:item="row"&gt;
+      &lt;tr key={row.id}&gt;
+        &lt;template for:each={columns} for:item="col"&gt;
+          &lt;td key={col.key}&gt;
+            &lt;!-- Scoped slot: pass row data to parent's template --&gt;
+            &lt;slot name="cell" row={row} column={col}&gt;&lt;/slot&gt;
+          &lt;/td&gt;
+        &lt;/template&gt;
+      &lt;/tr&gt;
+    &lt;/template&gt;
+  &lt;/table&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          Scoped slots are a relatively new addition to LWC and are most useful when building
+          general-purpose container components (data grids, virtual lists) where the parent
+          must control the rendering logic of each cell/item.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           7. LWC:REF
+           ============================================================ -->
+      <section id="lwc-ref">
+        <h2>7. lwc:ref vs querySelector</h2>
+        <p>
+          Before <code>lwc:ref</code> existed, the only way to get a direct reference to a DOM
+          element or child component from JavaScript was <code>this.template.querySelector()</code>
+          (in Shadow DOM) or <code>this.querySelector()</code> (in Light DOM). This works, but has
+          drawbacks:
+        </p>
+        <ul>
+          <li>Relies on CSS selector strings — if the element's class or tag changes, the query silently breaks</li>
+          <li>Returns <code>null</code> if the element isn't in the DOM yet (conditional rendering)</li>
+          <li>Can accidentally match multiple elements if the selector is too broad</li>
+        </ul>
+        <p>
+          <code>lwc:ref</code> provides a named, typed reference that is always in sync with the
+          rendered DOM:
+        </p>
+
+        <h3 id="refs-api">The this.refs API</h3>
+        <pre><code class="language-markup">&lt;!-- focusableForm.html --&gt;
+&lt;template&gt;
+  &lt;form&gt;
+    &lt;lightning-input
+      lwc:ref="emailInput"
+      label="Email"
+      type="email"
+    &gt;&lt;/lightning-input&gt;
+    &lt;lightning-button
+      label="Submit"
+      onclick={handleSubmit}
+    &gt;&lt;/lightning-button&gt;
+  &lt;/form&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-javascript">// focusableForm.js
+import { LightningElement } from 'lwc';
+
+export default class FocusableForm extends LightningElement {
+  connectedCallback() {
+    // this.refs is available after rendering
+    // DO NOT call this in constructor() — component hasn't rendered yet
+  }
+
+  handleSubmit() {
+    // Access the ref directly — strongly typed, no selector string
+    const emailInput = this.refs.emailInput;
+    if (emailInput) {
+      emailInput.focus();
+      const validity = emailInput.reportValidity();
+      if (!validity) return;
+    }
+  }
+}</code></pre>
+
+        <p>
+          <code>this.refs</code> is a read-only object whose keys are the <code>lwc:ref</code>
+          names you declared in the template. It is only populated <em>after</em> the component
+          has rendered. Accessing <code>this.refs</code> in <code>constructor()</code> will always
+          return an empty object.
+        </p>
+
+        <h3 id="ref-limitations">Limitations &amp; Lifecycle Timing</h3>
+        <ul>
+          <li><code>lwc:ref</code> cannot be used inside a <code>for:each</code> or
+              <code>iterator</code> block — refs must be unique, and loop items would create
+              multiple elements with the same ref name. This is tracked as a known limitation
+              in the LWC GitHub repository.</li>
+          <li>A ref is only available when the element is in the DOM. If the element is inside
+              a <code>lwc:if={false}</code> block, <code>this.refs.myRef</code> returns
+              <code>undefined</code>.</li>
+          <li>Refs work in both Shadow DOM and Light DOM components, but they scope to the
+              component's own shadow tree / light DOM — they don't pierce into child component
+              internals.</li>
+        </ul>
+
+        <div class="callout callout--p3">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Expert Insight: lwc:ref vs querySelector Performance</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p><code>this.template.querySelector()</code> performs a live DOM traversal every
+            time it is called — it searches the entire shadow tree. <code>this.refs.name</code>
+            is a direct property lookup on the refs object, O(1). For frequently called code
+            (event handlers, getters), prefer <code>lwc:ref</code> for both performance and
+            correctness.</p>
+            <p>Additionally, <code>querySelector</code> is not tree-shaking friendly — the
+            selector string is opaque to the compiler and cannot be statically analyzed. Refs
+            are more maintainable in large codebases because renaming an element in the template
+            produces an immediate error if you forget to update the <code>this.refs.name</code>
+            reference.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           8. LWC:SPREAD
+           ============================================================ -->
+      <section id="lwc-spread">
+        <h2>8. lwc:spread</h2>
+        <p>
+          <code>lwc:spread</code> lets you pass a JavaScript object as a set of properties to a
+          child component without enumerating each property individually. This is the LWC
+          equivalent of React's <code>{...props}</code> spread syntax.
+        </p>
+        <pre><code class="language-markup">&lt;!-- parent.html --&gt;
+&lt;template&gt;
+  &lt;c-base-button lwc:spread={buttonProps}&gt;&lt;/c-base-button&gt;
+&lt;/template&gt;</code></pre>
+        <pre><code class="language-javascript">// parent.js
+import { LightningElement } from 'lwc';
+
+export default class Parent extends LightningElement {
+  buttonProps = {
+    label: 'Save',
+    variant: 'brand',
+    disabled: false,
+    title: 'Save the record',
+  };
+}</code></pre>
+        <p>
+          The runtime reads each key in the object and sets it as a property on the child
+          component, equivalent to writing:
+        </p>
+        <pre><code class="language-markup">&lt;c-base-button
+  label="Save"
+  variant="brand"
+  disabled={false}
+  title="Save the record"
+&gt;&lt;/c-base-button&gt;</code></pre>
+
+        <h3 id="spread-override">Property Override Order</h3>
+        <p>
+          You can combine <code>lwc:spread</code> with individual property bindings on the same
+          element. The override order follows <strong>left-to-right declaration order</strong>:
+          later declarations override earlier ones.
+        </p>
+        <pre><code class="language-markup">&lt;!-- spread is applied first, then individual props override --&gt;
+&lt;c-base-button
+  lwc:spread={buttonProps}
+  label="Override Label"
+&gt;&lt;/c-base-button&gt;
+
+&lt;!-- Result: label="Override Label" wins; other props from buttonProps remain --&gt;</code></pre>
+        <pre><code class="language-markup">&lt;!-- Individual prop declared first, spread overrides it --&gt;
+&lt;c-base-button
+  label="Default Label"
+  lwc:spread={buttonProps}
+&gt;&lt;/c-base-button&gt;
+
+&lt;!-- Result: label from buttonProps wins because spread comes later --&gt;</code></pre>
+
+        <h3 id="spread-gotchas">Gotchas &amp; Restrictions</h3>
+        <ul>
+          <li><strong>Only one <code>lwc:spread</code> per element:</strong> Using it twice on the
+              same element is a compile error</li>
+          <li><strong>Object must be flat:</strong> Nested objects in the spread are set as-is —
+              they are not recursively spread. A property with an object value is passed as an
+              object reference</li>
+          <li><strong>Reactivity:</strong> If you replace <code>this.buttonProps</code> with a new
+              object, LWC re-renders and applies the new spread. If you mutate a property inside
+              the existing object (e.g. <code>this.buttonProps.disabled = true</code>), you must
+              use <code>@track</code> on the property or use object spread to create a new
+              reference: <code>this.buttonProps = { ...this.buttonProps, disabled: true };</code></li>
+          <li><strong>No HTML attributes:</strong> <code>lwc:spread</code> sets component
+              <em>properties</em>, not HTML attributes. Native HTML elements don't support it —
+              use it only on LWC component tags</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           9. EXPRESSION RESTRICTIONS
+           ============================================================ -->
+      <section id="expression-restrictions">
+        <h2>9. Template Expression Restrictions</h2>
+        <p>
+          LWC templates intentionally restrict the JavaScript that can appear inside
+          <code>{ }</code> expressions. This is a deliberate design decision, not a limitation:
+          keeping template logic minimal makes templates readable and moves complexity into the
+          JavaScript class where it can be tested.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Expression type</th>
+              <th>Allowed?</th>
+              <th>Workaround</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Property: <code>{name}</code></td>
+              <td>✅ Yes</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Nested property: <code>{user.profile.name}</code></td>
+              <td>✅ Yes</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Method call: <code>{getLabel()}</code></td>
+              <td>❌ No</td>
+              <td>Use a getter</td>
+            </tr>
+            <tr>
+              <td>Arithmetic: <code>{count + 1}</code></td>
+              <td>❌ No</td>
+              <td>Use a getter</td>
+            </tr>
+            <tr>
+              <td>Logical NOT: <code>{!isLoading}</code></td>
+              <td>❌ No</td>
+              <td><code>get isNotLoading() { return !this.isLoading; }</code></td>
+            </tr>
+            <tr>
+              <td>Ternary: <code>{a ? b : c}</code></td>
+              <td>❌ No</td>
+              <td>Use a getter or <code>lwc:if</code></td>
+            </tr>
+            <tr>
+              <td>Comparison: <code>{count > 0}</code></td>
+              <td>❌ No</td>
+              <td>Use a getter</td>
+            </tr>
+            <tr>
+              <td>Optional chaining: <code>{user?.name}</code></td>
+              <td>❌ No (older API)</td>
+              <td>Use a getter with null check</td>
+            </tr>
+            <tr>
+              <td>String literal: <code>{'hello'}</code></td>
+              <td>❌ No</td>
+              <td>Use a property or inline text</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          The getter pattern is the universal workaround for all template expression restrictions.
+          Getters integrate with LWC's reactivity system: when a getter accesses a reactive
+          property, LWC tracks the dependency and re-evaluates the getter automatically when
+          that property changes.
+        </p>
+        <pre><code class="language-javascript">// All template logic moved to getters
+export default class MyComponent extends LightningElement {
+  items = [];
+  currentUser = null;
+
+  // Conditional logic
+  get hasItems() { return this.items.length > 0; }
+  get isEmpty()  { return !this.hasItems; }
+
+  // Computed display values
+  get itemCountLabel() {
+    const n = this.items.length;
+    return `${n} item${n !== 1 ? 's' : ''}`;
+  }
+
+  // Safe property access
+  get userName() { return this.currentUser?.name ?? 'Guest'; }
+
+  // Class computation for dynamic styling
+  get panelClass() {
+    return this.isExpanded ? 'panel panel--expanded' : 'panel';
+  }
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           10. PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>10. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 1: Missing key in for:each causes a runtime error</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>The LWC compiler will raise an error if <code>key</code> is missing on the root
+            element inside <code>for:each</code>. Do not confuse the <code>key</code> directive
+            with the HTML <code>id</code> attribute — they serve different purposes.
+            <code>key</code> is only meaningful to the reconciliation algorithm and does not appear
+            in the rendered DOM.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 2: Accessing this.refs in constructor()</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p><code>this.refs</code> is populated only after the component's first render. In
+            <code>constructor()</code>, the template hasn't rendered yet, so all refs are
+            undefined. Access refs in <code>renderedCallback()</code> or in response to user
+            events (which only fire after render).</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 3: Slotted content inherits parent styles, not child styles</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Content you pass into a slot is rendered inside the parent's shadow tree,
+            not the child's. This means the child component's CSS cannot style the slotted
+            content directly. Use <code>::slotted()</code> CSS pseudo-selector in the child's
+            CSS file to target slotted content — but it only targets the top-level slotted
+            element, not its descendants.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 4: lwc:spread mutation doesn't trigger re-render</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>If you mutate a property inside the spread object directly (e.g.
+            <code>this.props.disabled = true</code>), LWC won't detect the change unless the
+            property is decorated with <code>@track</code>. The safest pattern is to replace
+            the entire object: <code>this.props = { ...this.props, disabled: true };</code></p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 5: lwc:if destroys child component state</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>When <code>lwc:if</code> toggles from true to false and back, the child
+            component runs its full lifecycle from scratch. Any state stored in the child's
+            JS class (selected rows, expanded sections, form input values) is lost. If you
+            need to preserve state across visibility toggles, use CSS <code>slds-hide</code>
+            instead of <code>lwc:if</code>, or lift the state up to the parent component.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 6: iterator key must reference it.value.Id, not it.Id</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>When using the <code>iterator</code> directive, the loop variable wraps the
+            original item. To access the item's Id, use <code>it.value.Id</code> not
+            <code>it.Id</code>. The <code>key</code> directive on the root element also needs
+            <code>key={it.value.Id}</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           11. EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>11. Expert Insight</h2>
+
+        <div class="callout callout--p3">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">The Template as a Contract</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>A expert developer understands that the LWC template is not just syntax — it is a
+            <strong>static contract between markup and the compiler</strong>. Every directive is
+            resolved at build time, not runtime (unlike Angular's runtime compilation). This has
+            a major implication: the compiler can statically validate property names, detect missing
+            keys, and catch most template errors before deployment.</p>
+            <p>This static compilation model is why LWC templates are faster to render than
+            frameworks that compile at runtime: there's no parsing overhead per render, only
+            a virtual DOM patch.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--p3">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Template Directives and the "Principle of Least Surprise"</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>LWC's restricted expression model is not a bug — it's a deliberate architectural
+            principle. By forcing logic into getters and event handlers, the framework ensures
+            that:</p>
+            <ul>
+              <li>Templates are readable by non-JS developers</li>
+              <li>All logic is unit-testable (getters can be called in Jest; template expressions cannot)</li>
+              <li>Reactivity is explicit and predictable (no hidden two-way channels)</li>
+            </ul>
+            <p>When reviewing a Expert-level codebase, you should be suspicious of any template with
+            complex logic. It's a sign that the component isn't following the single-responsibility
+            principle — the template should describe <em>what</em> to render, the class should
+            compute <em>what the values are</em>.</p>
+          </div>
+        </div>
+
+        <div class="callout callout--p3">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Slots and Ownership Boundaries</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>In enterprise LWC architecture, slots define the <strong>ownership boundary</strong>
+            between a container component and its contents. The container owns layout, spacing, and
+            structure. The consumer owns what goes inside.</p>
+            <p>This principle drives the design of reusable component libraries. A
+            <code>c-card</code> component should never need to know about
+            <code>c-contact-tile</code> — the slot decouples them. This is the composition over
+            inheritance pattern applied to UI.</p>
+            <p>At expert level, you should be able to design a component API that uses named slots
+            strategically to maximize reusability while keeping the component's behavior
+            predictable and its surface area minimal.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           12. QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>12. Quick Recall Card</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Directive / Concept</th>
+              <th>Key Fact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>One-way binding</td>
+              <td>Data flows JS → Template only; events flow Template → JS explicitly</td>
+            </tr>
+            <tr>
+              <td>Template expressions</td>
+              <td>Only property access + dot notation; no methods, operators, or ternaries</td>
+            </tr>
+            <tr>
+              <td><code>lwc:if</code></td>
+              <td>DOM removal (full lifecycle); added Spring '23, API v59+</td>
+            </tr>
+            <tr>
+              <td><code>lwc:else</code></td>
+              <td>Must have NO attribute value; must immediately follow lwc:if/lwc:elseif block</td>
+            </tr>
+            <tr>
+              <td><code>if:true</code> / <code>if:false</code></td>
+              <td>Deprecated — migrate to <code>lwc:if</code></td>
+            </tr>
+            <tr>
+              <td><code>for:each</code> key</td>
+              <td>Mandatory; string or number; must be unique per list; drives reconciliation</td>
+            </tr>
+            <tr>
+              <td>Index as key</td>
+              <td>Only safe for static lists; never use for sortable/filterable/deletable lists</td>
+            </tr>
+            <tr>
+              <td><code>iterator</code></td>
+              <td>Loop var exposes <code>.value</code>, <code>.index</code>, <code>.first</code>, <code>.last</code></td>
+            </tr>
+            <tr>
+              <td>Default slot</td>
+              <td><code>&lt;slot&gt;&lt;/slot&gt;</code> in child; slotted content styled by parent, not child</td>
+            </tr>
+            <tr>
+              <td>Named slot</td>
+              <td>Child: <code>&lt;slot name="x"&gt;</code>; Parent: <code>&lt;div slot="x"&gt;</code></td>
+            </tr>
+            <tr>
+              <td>Scoped slots</td>
+              <td>Light DOM only; child passes data back up to parent's projected template</td>
+            </tr>
+            <tr>
+              <td><code>lwc:ref</code></td>
+              <td>Direct element reference via <code>this.refs.name</code>; O(1) vs querySelector's tree traversal</td>
+            </tr>
+            <tr>
+              <td><code>lwc:ref</code> limitations</td>
+              <td>Not usable inside loops; undefined when element is conditionally hidden</td>
+            </tr>
+            <tr>
+              <td><code>lwc:spread</code></td>
+              <td>Spreads JS object as child props; only one per element; later declarations override earlier</td>
+            </tr>
+            <tr>
+              <td><code>lwc:if</code> vs <code>slds-hide</code></td>
+              <td><code>lwc:if</code>: fresh state every show; <code>slds-hide</code>: preserves state</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- References -->
+      <section>
+        <h2>References</h2>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-directives.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: HTML Template Directives Reference
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-conditional.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: Render HTML Conditionally
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-lists.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: Render Lists
+            </a>
+          </li>
+          <li>
+            <a href="https://html.spec.whatwg.org/multipage/scripting.html#the-template-element"
+               target="_blank" rel="noopener noreferrer">
+              WHATWG HTML Spec: The &lt;template&gt; element
+            </a>
+          </li>
+          <li>
+            <a href="https://help.salesforce.com/s/articleView?id=release-notes.rn_lwc_if_else.htm&language=en_US&release=242&type=5"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce Release Notes: lwc:if / lwc:else Directives
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/salesforce/lwc/issues/3304"
+               target="_blank" rel="noopener noreferrer">
+              LWC GitHub: lwc:ref support in loops (known limitation)
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="05-lifecycle-hooks.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">05. Lifecycle Hooks</span>
+        </a>
+        <a href="07-shadow-dom-vs-light-dom.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">07. Shadow DOM vs Light DOM</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      const articleId = btn ? btn.getAttribute('data-article-id') : null;
+      if (!btn || !articleId) return;
+
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : '☐ Mark as Read';
+        btn.classList.toggle('is-read', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+
+      const headings = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active = headings[0];
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) { active = heading; } else { break; }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

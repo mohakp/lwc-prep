@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04. Decorators: @api, @track, @wire — LWC.guide</title>
+  <meta name="description" content="Deep-dive into LWC decorators @api, @track, and @wire: TC39 context, read-only enforcement, deep reactivity, wire adapter protocol, reactive parameters, and custom wire adapters.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/04-decorators.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Decorators Matter</a></li>
+          <li><a href="#mental-model">2. Mental Model: TC39 Decorators</a></li>
+          <li class="level-3"><a href="#tc39-proposal">The TC39 Proposal</a></li>
+          <li class="level-3"><a href="#lwc-own-system">LWC's Own Decorator System</a></li>
+          <li><a href="#api-decorator">3. @api — The Public Interface</a></li>
+          <li class="level-3"><a href="#api-read-only">Read-Only Enforcement</a></li>
+          <li class="level-3"><a href="#api-primitive-vs-object">Primitive vs Object Props</a></li>
+          <li class="level-3"><a href="#api-getter-setter">Getter/Setter Pattern</a></li>
+          <li class="level-3"><a href="#api-methods">Exposing Methods</a></li>
+          <li><a href="#track-decorator">4. @track — Deep Reactivity</a></li>
+          <li class="level-3"><a href="#track-history">History: Pre &amp; Post Spring '20</a></li>
+          <li class="level-3"><a href="#track-still-needed">When @track Is Still Needed</a></li>
+          <li class="level-3"><a href="#proxy-internals">Proxy-Based Observation</a></li>
+          <li><a href="#wire-decorator">5. @wire — The Reactive Data Layer</a></li>
+          <li class="level-3"><a href="#wire-protocol">Wire Adapter Protocol</a></li>
+          <li class="level-3"><a href="#wire-reactive-params">Reactive $ Parameters</a></li>
+          <li class="level-3"><a href="#wire-property-vs-function">Property vs Function Wiring</a></li>
+          <li class="level-3"><a href="#wire-apex">@wire with Apex</a></li>
+          <li class="level-3"><a href="#wire-lds">@wire with LDS Adapters</a></li>
+          <li><a href="#custom-wire-adapter">6. Writing a Custom Wire Adapter</a></li>
+          <li><a href="#pitfalls">7. Common Pitfalls</a></li>
+          <li><a href="#p3-insight">8. Expert Insight</a></li>
+          <li><a href="#recall">9. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 04</div>
+        <h1>Decorators: <code>@api</code>, <code>@track</code>, <code>@wire</code></h1>
+        <div class="article-meta">
+          <span>⏱ 22 min read</span>
+          <span class="tags">
+            <span class="tag">#decorators-lifecycle</span>
+            <span class="tag">#fundamentals</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="04"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           1. HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Decorators Matter</h2>
+        <p>
+          LWC has exactly three decorators. That sounds simple until you realise that every
+          non-trivial LWC decision flows through them: <em>which properties are public?</em>
+          (<code>@api</code>), <em>which mutations trigger a re-render?</em> (<code>@track</code>),
+          <em>how does data arrive?</em> (<code>@wire</code>). Get them wrong and your component
+          either breaks silently, mutates state it shouldn't own, or re-renders thousands of times
+          per second.
+        </p>
+        <p>
+          What makes decorators deceptively hard is that <strong>LWC's decorator system is not
+          the TC39 decorator proposal</strong> — it is a custom compiler transformation that looks
+          similar but has subtly different semantics. A expert developer must know not just what
+          each decorator does, but <em>how</em> the platform enforces it at runtime and
+          <em>why</em> each design decision was made.
+        </p>
+        <p>
+          This article starts at the JavaScript language spec, works up through LWC's compiler
+          layer, and finishes with the wire adapter protocol — including how to write your own.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           2. MENTAL MODEL
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. Mental Model: TC39 Decorators</h2>
+
+        <h3 id="tc39-proposal">The TC39 Proposal</h3>
+        <p>
+          JavaScript decorators are a Stage 3 TC39 proposal (as of 2024) that allows functions to
+          annotate and modify class declarations, class elements, and class accessors using
+          <code>@expression</code> syntax. A decorator is essentially a function that receives
+          the decorated target and returns a modified version of it:
+        </p>
+        <pre><code class="language-javascript">// Conceptual TC39 decorator — not real LWC
+function readonly(target, context) {
+  if (context.kind === 'field') {
+    return function(initialValue) {
+      return Object.freeze(initialValue);
+    };
+  }
+}
+
+class Foo {
+  @readonly name = 'bar'; // TC39 decorator
+}</code></pre>
+        <p>
+          The TC39 proposal covers: class decorators, method decorators, field decorators,
+          accessor decorators, and getter/setter decorators. Each receives a <strong>context
+          object</strong> describing what kind of thing is being decorated, giving the decorator
+          function enough metadata to act.
+        </p>
+
+        <h3 id="lwc-own-system">LWC's Own Decorator System</h3>
+        <p>
+          LWC was built before the TC39 decorator proposal was stable. Rather than wait for
+          the spec, Salesforce implemented its own decorator system as a
+          <strong>Babel transform at compile time</strong>. The <code>@api</code>,
+          <code>@track</code>, and <code>@wire</code> annotations look like TC39 decorators
+          syntactically, but they are actually replaced by compiler-generated code that hooks
+          into LWC's reactive engine.
+        </p>
+        <p>
+          What this means practically:
+        </p>
+        <ul>
+          <li>You cannot import LWC decorators from JavaScript standard libraries — they are LWC-specific identifiers.</li>
+          <li>They only work inside files within an LWC component bundle (co-located <code>.js</code> files).</li>
+          <li>You must import them explicitly: <code>import { LightningElement, api, track, wire } from 'lwc';</code></li>
+          <li>You cannot create new decorators in LWC — only these three are supported.</li>
+          <li>You cannot combine LWC decorators: <code>@api @track</code> on the same field is an error.</li>
+        </ul>
+        <pre><code class="language-javascript">// CORRECT: import from 'lwc'
+import { LightningElement, api, track, wire } from 'lwc';
+
+// WRONG: these do not exist as importable values
+// import { api } from '@lwc/engine';  // not how it works
+// const myDecorator = api;            // cannot use as a value</code></pre>
+        <p>
+          Under the hood, when the LWC compiler encounters <code>@api</code> on a field, it
+          rewrites the class to call into the reactive engine's property registration system.
+          The decorator is not present at runtime — it's been compiled away. This also means
+          decorators have zero runtime performance overhead.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           3. @api
+           ============================================================ -->
+      <section id="api-decorator">
+        <h2>3. <code>@api</code> — The Public Interface</h2>
+        <p>
+          <code>@api</code> makes a class field or method part of the component's public API.
+          It signals three things simultaneously: (1) the parent template can bind a value to it,
+          (2) the property is observable from the outside, and (3) the child component must
+          treat it as read-only.
+        </p>
+
+        <h3 id="api-read-only">Read-Only Enforcement</h3>
+        <p>
+          When a parent passes a value to a child via a property binding, the platform owns
+          that property. The child component <strong>must never mutate it</strong>. In development
+          mode, LWC throws a runtime error if a child attempts to write to an <code>@api</code>
+          property directly:
+        </p>
+        <pre><code class="language-javascript">// childComponent.js
+import { LightningElement, api } from 'lwc';
+
+export default class ChildComponent extends LightningElement {
+  @api title = 'Default';
+
+  handleClick() {
+    // ERROR in dev mode: "Invalid mutation: cannot set 'title' on [object Object]."
+    this.title = 'Mutated'; // ← WRONG
+  }
+}</code></pre>
+        <p>
+          Why does this rule exist? It enforces <strong>unidirectional data flow</strong>:
+          data goes parent → child via properties; events go child → parent via CustomEvent.
+          If children could mutate their own <code>@api</code> properties, it would create
+          two-way bindings that make state management unpredictable — the same anti-pattern
+          that burned Angular 1.x developers for years.
+        </p>
+        <p>
+          In production mode, the error is silently suppressed, which is worse — the mutation
+          simply doesn't trigger a re-render and the UI shows stale data. Always test in dev mode.
+        </p>
+        <p>
+          The correct pattern when a child needs to change what the parent passed in is to
+          <strong>fire an event</strong> that asks the parent to update the data:
+        </p>
+        <pre><code class="language-javascript">// childComponent.js — CORRECT
+handleClick() {
+  this.dispatchEvent(new CustomEvent('titlechange', {
+    detail: { newTitle: 'Updated' }
+  }));
+}
+
+// parentComponent.js handles it and updates its own state
+handleTitleChange(event) {
+  this.myTitle = event.detail.newTitle; // parent owns the data
+}</code></pre>
+
+        <h3 id="api-primitive-vs-object">Primitive vs Object Props</h3>
+        <p>
+          There is a crucial difference in how <code>@api</code> behaves depending on whether
+          the value is a JavaScript primitive or an object/array.
+        </p>
+        <p>
+          <strong>Primitives</strong> (string, number, boolean, null, undefined, Symbol,
+          BigInt) are <em>copied by value</em>. When the parent updates its string, the child
+          receives a brand-new copy. No aliasing is possible.
+        </p>
+        <p>
+          <strong>Objects and arrays</strong> are <em>passed by reference</em>. Both parent
+          and child hold a reference to the same object in memory. This means:
+        </p>
+        <pre><code class="language-javascript">// parentComponent.js
+export default class Parent extends LightningElement {
+  config = { pageSize: 10, filters: [] };
+}
+
+// parentComponent.html
+// &lt;c-child config={config}&gt;&lt;/c-child&gt;
+
+// childComponent.js
+export default class Child extends LightningElement {
+  @api config; // same reference as parent's config
+
+  oops() {
+    // This MUTATES the parent's object directly.
+    // LWC dev mode may NOT always catch this.
+    this.config.filters.push('Active'); // ← shared mutation!
+  }
+}</code></pre>
+        <p>
+          This is one of the most insidious bugs in LWC codebases. The child technically isn't
+          reassigning <code>this.config</code> (which would throw), but it's mutating the
+          object's internals. To defend against this, either:
+        </p>
+        <ul>
+          <li><strong>Freeze the object</strong> in the parent before passing it:
+            <code>Object.freeze(this.config)</code> (throws on mutation)</li>
+          <li><strong>Deep-clone on receipt</strong> in the child's setter (shown below)</li>
+          <li><strong>Design immutably</strong>: never mutate, always return new objects</li>
+        </ul>
+
+        <h3 id="api-getter-setter">The @api Getter/Setter Pattern</h3>
+        <p>
+          When you need to validate, transform, or react to an incoming property, use a
+          getter/setter pair. The critical rule is: <strong>annotate only the getter
+          with <code>@api</code></strong>, not the setter. LWC infers the pair automatically.
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, api } from 'lwc';
+
+export default class MyInput extends LightningElement {
+  _value = '';
+
+  @api
+  get value() {
+    return this._value;
+  }
+
+  set value(incoming) {
+    // Deep-clone to avoid shared mutation
+    this._value = typeof incoming === 'object'
+      ? JSON.parse(JSON.stringify(incoming))
+      : incoming;
+
+    // Side effect: reflect to attribute, validate, etc.
+    if (incoming && incoming.length > 100) {
+      console.warn('value exceeds 100 characters');
+    }
+  }
+}</code></pre>
+        <p>
+          Annotating the setter with <code>@api</code> too is a compiler error. The getter
+          annotation is sufficient to register the entire accessor pair as public.
+        </p>
+        <p>
+          Common use cases for the getter/setter pattern:
+        </p>
+        <ul>
+          <li><strong>Input normalization:</strong> coerce strings to numbers, uppercase, trim whitespace</li>
+          <li><strong>Validation:</strong> warn or clamp out-of-range values</li>
+          <li><strong>Side effects:</strong> trigger animation, scroll to position, reset internal state</li>
+          <li><strong>Deep cloning:</strong> sever the reference so child can work safely on a copy</li>
+        </ul>
+
+        <h3 id="api-methods">Exposing Methods with @api</h3>
+        <p>
+          You can annotate class <em>methods</em> with <code>@api</code> to allow a parent
+          component to call them imperatively. This is an escape hatch — use sparingly.
+        </p>
+        <pre><code class="language-javascript">// childComponent.js
+export default class MyForm extends LightningElement {
+  @api
+  focus() {
+    // LWC prevents querySelector across shadow boundary —
+    // lwc:ref is the correct way to get a child element reference
+    this.template.querySelector('input').focus();
+  }
+
+  @api
+  validate() {
+    const inputs = this.template.querySelectorAll('input, select, textarea');
+    return [...inputs].every(input => input.reportValidity());
+  }
+}
+
+// parentComponent.js
+handleSave() {
+  const form = this.template.querySelector('c-my-form');
+  if (form.validate()) {
+    // proceed with save
+  }
+}</code></pre>
+        <p>
+          When to use <code>@api</code> methods vs events: if the parent needs to
+          <em>command</em> the child (focus, validate, reset, play), <code>@api</code> method
+          is acceptable. If the child needs to inform the parent of state changes, use a
+          CustomEvent. Never use <code>@api</code> methods for data flow — that's what
+          properties are for.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           4. @track
+           ============================================================ -->
+      <section id="track-decorator">
+        <h2>4. <code>@track</code> — Deep Reactivity</h2>
+
+        <h3 id="track-history">History: Pre &amp; Post Spring '20</h3>
+        <p>
+          Before API version 39 (Spring '20), LWC required <code>@track</code> on every
+          reactive property. Without it, a component would hold state but the template
+          would never re-render when the state changed. Developers annotated nearly every
+          private field with <code>@track</code> — it was boilerplate noise.
+        </p>
+        <p>
+          Starting with API v39, LWC changed the default: <strong>all class fields are
+          reactive by default at the top level</strong>. A simple reassignment like
+          <code>this.count = this.count + 1</code> always triggers a re-render, with or
+          without <code>@track</code>. The decorator became mostly optional.
+        </p>
+        <p>
+          Most Trailhead content and older codebases still show <code>@track</code>
+          everywhere — a cargo cult artifact. Remove it freely from fields where only
+          top-level reassignment occurs.
+        </p>
+
+        <h3 id="track-still-needed">When @track Is Still Needed Today</h3>
+        <p>
+          Here is the precise rule: <code>@track</code> is still needed when you
+          <strong>mutate a property's internals without reassigning the top-level
+          reference</strong>. In other words: if you change <em>inside</em> an object
+          or array without replacing the object/array itself.
+        </p>
+
+        <div class="callout callout--pitfall" role="note">
+          <div class="callout__header" tabindex="0" aria-expanded="true">
+            <span class="callout__icon" aria-hidden="true">⚠</span>
+            <strong>Pitfall: Mutation Without @track</strong>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+<pre><code class="language-javascript">// WITHOUT @track — only top-level reassignment is observed
+export default class Example extends LightningElement {
+  config = { darkMode: false, pageSize: 10 };
+
+  toggleDarkMode() {
+    // ❌ This mutation is NOT reactive without @track
+    // The template will NOT re-render
+    this.config.darkMode = !this.config.darkMode;
+  }
+
+  replaceConfig() {
+    // ✅ This reassignment IS reactive (creates new object reference)
+    // The template WILL re-render
+    this.config = { ...this.config, darkMode: !this.config.darkMode };
+  }
+}</code></pre>
+          </div>
+        </div>
+
+        <pre><code class="language-javascript">// WITH @track — nested mutations ARE reactive
+import { LightningElement, track } from 'lwc';
+
+export default class Example extends LightningElement {
+  @track config = { darkMode: false, pageSize: 10 };
+
+  toggleDarkMode() {
+    // ✅ With @track, this nested mutation DOES trigger re-render
+    this.config.darkMode = !this.config.darkMode;
+  }
+}
+
+// Array mutation example
+export default class TodoList extends LightningElement {
+  @track items = [];
+
+  addItem(label) {
+    // ✅ .push() mutates the array — reactive with @track
+    this.items.push({ id: Date.now(), label, done: false });
+  }
+
+  markDone(id) {
+    const item = this.items.find(i => i.id === id);
+    if (item) item.done = true; // ✅ nested mutation — reactive with @track
+  }
+}</code></pre>
+        <p>
+          The modern alternative to <code>@track</code> for arrays is to always produce a
+          new array reference: <code>this.items = [...this.items, newItem]</code>. This is
+          idiomatic immutable state management (the React pattern) and works without
+          <code>@track</code>. Choose one style consistently; mixing them creates confusion.
+        </p>
+
+        <h3 id="proxy-internals">Proxy-Based Observation Under the Hood</h3>
+        <p>
+          When you annotate a field with <code>@track</code>, LWC wraps the value in a
+          <strong>JavaScript Proxy</strong>. The Proxy intercepts set operations at every
+          level of the object tree:
+        </p>
+        <pre><code class="language-javascript">// Conceptual illustration — simplified
+function makeReactive(value, onChange) {
+  if (typeof value !== 'object' || value === null) return value;
+
+  return new Proxy(value, {
+    set(target, key, newVal) {
+      target[key] = makeReactive(newVal, onChange); // recurse for nested objects
+      onChange(); // notify LWC's reactive engine
+      return true;
+    },
+    get(target, key) {
+      const val = target[key];
+      return typeof val === 'object' ? makeReactive(val, onChange) : val;
+    }
+  });
+}</code></pre>
+        <p>
+          This is why <code>@track</code> enables deep observation: the proxy intercepts
+          mutations at any depth and notifies the rendering engine. Without it, LWC only
+          watches the top-level reference via a simple <code>===</code> comparison.
+        </p>
+        <p>
+          The performance implication: Proxy interception has a cost for every property
+          access. For large objects accessed frequently (10,000+ items in a deeply nested
+          structure), this overhead is measurable. Prefer top-level reassignment for
+          performance-sensitive hot paths and reserve <code>@track</code> for UX state
+          objects (toggles, form state) where mutation ergonomics matter.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           5. @wire
+           ============================================================ -->
+      <section id="wire-decorator">
+        <h2>5. <code>@wire</code> — The Reactive Data Layer</h2>
+        <p>
+          <code>@wire</code> connects a component to the <strong>reactive wire service</strong>,
+          a platform-level data provisioning engine. It is a declarative alternative to
+          imperative data fetching: instead of calling <code>fetch()</code> yourself and
+          managing loading states, you declare <em>what data you need</em> and the wire
+          service provisions it, caches it, and re-provisions it whenever reactive
+          parameters change.
+        </p>
+
+        <h3 id="wire-protocol">Wire Adapter Protocol</h3>
+        <p>
+          Any function that implements the <strong>wire adapter contract</strong> can be
+          used with <code>@wire</code>. The contract requires three things:
+        </p>
+        <ol>
+          <li><strong><code>connect()</code></strong> — called when the component is inserted into the DOM</li>
+          <li><strong><code>disconnect()</code></strong> — called when the component is removed from the DOM</li>
+          <li><strong><code>update(config, context)</code></strong> — called whenever the component's reactive params change</li>
+        </ol>
+        <p>
+          Platform wire adapters (like <code>getRecord</code> from LDS) implement this
+          protocol internally. They provision data by calling the component's registered
+          data callback with a standard shape: <code>{ data, error }</code>.
+        </p>
+        <p>
+          The wire service runs <strong>outside the component's lifecycle</strong>. It is
+          not part of the JavaScript stack when it calls your component — it uses a separate
+          channel. This is why you cannot call wire results synchronously in
+          <code>constructor()</code>.
+        </p>
+
+        <h3 id="wire-reactive-params">Reactive $ Parameters</h3>
+        <p>
+          Configuration values passed to a <code>@wire</code> adapter can be either
+          <em>static</em> (a literal) or <em>reactive</em> (prefixed with <code>$</code>).
+          When a reactive parameter changes, the wire service automatically re-invokes the
+          adapter with the new value — triggering a data refresh and a re-render.
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, api, wire } from 'lwc';
+import { getRecord } from 'lightning/uiRecordApi';
+import ACCOUNT_NAME from '@salesforce/schema/Account.Name';
+import ACCOUNT_INDUSTRY from '@salesforce/schema/Account.Industry';
+
+const FIELDS = [ACCOUNT_NAME, ACCOUNT_INDUSTRY];
+
+export default class AccountCard extends LightningElement {
+  @api recordId; // comes from record page URL
+
+  // '$recordId' is a reactive parameter.
+  // When recordId changes (user navigates to a different account),
+  // getRecord is automatically re-invoked with the new ID.
+  @wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+  account;
+
+  get accountName() {
+    return this.account?.data?.fields?.Name?.value ?? '';
+  }
+}</code></pre>
+        <p>
+          The <code>$</code> prefix is a string literal convention — the wire service looks
+          up the property named <code>recordId</code> on the component instance. It does
+          NOT evaluate a JavaScript expression; it is not a template literal. Only
+          top-level property names can be reactive parameters (e.g., <code>$recordId</code>
+          works; <code>$this.record.id</code> does not).
+        </p>
+        <p>
+          When a reactive parameter is <code>undefined</code> or <code>null</code>, the
+          wire service does NOT invoke the adapter. This is a feature: it prevents spurious
+          API calls before the component has received all required inputs. Always check
+          <code>data</code> for undefined in your getter logic.
+        </p>
+        <pre><code class="language-javascript">// $recordId is undefined on initial render (component mounted outside a record page)
+// The wire adapter is NOT called — account.data stays undefined
+// The getter must guard against this:
+get accountName() {
+  if (!this.account || !this.account.data) return 'Loading...';
+  return this.account.data.fields.Name.value;
+}</code></pre>
+
+        <h3 id="wire-property-vs-function">Property vs Function Wiring</h3>
+        <p>
+          <code>@wire</code> can target either a <strong>property</strong> or a
+          <strong>function</strong> (method). The two have different semantics:
+        </p>
+
+        <strong>Property wiring</strong> — the wire result is assigned to the property as an
+        object with <code>{ data, error }</code> shape. The property is set once (or updated
+        each time the adapter re-invokes). You cannot run side effects in a property wire.
+        <pre><code class="language-javascript">// Property wiring — result assigned directly to this.accounts
+@wire(getListUi, { objectApiName: 'Account', listViewApiName: 'AllAccounts' })
+accounts; // { data: {...}, error: undefined } or { data: undefined, error: {...} }</code></pre>
+
+        <strong>Function wiring</strong> — the wire service calls the annotated method each
+        time it has new data. You get full control: run side effects, update multiple
+        properties, trigger additional logic.
+        <pre><code class="language-javascript">// Function wiring — method is called with { data, error }
+@wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+wiredRecord({ data, error }) {
+  if (data) {
+    this.record = data;
+    this.errorMessage = undefined;
+    // Side effect: log to custom analytics
+    this.logRecordView(data.id);
+  } else if (error) {
+    this.errorMessage = error.body?.message ?? 'Unknown error';
+    this.record = undefined;
+  }
+}</code></pre>
+        <p>
+          Use function wiring when you need to: transform data before storing it, update
+          multiple properties from a single wire result, run side effects (logging, toast
+          notifications), or keep a clean type structure (avoiding <code>{ data, error }</code>
+          wrapper in your template).
+        </p>
+
+        <h3 id="wire-apex">@wire with Apex</h3>
+        <p>
+          Apex methods decorated with <code>@AuraEnabled(cacheable=true)</code> can be
+          used as wire adapter targets. The <code>cacheable=true</code> constraint is
+          enforced at runtime — without it, the wire service throws an error because
+          non-cacheable Apex could have side effects (DML, send emails) that must not
+          be called implicitly by the reactive engine.
+        </p>
+        <pre><code class="language-javascript">// Apex class
+public with sharing class AccountController {
+  @AuraEnabled(cacheable=true)
+  public static List&lt;Account&gt; getAccounts(String industry) {
+    return [SELECT Id, Name FROM Account WHERE Industry = :industry LIMIT 50];
+  }
+}</code></pre>
+        <pre><code class="language-javascript">// LWC component
+import { LightningElement, wire } from 'lwc';
+import getAccounts from '@salesforce/apex/AccountController.getAccounts';
+
+export default class AccountList extends LightningElement {
+  industry = 'Technology';
+
+  // $industry is reactive — changing this.industry re-calls the Apex method
+  @wire(getAccounts, { industry: '$industry' })
+  accounts;
+
+  handleIndustryChange(event) {
+    this.industry = event.target.value; // triggers wire re-invocation
+  }
+}</code></pre>
+        <p>
+          <strong>cacheable=true constraints:</strong> the method cannot perform DML, call
+          sendEmail(), or have side effects. Violating this at the Apex layer causes
+          Salesforce to throw a runtime exception. If your operation must have a side
+          effect, use imperative Apex instead.
+        </p>
+        <p>
+          <strong>refreshApex:</strong> when imperative Apex DML changes underlying data,
+          the <code>@wire</code> cache is stale. Call <code>refreshApex(this.accounts)</code>
+          to force a re-fetch. Pass the entire wired <em>property</em> — not
+          <code>this.accounts.data</code>:
+        </p>
+        <pre><code class="language-javascript">import { refreshApex } from '@salesforce/apex';
+
+// Store the wired result reference for refreshApex
+@wire(getAccounts, { industry: '$industry' })
+wiredAccounts; // whole result, not just .data
+
+async handleSave() {
+  await saveAccount({ account: this.editedAccount }); // imperative DML
+  await refreshApex(this.wiredAccounts); // ← pass the whole wired result
+}</code></pre>
+
+        <h3 id="wire-lds">@wire with Lightning Data Service Adapters</h3>
+        <p>
+          LDS provides a set of standard wire adapters from <code>lightning/uiRecordApi</code>
+          that go through the platform's client-side cache. These are covered in depth in
+          <a href="09-salesforce-data.html">Article 09 (Salesforce Data)</a>, but the key
+          ones to know for decorator understanding:
+        </p>
+        <ul>
+          <li><code>getRecord(recordId, fields)</code> — fetch a single record's fields</li>
+          <li><code>getListUi(objectApiName, listViewApiName)</code> — get list view records</li>
+          <li><code>getObjectInfo(objectApiName)</code> — schema/metadata for an object</li>
+          <li><code>getPicklistValues(recordTypeId, fieldApiName)</code> — picklist values</li>
+          <li><code>getCurrentPageReference()</code> — URL/page metadata (navigation)</li>
+        </ul>
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { getObjectInfo } from 'lightning/uiObjectInfoApi';
+import { getPicklistValues } from 'lightning/uiObjectInfoApi';
+import ACCOUNT_OBJECT from '@salesforce/schema/Account';
+import INDUSTRY_FIELD from '@salesforce/schema/Account.Industry';
+
+export default class AccountForm extends LightningElement {
+  // Fetch object metadata first
+  @wire(getObjectInfo, { objectApiName: ACCOUNT_OBJECT })
+  accountInfo;
+
+  // Use its defaultRecordTypeId as a reactive param for picklist
+  @wire(getPicklistValues, {
+    recordTypeId: '$accountInfo.data.defaultRecordTypeId',
+    fieldApiName: INDUSTRY_FIELD
+  })
+  industryPicklist;
+
+  get industryOptions() {
+    return this.industryPicklist?.data?.values ?? [];
+  }
+}</code></pre>
+        <p>
+          Notice the chained reactive param: <code>'$accountInfo.data.defaultRecordTypeId'</code>.
+          The wire service watches the full dot-path expression. When
+          <code>accountInfo</code> resolves and <code>defaultRecordTypeId</code> becomes
+          available, <code>getPicklistValues</code> fires automatically. If either is
+          undefined, it waits. This is the LWC pattern for <strong>dependent wire adapters</strong>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           6. CUSTOM WIRE ADAPTER
+           ============================================================ -->
+      <section id="custom-wire-adapter">
+        <h2>6. Writing a Custom Wire Adapter</h2>
+        <p>
+          A custom wire adapter is any JavaScript class that implements the three-method
+          contract and is registered with LWC's wire service. This is an advanced pattern
+          primarily used for:
+        </p>
+        <ul>
+          <li>Wrapping third-party APIs (WebSocket, REST, IndexedDB) with reactive semantics</li>
+          <li>Providing test-friendly, mockable data access layers</li>
+          <li>Sharing complex reactive state across components via a custom adapter</li>
+        </ul>
+        <pre><code class="language-javascript">// geolocationAdapter.js — a custom wire adapter
+import { register, ValueChangedEvent } from '@lwc/wire-service';
+
+class GeolocationAdapter {
+  // The dataCallback is provided by the wire service.
+  // Call it to push data to the wired component.
+  constructor(dataCallback) {
+    this.dataCallback = dataCallback;
+    this.watchId = null;
+    this.config = {};
+  }
+
+  // Called when the wired component connects to the DOM
+  connect() {
+    this.subscribeToLocation();
+  }
+
+  // Called when the wired component disconnects from the DOM
+  disconnect() {
+    if (this.watchId !== null) {
+      navigator.geolocation.clearWatch(this.watchId);
+    }
+  }
+
+  // Called whenever the component's @wire config params change
+  update(config) {
+    this.config = config;
+    // Re-subscribe with new options if config changed
+    this.disconnect();
+    this.subscribeToLocation();
+  }
+
+  subscribeToLocation() {
+    if (!navigator.geolocation) {
+      this.dataCallback({ data: undefined, error: 'Geolocation not supported' });
+      return;
+    }
+    this.watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        this.dataCallback({
+          data: { lat: position.coords.latitude, lng: position.coords.longitude },
+          error: undefined
+        });
+      },
+      (err) => {
+        this.dataCallback({ data: undefined, error: err.message });
+      },
+      this.config.options ?? {}
+    );
+  }
+}
+
+// Register the adapter so @wire can use it
+register(GeolocationAdapter, function adapterFactory(dataCallback) {
+  return new GeolocationAdapter(dataCallback);
+});
+
+export { GeolocationAdapter };</code></pre>
+        <pre><code class="language-javascript">// myLocationComponent.js — consuming the custom adapter
+import { LightningElement, wire } from 'lwc';
+import { GeolocationAdapter } from 'c/geolocationAdapter';
+
+export default class MyLocationComponent extends LightningElement {
+  @wire(GeolocationAdapter, { options: { enableHighAccuracy: true } })
+  location;
+
+  get lat() { return this.location?.data?.lat ?? 'N/A'; }
+  get lng() { return this.location?.data?.lng ?? 'N/A'; }
+}</code></pre>
+        <p>
+          The wire service manages the adapter lifecycle in sync with the component
+          lifecycle: <code>connect()</code> fires after <code>connectedCallback()</code>,
+          <code>disconnect()</code> fires after <code>disconnectedCallback()</code>. This
+          makes custom adapters a clean way to manage subscriptions without manual
+          cleanup code in every component.
+        </p>
+
+        <div class="callout callout--insight" role="note">
+          <div class="callout__header" tabindex="0" aria-expanded="true">
+            <span class="callout__icon" aria-hidden="true">💡</span>
+            <strong>Expert Insight: Wire Adapters on Open-Source LWC</strong>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The open-source <code>@lwc/wire-service</code> package is fully documented on GitHub.
+              Custom wire adapters are commonly used in OSS LWC (running outside Salesforce) and
+              in unit tests. On Salesforce platform, custom adapters must still be deployed as
+              LWC component JavaScript modules. The <code>register()</code> call must happen
+              before any component using the adapter is instantiated.
+            </p>
+            <p>
+              For the expert assessment: knowing that wire adapters are classes with
+              <code>connect/disconnect/update</code> demonstrates an architectural understanding
+              of how <code>@wire</code> integrates with the lifecycle — a distinction most
+              candidates miss.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           7. PITFALLS
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>7. Common Pitfalls</h2>
+
+        <div class="callout callout--pitfall" role="note">
+          <div class="callout__header" tabindex="0" aria-expanded="true">
+            <span class="callout__icon" aria-hidden="true">⚠</span>
+            <strong>Pitfall Catalogue (8 Mistakes)</strong>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+
+            <p><strong>1. Mutating an @api property in the child</strong></p>
+            <pre><code class="language-javascript">// WRONG — throws in dev mode, silent bug in prod
+this.label = 'New Label'; // @api label is owned by parent
+
+// RIGHT — fire an event
+this.dispatchEvent(new CustomEvent('labelchange', { detail: 'New Label' }));</code></pre>
+
+            <p><strong>2. Annotating both getter and setter with @api</strong></p>
+            <pre><code class="language-javascript">// WRONG — compiler error
+@api get value() { ... }
+@api set value(v) { ... }  // ← Error: duplicate @api
+
+// RIGHT — annotate only the getter
+@api get value() { ... }
+set value(v) { ... }</code></pre>
+
+            <p><strong>3. Combining @api and @track on the same field</strong></p>
+            <pre><code class="language-javascript">// WRONG — compiler error: cannot use both decorators on same property
+@api @track record;
+
+// RIGHT — @api properties are reactive by default; just use @api
+@api record;</code></pre>
+
+            <p><strong>4. Forgetting @track on deeply mutated objects</strong></p>
+            <pre><code class="language-javascript">// WRONG — no re-render because reference didn't change
+filters = { status: 'Open', priority: 'High' };
+clearFilters() { this.filters.status = 'All'; } // mutation, not reassignment
+
+// RIGHT option A: reassign (no @track needed)
+clearFilters() { this.filters = { ...this.filters, status: 'All' }; }
+
+// RIGHT option B: use @track and mutate
+@track filters = { status: 'Open', priority: 'High' };
+clearFilters() { this.filters.status = 'All'; } // now reactive</code></pre>
+
+            <p><strong>5. Using @wire with non-cacheable Apex</strong></p>
+            <pre><code class="language-javascript">// WRONG — Apex without cacheable=true cannot be used with @wire
+@AuraEnabled  // ← missing cacheable=true
+public static List&lt;Account&gt; getAccounts() { ... }
+
+// @wire(getAccounts) will throw a runtime error
+
+// RIGHT — add cacheable=true (and remove DML / email / external callouts)
+@AuraEnabled(cacheable=true)
+public static List&lt;Account&gt; getAccounts() { ... }</code></pre>
+
+            <p><strong>6. Passing this.wiredResult.data to refreshApex instead of the wired result</strong></p>
+            <pre><code class="language-javascript">// WRONG — refreshApex needs the wire result object, not .data
+await refreshApex(this.accounts.data); // ← TypeError or silent failure
+
+// RIGHT — pass the entire wired property
+@wire(getAccounts) wiredAccounts;
+await refreshApex(this.wiredAccounts); // ✅</code></pre>
+
+            <p><strong>7. Using a non-$ param and expecting reactivity</strong></p>
+            <pre><code class="language-javascript">// WRONG — 'recordId' without $ is static; changes to this.recordId do nothing
+@wire(getRecord, { recordId: 'recordId', fields: FIELDS })
+record;
+
+// RIGHT — prefix with $ to make it reactive
+@wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+record;</code></pre>
+
+            <p><strong>8. Accessing @wire data synchronously in constructor</strong></p>
+            <pre><code class="language-javascript">constructor() {
+  super();
+  // WRONG — wire data is not available yet; this.account is undefined
+  console.log(this.account.data); // TypeError
+}
+
+// RIGHT — access wire data in a getter or after the wire function is called
+get accountName() {
+  return this.account?.data?.fields?.Name?.value ?? '';
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           8. EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>8. Expert Insight</h2>
+
+        <div class="callout callout--insight" role="note">
+          <div class="callout__header" tabindex="0" aria-expanded="true">
+            <span class="callout__icon" aria-hidden="true">💡</span>
+            <strong>Architect-Level Nuances</strong>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+
+            <p><strong>@api and security:</strong> <code>@api</code> creates the public surface
+            of your component. In managed packages, everything not exposed via <code>@api</code>
+            is inaccessible to subscribers — it is your component's encapsulation boundary.
+            Treat <code>@api</code> design as API design: version it, document it, and keep it minimal.
+            Adding <code>@api</code> to a field is easy; removing it is a breaking change for
+            every consumer.</p>
+
+            <p><strong>@track and immutability philosophy:</strong> A codebase that uses
+            <code>@track</code> extensively is one that relies on mutation. A codebase that avoids
+            <code>@track</code> tends toward immutable state (reassignment, spread operators, map/filter
+            returning new arrays). Immutability makes components easier to test and reason about.
+            The expert answer to "when do you use @track?" is: "Rarely — I design state to be
+            reassigned, not mutated."</p>
+
+            <p><strong>@wire and the data provisioning model:</strong> <code>@wire</code> is not just
+            a convenient shorthand for <code>fetch()</code>. It participates in the platform's
+            shared client-side cache (LDS). Two components on the same page using
+            <code>@wire(getRecord, { recordId: 'same-id' })</code> receive the same cached object —
+            and when one component triggers an update, both update simultaneously. This is the
+            <em>reactive shared cache</em> model, and it fundamentally reduces API calls across
+            complex pages. An architect who understands this can design components to leverage
+            LDS cache sharing rather than duplicating requests.</p>
+
+            <p><strong>When @wire is wrong:</strong> Use imperative Apex when: (1) you need to
+            perform DML or other side effects, (2) the call is conditional (e.g., only when a
+            button is clicked), (3) you need to debounce the call (e.g., search-as-you-type with
+            a 300ms delay), or (4) you need complex error handling with retry logic. Forcing
+            <code>@wire</code> on inherently imperative operations is a code smell.</p>
+
+            <p><strong>The wire service is the LWC equivalent of a state manager:</strong>
+            In React applications, developers use Redux or Context to centralize and share state.
+            In LWC, the wire service combined with LDS cache provides a platform-managed shared
+            state layer. The architectural implication: you rarely need a custom state manager
+            in LWC because the platform already provides one for Salesforce data.</p>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           9. QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>9. Quick Recall Card</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Decorator</th>
+              <th>Purpose</th>
+              <th>Reactive?</th>
+              <th>Key Rules</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>@api</code></td>
+              <td>Public property / method</td>
+              <td>Yes (top-level)</td>
+              <td>Child must not mutate; annotate getter only (not setter); can expose methods</td>
+            </tr>
+            <tr>
+              <td><code>@track</code></td>
+              <td>Deep reactivity for objects/arrays</td>
+              <td>Yes (deep, via Proxy)</td>
+              <td>Only needed for internal mutations; cannot combine with <code>@api</code></td>
+            </tr>
+            <tr>
+              <td><code>@wire</code></td>
+              <td>Reactive data provisioning</td>
+              <td>Yes (reactive params)</td>
+              <td>Adapter must be cacheable; <code>$</code> prefix for reactive params; result is <code>{ data, error }</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>Correct Approach</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Parent passes data to child</td>
+              <td><code>@api</code> property</td>
+            </tr>
+            <tr>
+              <td>Child signals parent of change</td>
+              <td><code>CustomEvent</code></td>
+            </tr>
+            <tr>
+              <td>Internal state: simple value</td>
+              <td>Plain field (no decorator)</td>
+            </tr>
+            <tr>
+              <td>Internal state: nested mutation</td>
+              <td><code>@track</code> or reassign with spread</td>
+            </tr>
+            <tr>
+              <td>Fetch data reactively</td>
+              <td><code>@wire</code> with <code>$param</code></td>
+            </tr>
+            <tr>
+              <td>Fetch data on button click / conditionally</td>
+              <td>Imperative Apex (<code>async/await</code>)</td>
+            </tr>
+            <tr>
+              <td>Refresh wire cache after DML</td>
+              <td><code>refreshApex(this.wiredResult)</code></td>
+            </tr>
+            <tr>
+              <td>Validate/transform incoming <code>@api</code> prop</td>
+              <td><code>@api</code> getter + setter pair (annotate getter only)</td>
+            </tr>
+            <tr>
+              <td>Call child method from parent</td>
+              <td><code>@api</code> method + <code>querySelector</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Decorator Don'ts — at a glance</h3>
+        <ul>
+          <li>Never <code>@api @track</code> on the same field</li>
+          <li>Never annotate both getter <em>and</em> setter with <code>@api</code></li>
+          <li>Never mutate <code>@api</code> props inside the child</li>
+          <li>Never use <code>@wire</code> with non-<code>cacheable=true</code> Apex</li>
+          <li>Never pass <code>this.wiredResult.data</code> to <code>refreshApex</code></li>
+          <li>Never forget <code>$</code> on reactive wire params</li>
+        </ul>
+      </section>
+
+      <!-- References -->
+      <section>
+        <h2>References</h2>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-decorators.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: Decorators
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-wire-service.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: Wire Service
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-custom-wire-adapter.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: Create a Custom Wire Adapter
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/apex.html"
+               target="_blank" rel="noopener noreferrer">
+              Salesforce LWC Docs: Call Apex Methods
+            </a>
+          </li>
+          <li>
+            <a href="https://tc39.es/proposal-decorators/"
+               target="_blank" rel="noopener noreferrer">
+              TC39 Decorators Proposal (Stage 3)
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy"
+               target="_blank" rel="noopener noreferrer">
+              MDN Web Docs: JavaScript Proxy
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="03-component-structure.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">03. Component File Structure</span>
+        </a>
+        <a href="05-lifecycle-hooks.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">05. Lifecycle Hooks</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : '☐ Mark as Read';
+        btn.classList.toggle('is-read', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+
+      const headings = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 120;
+        let active = headings[0];
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) { active = heading; } else { break; }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  ARTICLE TEMPLATE — LWC.guide Blog
+  ============================================================================
+  HOW TO USE THIS TEMPLATE
+  ------------------------
+  1. Copy this file to articles/NN-slug.html
+  2. Replace every occurrence of the following placeholders:
+       {{ARTICLE_NUMBER}}   e.g. "04"
+       {{ARTICLE_TITLE}}    e.g. "Decorators: @api, @track, @wire"
+       {{ARTICLE_SLUG}}     e.g. "04-decorators"
+       {{ARTICLE_TAGS}}     e.g. "decorators-lifecycle"
+       {{READ_TIME}}        e.g. "18 min"
+       {{PREV_NUM}}         e.g. "03"
+       {{PREV_TITLE}}       e.g. "Component File Structure"
+       {{PREV_SLUG}}        e.g. "03-component-structure"
+       {{NEXT_NUM}}         e.g. "05"
+       {{NEXT_TITLE}}       e.g. "Lifecycle Hooks"
+       {{NEXT_SLUG}}        e.g. "05-lifecycle-hooks"
+  3. Fill in the TOC <li> items and the article body.
+  4. Remove this comment block before publishing.
+
+  ARTICLE STRUCTURE (first-principles philosophy)
+  ------------------------------------------------
+  1. Hook             — Why this matters / what breaks without it
+  2. Mental Model     — From browser/JS primitives up to Salesforce
+  3. The Spec         — Official platform behavior
+  4. Code Walkthrough — Annotated examples (simple → complex)
+  5. Internals        — Under-the-hood mechanics
+  6. Pitfalls         — Top mistakes (.callout--pitfall)
+  7. Expert Insight      — Architect-level nuance (.callout--insight)
+  8. Quick Recall     — Compact cheat-sheet (.recall-card)
+  9. Cross-links      — Links to related articles
+  ============================================================================
+-->
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ARTICLE_NUMBER}}. {{ARTICLE_TITLE}} — LWC.guide</title>
+  <meta name="description" content="Deep-dive into {{ARTICLE_TITLE}} for Salesforce LWC at expert-level proficiency level.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/{{ARTICLE_SLUG}}.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <!--
+            Add one <li> per H2 in the article body.
+            The scroll-spy JS below will add .active automatically.
+            Example:
+              <li><a href="#hook">1. The Hook</a></li>
+              <li><a href="#mental-model">2. Mental Model</a></li>
+              <li class="level-3"><a href="#sub-section">Sub-section</a></li>
+          -->
+          <li><a href="#hook">1. Why This Matters</a></li>
+          <li><a href="#mental-model">2. Mental Model</a></li>
+          <li><a href="#the-spec">3. The Spec</a></li>
+          <li><a href="#code-walkthrough">4. Code Walkthrough</a></li>
+          <li><a href="#internals">5. Internals</a></li>
+          <li><a href="#pitfalls">6. Common Pitfalls</a></li>
+          <li><a href="#p3-insight">7. Expert Insight</a></li>
+          <li><a href="#recall">8. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article {{ARTICLE_NUMBER}}</div>
+        <h1>{{ARTICLE_TITLE}}</h1>
+        <div class="article-meta">
+          <span>⏱ {{READ_TIME}} read</span>
+          <span class="tags">
+            <span class="tag">{{ARTICLE_TAGS}}</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="{{ARTICLE_NUMBER}}"
+          aria-pressed="false"
+        >
+          ☐ Mark as Read
+        </button>
+      </header>
+
+      <!-- ============================================================
+           ARTICLE BODY — Replace this section with real content
+           ============================================================ -->
+
+      <!-- 1. HOOK -->
+      <section id="hook">
+        <h2>1. Why This Matters</h2>
+        <p>
+          Explain the real-world consequence of not understanding this topic.
+          What breaks? What mistake is commonly made? Lead with the "so what".
+        </p>
+      </section>
+
+      <!-- 2. MENTAL MODEL -->
+      <section id="mental-model">
+        <h2>2. Mental Model</h2>
+        <p>
+          Build understanding from browser / JavaScript fundamentals before
+          arriving at the Salesforce-specific implementation.
+        </p>
+        <p>
+          Use this section to explain the <em>concept</em>, not yet the
+          Salesforce-specific API. Anchor readers in something they already know.
+        </p>
+      </section>
+
+      <!-- 3. THE SPEC -->
+      <section id="the-spec">
+        <h2>3. The Spec</h2>
+        <p>
+          State the official platform behavior exactly. Reference Salesforce docs.
+          Be precise — this is what the examiner checks.
+        </p>
+
+        <!-- Example table -->
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Concept</th>
+                <th>Behavior</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>example</code></td>
+                <td>Does X</td>
+                <td>Important when Y</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. CODE WALKTHROUGH -->
+      <section id="code-walkthrough">
+        <h2>4. Code Walkthrough</h2>
+        <p>Start with the minimal example, then build progressively.</p>
+
+        <h3>Minimal Example</h3>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// Annotated minimal example
+// Each significant line should have a comment explaining WHY, not just what.
+
+import { LightningElement } from 'lwc';
+
+export default class ExampleComponent extends LightningElement {
+  // ...
+}</code></pre>
+
+        <h3>HTML Template</h3>
+        <pre class="language-html" data-lang="HTML"><code class="language-html">&lt;template&gt;
+  &lt;!-- Example template --&gt;
+  &lt;p&gt;Hello&lt;/p&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3>Progressive Complexity</h3>
+        <p>Add the next layer of the concept here.</p>
+        <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// More complete example
+</code></pre>
+      </section>
+
+      <!-- 5. INTERNALS -->
+      <section id="internals">
+        <h2>5. Internals</h2>
+        <p>
+          Explain what happens under the hood. How does the platform actually
+          implement this? What does the compiler emit? What does the runtime do?
+        </p>
+        <p>
+          This is where expert-level candidates distinguish themselves — knowing WHY
+          the behavior exists, not just what the behavior is.
+        </p>
+      </section>
+
+      <!-- 6. COMMON PITFALLS — collapsible -->
+      <section id="pitfalls">
+        <h2>6. Common Pitfalls</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 1: Short descriptive name</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Explain what the developer does wrong, why it fails, and how to fix it.
+              Include a code snippet showing the wrong way, then the correct way.
+            </p>
+            <pre class="language-javascript" data-lang="JS"><code class="language-javascript">// ❌ Wrong
+// ...
+
+// ✅ Correct
+// ...</code></pre>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>⚠️ Pitfall 2: Short descriptive name</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>Another pitfall with explanation and fix.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. EXPERT INSIGHT — collapsible -->
+      <section id="p3-insight">
+        <h2>7. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span>💡 Architect-Level Insight</span>
+            <span class="callout__toggle">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The nuances that separate a P2 developer from a expert architect.
+              Mention trade-offs, decision frameworks, and when to deviate from
+              the default approach.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. QUICK RECALL CARD -->
+      <section id="recall">
+        <h2>8. Quick Recall Card</h2>
+        <div class="recall-card">
+          <h3>📋 {{ARTICLE_TITLE}} — Key Points</h3>
+          <ul>
+            <li>Key point 1</li>
+            <li>Key point 2</li>
+            <li>Key point 3</li>
+            <li>Key point 4</li>
+            <li>Key point 5</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Cross-links -->
+      <section>
+        <h2>Related Articles</h2>
+        <ul>
+          <li><a href="01-what-is-lwc.html">Article 01 — What is LWC &amp; Why It Matters</a></li>
+          <li><a href="02-web-standards.html">Article 02 — Core Architecture &amp; Web Standards</a></li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="{{PREV_SLUG}}.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">{{PREV_NUM}}. {{PREV_TITLE}}</span>
+        </a>
+        <a href="{{NEXT_SLUG}}.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">{{NEXT_NUM}}. {{NEXT_TITLE}}</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle    = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html      = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      // Restore saved theme immediately (before paint to avoid flash)
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme');
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read — persisted in localStorage
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId  = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : '☐ Mark as Read';
+        btn.classList.toggle('is-read', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      // Restore state on load
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+
+        if (isRead) {
+          readSet.delete(articleId);
+        } else {
+          readSet.add(articleId);
+        }
+
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Sticky TOC Scroll-Spy
+    //    Highlights the TOC link whose section is currently in view.
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks  = document.querySelectorAll('.toc-list a');
+      if (!tocLinks.length) return;
+
+      const headings  = Array.from(
+        document.querySelectorAll('.article-main h2[id], .article-main h3[id]')
+      );
+
+      if (!headings.length) return;
+
+      function getActiveHeading() {
+        // Find the last heading whose top is above the middle of the viewport
+        const scrollY  = window.scrollY + 120; // offset for sticky header
+        let active     = headings[0];
+
+        for (const heading of headings) {
+          if (heading.offsetTop <= scrollY) {
+            active = heading;
+          } else {
+            break;
+          }
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          const matches = link.getAttribute('href') === `#${active.id}`;
+          link.classList.toggle('active', matches);
+        });
+      }
+
+      // Throttle scroll events for performance
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => {
+            updateToc();
+            ticking = false;
+          });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc(); // set initial state
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    //    Click .callout__header to toggle body visibility.
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display       = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        // Start expanded
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          const isExpanded = header.getAttribute('aria-expanded') !== 'false';
+          setExpanded(!isExpanded);
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. Initialize URL-based search (for cross-article navigation)
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

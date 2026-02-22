@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://mohakp.github.io/lwc-prep/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/01-what-is-lwc.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/02-web-standards.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/03-component-structure.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/04-decorators.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/05-lifecycle-hooks.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/06-template-directives.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/07-shadow-dom-vs-light-dom.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/08-component-communication.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/09-salesforce-data.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/10-navigation.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/11-dynamic-components.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/12-slds-styling.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/13-security.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/14-performance.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/15-error-handling.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/16-accessibility.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/17-jest-testing.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/18-deployment-targets.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/19-advanced-patterns.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/20-scenario-qa.html</loc><priority>0.8</priority></url>
+  <url><loc>https://mohakp.github.io/lwc-prep/articles/21-study-resources.html</loc><priority>0.8</priority></url>
+</urlset>
