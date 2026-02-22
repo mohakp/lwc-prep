@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/19-advanced-patterns.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -1130,7 +1131,7 @@ if (childCmp.shadowRoot.querySelector('.internal-flag').textContent === 'true') 
            ============================================================ -->
       <section id="recall">
         <h2>11. Quick Recall Card</h2>
-        <table>
+        <table aria-label="11. Quick Recall Card">
           <thead>
             <tr>
               <th>Pattern</th>
@@ -1227,6 +1228,12 @@ if (childCmp.shadowRoot.querySelector('.internal-flag').textContent === 'true') 
        SCRIPTS
        ================================================================ -->
   <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../assets/prism-apex.min.js" onerror="void 0"></script>
+  <script src="../search.js"></script>
   <script>
     // ----------------------------------------------------------------
     // 1. Dark / Light Theme Toggle
@@ -1254,32 +1261,40 @@ if (childCmp.shadowRoot.querySelector('.internal-flag').textContent === 'true') 
     })();
 
     // ----------------------------------------------------------------
-    // 2. Mark as Read
+    // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
       const btn = document.getElementById('markReadBtn');
       if (!btn) return;
 
-      const articleId = btn.dataset.articleId;
-      const key       = 'lwc-article-read-' + articleId;
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
-      function syncBtn(isRead) {
-        btn.setAttribute('aria-pressed', String(isRead));
-        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
-        btn.classList.toggle('mark-read-btn--done', isRead);
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
 
-      try {
-        const wasRead = localStorage.getItem(key) === 'true';
-        syncBtn(wasRead);
-      } catch { /* */ }
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
 
       btn.addEventListener('click', () => {
-        try {
-          const wasRead = localStorage.getItem(key) === 'true';
-          localStorage.setItem(key, (!wasRead).toString());
-          syncBtn(!wasRead);
-        } catch { /* */ }
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
       });
     })();
 

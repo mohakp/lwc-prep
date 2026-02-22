@@ -8,6 +8,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/13-security.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -341,7 +342,7 @@ element.innerHTML = '&lt;img src=x onerror="alert(1)"&gt;';
 
         <h3 id="lws-vs-locker">LWS vs Locker Comparison</h3>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="LWS vs Locker Comparison">
             <thead>
               <tr>
                 <th>Dimension</th>
@@ -460,7 +461,7 @@ element.innerHTML = '&lt;img src=x onerror="alert(1)"&gt;';
 
         <h3 id="csp-directives">Key Directives</h3>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="Key Directives">
             <thead>
               <tr>
                 <th>Directive</th>
@@ -623,7 +624,7 @@ export default class MyComponent extends LightningElement {
           Common legitimate use-cases for <code>eval()</code> and their secure alternatives:
         </p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="eval() and new Function()">
             <thead>
               <tr>
                 <th>Original (unsafe)</th>
@@ -730,7 +731,7 @@ export default class ContactDetail extends LightningElement {
           The key keywords:
         </p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="FLS in Apex — with sharing vs without sharing">
             <thead>
               <tr>
                 <th>Declaration</th>
@@ -1361,32 +1362,40 @@ export default class RecordActions extends LightningElement {
     })();
 
     // ----------------------------------------------------------------
-    // 2. Mark as Read
+    // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
       const btn = document.getElementById('markReadBtn');
       if (!btn) return;
 
-      const articleId = btn.dataset.articleId;
-      const key       = 'lwc-article-read-' + articleId;
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
-      function syncBtn(isRead) {
-        btn.setAttribute('aria-pressed', String(isRead));
-        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
-        btn.classList.toggle('mark-read-btn--done', isRead);
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
 
-      try {
-        const wasRead = localStorage.getItem(key) === 'true';
-        syncBtn(wasRead);
-      } catch { /* */ }
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
 
       btn.addEventListener('click', () => {
-        try {
-          const wasRead = localStorage.getItem(key) === 'true';
-          localStorage.setItem(key, (!wasRead).toString());
-          syncBtn(!wasRead);
-        } catch { /* */ }
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
       });
     })();
 

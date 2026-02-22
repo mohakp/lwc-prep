@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/10-navigation.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -1232,27 +1233,38 @@ JEST TESTING:
     // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
-      const btn       = document.getElementById('markReadBtn');
-      const articleId = btn ? btn.getAttribute('data-article-id') : null;
-      const key       = articleId ? `lwc_read_${articleId}` : null;
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
 
-      function syncBtn(read) {
-        if (!btn) return;
-        btn.textContent    = read ? '✓ Read' : 'Mark as Read';
-        btn.setAttribute('aria-pressed', read ? 'true' : 'false');
-        btn.classList.toggle('mark-read-btn--done', read);
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
 
-      if (key) {
-        try { syncBtn(localStorage.getItem(key) === '1'); } catch { /* */ }
-        if (btn) {
-          btn.addEventListener('click', () => {
-            const wasRead = btn.getAttribute('aria-pressed') === 'true';
-            try { localStorage.setItem(key, wasRead ? '0' : '1'); } catch { /* */ }
-            syncBtn(!wasRead);
-          });
-        }
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
       }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
     })();
 
     // ----------------------------------------------------------------

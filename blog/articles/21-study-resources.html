@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/21-study-resources.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -139,7 +140,7 @@
           Based on patterns seen in expert-level skill assessments and official Salesforce Certified JavaScript Developer content, Expert requires mastery across these eight dimensions:
         </p>
 
-        <table>
+        <table aria-label="The Expert-Level Proficiency Rubric">
           <thead>
             <tr>
               <th>Dimension</th>
@@ -292,7 +293,7 @@ sf force lightning lwc start</code></pre>
           These extensions form the essential LWC development environment. The first three are from Salesforce and are mandatory; the rest are productivity multipliers.
         </p>
 
-        <table>
+        <table aria-label="Recommended VS Code Extensions">
           <thead>
             <tr>
               <th>Extension</th>
@@ -394,6 +395,10 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
       <!-- ============================================================
            TRAILHEAD PRIORITY MAP
            ============================================================ -->
+      <!-- PERIODIC REVIEW: Trailhead module URLs verified 2026-02-22.
+           Salesforce occasionally reorganises Trailhead paths after major releases.
+           Review all hrefs in this section after each Salesforce seasonal release
+           (Spring/Summer/Winter) or at minimum annually. -->
       <section id="trailhead">
         <h2>Trailhead Priority Map</h2>
         <p>
@@ -401,7 +406,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         </p>
 
         <h3>Tier 1 — Foundation (Complete First)</h3>
-        <table>
+        <table aria-label="Tier 1 — Foundation (Complete First)">
           <thead>
             <tr>
               <th>Module / Superbadge</th>
@@ -434,7 +439,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         </table>
 
         <h3>Tier 2 — Depth (Complete Before Assessment)</h3>
-        <table>
+        <table aria-label="Tier 2 — Depth (Complete Before Assessment)">
           <thead>
             <tr>
               <th>Module / Superbadge</th>
@@ -477,7 +482,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         </table>
 
         <h3>Tier 3 — Superbadges (Proof of Mastery)</h3>
-        <table>
+        <table aria-label="Tier 3 — Superbadges (Proof of Mastery)">
           <thead>
             <tr>
               <th>Superbadge</th>
@@ -533,7 +538,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         </p>
 
         <h3>Week 1 — Foundations &amp; Architecture</h3>
-        <table>
+        <table aria-label="Week 1 — Foundations &amp; Architecture">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -563,7 +568,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can explain the LWC file bundle, deploy to a dev org, and articulate the LWC vs Aura trade-off.</p>
 
         <h3>Week 2 — Decorators &amp; Lifecycle</h3>
-        <table>
+        <table aria-label="Week 2 — Decorators &amp; Lifecycle">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -593,7 +598,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can predict the exact console.log order for a 3-level parent-child tree without running code.</p>
 
         <h3>Week 3 — Template Directives &amp; Shadow DOM</h3>
-        <table>
+        <table aria-label="Week 3 — Template Directives &amp; Shadow DOM">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -623,7 +628,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can explain event retargeting and predict what <code>event.target</code> will be at each shadow boundary.</p>
 
         <h3>Week 4 — Communication &amp; Data</h3>
-        <table>
+        <table aria-label="Week 4 — Communication &amp; Data">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -658,7 +663,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can implement the same use case three ways (LDS, wired Apex, imperative Apex) and justify which is best in different scenarios.</p>
 
         <h3>Week 5 — Navigation, Dynamic Components, SLDS</h3>
-        <table>
+        <table aria-label="Week 5 — Navigation, Dynamic Components, SLDS">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -688,7 +693,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can implement lazy-loaded dynamic components and explain why SLDS styling hooks exist.</p>
 
         <h3>Week 6 — Security, Performance, Error Handling &amp; Accessibility</h3>
-        <table>
+        <table aria-label="Week 6 — Security, Performance, Error Handling &amp; Accessibility">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -723,7 +728,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can identify and fix performance regressions, implement error boundaries, and build accessible custom components.</p>
 
         <h3>Week 7 — Testing, Deployment, Advanced Patterns</h3>
-        <table>
+        <table aria-label="Week 7 — Testing, Deployment, Advanced Patterns">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -753,7 +758,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         <p><strong>Milestone:</strong> You can write complete Jest test suites including wire adapter mocking, event testing, and navigation mocking.</p>
 
         <h3>Week 8 — Review &amp; Mock Assessment</h3>
-        <table>
+        <table aria-label="Week 8 — Review &amp; Mock Assessment">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -1075,7 +1080,7 @@ grandparent:renderedCallback</code></pre>
         <p>
           If you don't achieve Expert on the first attempt, map your errors to these categories:
         </p>
-        <table>
+        <table aria-label="If You Fail — Diagnosis Framework">
           <thead>
             <tr><th>Error Pattern</th><th>Root Cause</th><th>Remediation</th></tr>
           </thead>
@@ -1109,7 +1114,7 @@ grandparent:renderedCallback</code></pre>
            ============================================================ -->
       <section id="recall">
         <h2>Quick Recall Card — Study Resources</h2>
-        <table>
+        <table aria-label="Quick Recall Card — Study Resources">
           <tbody>
             <tr>
               <td><strong>Free Dev Org URL</strong></td>
@@ -1215,6 +1220,11 @@ grandparent:renderedCallback</code></pre>
        SCRIPTS
        ================================================================ -->
   <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../assets/prism-apex.min.js" onerror="void 0"></script>
   <script src="../search.js"></script>
   <script>
     // ----------------------------------------------------------------
@@ -1238,24 +1248,30 @@ grandparent:renderedCallback</code></pre>
     })();
 
     // ----------------------------------------------------------------
-    // 2. Mark-as-Read Button
+    // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
-      const btn       = document.getElementById('markReadBtn');
-      const articleId = btn.dataset.articleId;
-      const KEY       = 'lwc-read-articles';
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
+
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
       function getReadSet() {
-        try { return new Set(JSON.parse(localStorage.getItem(KEY)) || []); }
-        catch { return new Set(); }
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
+
       function saveReadSet(set) {
-        localStorage.setItem(KEY, JSON.stringify([...set]));
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
       }
+
       function setReadState(isRead) {
-        btn.textContent    = isRead ? '☑ Read' : '☐ Mark as Read';
-        btn.setAttribute('aria-pressed', isRead);
-        btn.classList.toggle('mark-read-btn--active', isRead);
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
       }
 
       setReadState(getReadSet().has(articleId));

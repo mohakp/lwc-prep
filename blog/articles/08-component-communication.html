@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/08-component-communication.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -212,7 +213,7 @@ emitter.emit('dataLoaded', { records: 42 });
         </p>
 
         <div class="table-container">
-          <table>
+          <table aria-label="The 4-Way Communication Taxonomy">
             <thead>
               <tr>
                 <th>Direction</th>
@@ -244,6 +245,15 @@ emitter.emit('dataLoaded', { records: 42 });
             </tbody>
           </table>
         </div>
+
+        <figure style="margin: 1.5rem 0; text-align: center;">
+          <img src="../assets/diagrams/component-communication.svg"
+               alt="LWC component communication diagram showing the four directions: parent to child via @api properties, child to parent via CustomEvent, sibling via shared parent, and cross-DOM via Lightning Message Service"
+               style="max-width: 100%; border-radius: 8px; border: 1px solid var(--color-border);">
+          <figcaption style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted);">
+            Fig 1 — The four communication directions in LWC and their prescribed mechanisms.
+          </figcaption>
+        </figure>
       </section>
 
       <!-- ============================================================
@@ -498,7 +508,7 @@ export default class ShoppingPage extends LightningElement {
         </p>
 
         <div class="table-container">
-          <table>
+          <table aria-label="bubbles and composed — The Shadow Boundary Matrix">
             <thead>
               <tr>
                 <th><code>bubbles</code></th>
@@ -558,6 +568,15 @@ export default class ShoppingPage extends LightningElement {
             </p>
           </div>
         </div>
+
+        <figure style="margin: 1.5rem 0; text-align: center;">
+          <img src="../assets/diagrams/event-propagation.svg"
+               alt="Event propagation diagram showing how bubbles and composed flags control whether a CustomEvent crosses shadow boundaries in LWC"
+               style="max-width: 100%; border-radius: 8px; border: 1px solid var(--color-border);">
+          <figcaption style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted);">
+            Fig 2 — Event propagation and the shadow boundary matrix: how <code>bubbles</code> and <code>composed</code> interact.
+          </figcaption>
+        </figure>
 
         <h3 id="event-naming">Event Naming Conventions</h3>
         <p>
@@ -847,7 +866,7 @@ export default class ProductDetail extends LightningElement {
         </p>
 
         <div class="table-container">
-          <table>
+          <table aria-label="Subscription Scopes: APPLICATION_SCOPE vs Default">
             <thead>
               <tr>
                 <th>Scope</th>
@@ -1168,7 +1187,7 @@ function chooseCommMechanism(scenario) {
         </div>
 
         <div class="table-container">
-          <table>
+          <table aria-label="9. Decision Framework">
             <thead>
               <tr>
                 <th>Scenario</th>
@@ -1591,37 +1610,40 @@ disconnectedCallback() {
     })();
 
     // ----------------------------------------------------------------
-    // 2. Mark as Read Button
+    // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
-      const btn       = document.getElementById('markReadBtn');
+      const btn = document.getElementById('markReadBtn');
       if (!btn) return;
-      const articleId = btn.dataset.articleId;
+
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
       function getReadSet() {
         try {
-          return new Set(JSON.parse(localStorage.getItem('lwc_read_articles') || '[]'));
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
         } catch { return new Set(); }
       }
 
       function saveReadSet(set) {
-        try { localStorage.setItem('lwc_read_articles', JSON.stringify([...set])); } catch { /* */ }
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
       }
 
-      function syncButton(set) {
-        const isRead = set.has(articleId);
-        btn.textContent    = isRead ? '✓ Read' : 'Mark as Read';
-        btn.setAttribute('aria-pressed', isRead);
-        btn.classList.toggle('is-read', isRead);
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
       }
 
-      syncButton(getReadSet());
+      setReadState(getReadSet().has(articleId));
 
       btn.addEventListener('click', () => {
-        const set = getReadSet();
-        if (set.has(articleId)) { set.delete(articleId); } else { set.add(articleId); }
-        saveReadSet(set);
-        syncButton(set);
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
       });
     })();
 

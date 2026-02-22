@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/09-salesforce-data.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -190,6 +191,15 @@
 │          Salesforce Database (Force.com)             │
 │             SOQL / DML / Apex / Rules                │
 └─────────────────────────────────────────────────────┘</code></pre>
+
+        <figure style="margin: 1.5rem 0; text-align: center;">
+          <img src="../assets/diagrams/data-access-stack.svg"
+               alt="Salesforce data access stack diagram showing the layers from LWC component through Wire Service, LDS client cache, UI API, and down to the Salesforce database"
+               style="max-width: 100%; border-radius: 8px; border: 1px solid var(--color-border);">
+          <figcaption style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted);">
+            Fig 1 — The Salesforce data access stack: every wire adapter call passes through this chain.
+          </figcaption>
+        </figure>
 
         <h3 id="rest-api">REST API Layer</h3>
         <p>
@@ -766,7 +776,7 @@ export default class UpdateViaApex extends LightningElement {
             <span class="callout__toggle" aria-hidden="true">▼</span>
           </div>
           <div class="callout__body">
-            <table>
+            <table aria-label="6. notifyRecordUpdateAvailable">
               <thead>
                 <tr><th>Scenario</th><th>Use</th></tr>
               </thead>
@@ -798,7 +808,7 @@ export default class UpdateViaApex extends LightningElement {
           LDS and UI API have real limitations. Reach for Apex when:
         </p>
 
-        <table>
+        <table aria-label="7. When LDS Is NOT Enough">
           <thead>
             <tr><th>Scenario</th><th>Reason LDS Can't Help</th></tr>
           </thead>
@@ -1191,7 +1201,7 @@ Did you use @wire(getRecord) elsewhere for this record?
 └── Did you use @wire(apexMethod) for a list?
     └── YES → refreshApex(this.wiredList)</code></pre>
 
-        <table>
+        <table aria-label="12. Decision Framework">
           <thead>
             <tr>
               <th>Mechanism</th>
@@ -1532,27 +1542,38 @@ LOADING STATE PATTERN:
     // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
-      const btn       = document.getElementById('markReadBtn');
-      const articleId = btn ? btn.getAttribute('data-article-id') : null;
-      const key       = articleId ? `lwc_read_${articleId}` : null;
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
 
-      function syncBtn(read) {
-        if (!btn) return;
-        btn.textContent    = read ? '✓ Read' : 'Mark as Read';
-        btn.setAttribute('aria-pressed', read ? 'true' : 'false');
-        btn.classList.toggle('mark-read-btn--done', read);
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
+
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
 
-      if (key) {
-        try { syncBtn(localStorage.getItem(key) === '1'); } catch { /* */ }
-        if (btn) {
-          btn.addEventListener('click', () => {
-            const wasRead = btn.getAttribute('aria-pressed') === 'true';
-            try { localStorage.setItem(key, wasRead ? '0' : '1'); } catch { /* */ }
-            syncBtn(!wasRead);
-          });
-        }
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
       }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
     })();
 
     // ----------------------------------------------------------------

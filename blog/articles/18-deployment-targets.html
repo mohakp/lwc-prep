@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/18-deployment-targets.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -390,7 +391,7 @@ sf project retrieve start --source-dir force-app/main/default/lwc/myComponent</c
           Capabilities declare special platform-level features the component uses. The most
           relevant ones for Expert:
         </p>
-        <table>
+        <table aria-label="capability">
           <thead>
             <tr><th>Capability Value</th><th>What It Enables</th></tr>
           </thead>
@@ -439,7 +440,7 @@ sf project retrieve start --source-dir force-app/main/default/lwc/myComponent</c
         </p>
 
         <h3 id="page-targets">Lightning Page Targets</h3>
-        <table>
+        <table aria-label="Lightning Page Targets">
           <thead>
             <tr><th>Target</th><th>Where It Appears</th><th>Key Notes</th></tr>
           </thead>
@@ -482,7 +483,7 @@ sf project retrieve start --source-dir force-app/main/default/lwc/myComponent</c
         </table>
 
         <h3 id="action-targets">Action Targets</h3>
-        <table>
+        <table aria-label="Action Targets">
           <thead>
             <tr><th>Target</th><th>Where It Appears</th></tr>
           </thead>
@@ -563,7 +564,7 @@ export default class MyFlowStep extends LightningElement {
         </div>
 
         <h3 id="community-targets">Experience Cloud Targets</h3>
-        <table>
+        <table aria-label="Experience Cloud Targets">
           <thead>
             <tr><th>Target</th><th>Description</th></tr>
           </thead>
@@ -632,7 +633,7 @@ export default class MyFlowStep extends LightningElement {
 /&gt;</code></pre>
 
         <h3 id="property-types">Property Types</h3>
-        <table>
+        <table aria-label="Property Types">
           <thead>
             <tr><th>type Value</th><th>JS Equivalent</th><th>Builder UI</th><th>Notes</th></tr>
           </thead>
@@ -759,7 +760,7 @@ export default class MyFlowStep extends LightningElement {
           The <code>role</code> attribute on properties inside a
           <code>lightning__FlowScreen</code> targetConfig determines how Flow treats the property:
         </p>
-        <table>
+        <table aria-label="Flow Input &amp; Output Properties">
           <thead>
             <tr><th>role Value</th><th>Direction</th><th>Behaviour</th></tr>
           </thead>
@@ -905,7 +906,7 @@ sf project deploy quick --job-id &lt;deployId&gt; --target-org mySandbox</code><
         <p>
           The <code>--test-level</code> flag controls which Apex tests run on deployment:
         </p>
-        <table>
+        <table aria-label="Scratch → Sandbox → Production">
           <thead>
             <tr><th>Test Level</th><th>What Runs</th><th>When to Use</th></tr>
           </thead>
@@ -1311,7 +1312,7 @@ Thumbs.db</code></pre>
            ============================================================ -->
       <section id="recall">
         <h2>11. Quick Recall Card</h2>
-        <table>
+        <table aria-label="11. Quick Recall Card">
           <thead>
             <tr><th>Concept</th><th>Key Fact</th></tr>
           </thead>
@@ -1439,6 +1440,12 @@ Thumbs.db</code></pre>
        SCRIPTS
        ================================================================ -->
   <script src="../assets/prism.min.js"></script>
+  <script src="../assets/prism-javascript.min.js"></script>
+  <script src="../assets/prism-markup.min.js"></script>
+  <script src="../assets/prism-css.min.js"></script>
+  <script src="../assets/prism-json.min.js"></script>
+  <script src="../assets/prism-apex.min.js" onerror="void 0"></script>
+  <script src="../search.js"></script>
   <script>
     // ----------------------------------------------------------------
     // 1. Dark / Light Theme Toggle
@@ -1467,32 +1474,40 @@ Thumbs.db</code></pre>
     })();
 
     // ----------------------------------------------------------------
-    // 2. Mark as Read
+    // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
       const btn = document.getElementById('markReadBtn');
       if (!btn) return;
 
-      const articleId = btn.dataset.articleId;
-      const key       = 'lwc-article-read-' + articleId;
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
-      function syncBtn(isRead) {
-        btn.setAttribute('aria-pressed', String(isRead));
-        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
-        btn.classList.toggle('mark-read-btn--done', isRead);
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
 
-      try {
-        const wasRead = localStorage.getItem(key) === 'true';
-        syncBtn(wasRead);
-      } catch { /* */ }
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
 
       btn.addEventListener('click', () => {
-        try {
-          const wasRead = localStorage.getItem(key) === 'true';
-          localStorage.setItem(key, (!wasRead).toString());
-          syncBtn(!wasRead);
-        } catch { /* */ }
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
       });
     })();
 

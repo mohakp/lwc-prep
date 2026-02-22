@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/07-shadow-dom-vs-light-dom.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -197,6 +198,15 @@
           the <strong>shadow boundary</strong>. CSS selectors and DOM queries cannot cross this
           boundary by default.
         </p>
+
+        <figure style="margin: 1.5rem 0; text-align: center;">
+          <img src="../assets/diagrams/shadow-dom-anatomy.svg"
+               alt="Shadow DOM anatomy diagram showing the shadow host, shadow root, shadow tree, and slot projection in an LWC component"
+               style="max-width: 100%; border-radius: 8px; border: 1px solid var(--color-border);">
+          <figcaption style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted);">
+            Fig 1 — Shadow DOM anatomy: host, root, tree, and the shadow boundary that isolates CSS and DOM.
+          </figcaption>
+        </figure>
 
         <h3 id="shadow-in-browser">Shadow DOM in the Browser</h3>
         <p>
@@ -467,7 +477,7 @@ this.dispatchEvent(new CustomEvent('internalstatechange', {
           Four combinations, four different propagation behaviors:
         </p>
         <div class="table-responsive">
-          <table>
+          <table aria-label="The Bubbles/Composed Matrix">
             <thead>
               <tr>
                 <th><code>bubbles</code></th>
@@ -735,7 +745,7 @@ connectedCallback() {
 
         <h3 id="light-dom-tradeoffs">Trade-offs &amp; Implications</h3>
         <div class="table-responsive">
-          <table>
+          <table aria-label="Trade-offs &amp; Implications">
             <thead>
               <tr>
                 <th>Aspect</th>

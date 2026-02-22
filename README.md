@@ -1,6 +1,8 @@
 # LWC.guide
 
-A static blog with 21 first-principles articles for mastering Lightning Web Components at  **expert-level proficiency** level. Zero external dependencies — everything runs locally from the file system.
+A static blog with 21 first-principles articles for mastering Lightning Web Components at **expert-level proficiency**. Zero external dependencies — everything runs locally from the file system.
+
+**Live site:** [https://mohakp.github.io/lwc-prep/](https://mohakp.github.io/lwc-prep/)
 
 ---
 
@@ -9,14 +11,20 @@ A static blog with 21 first-principles articles for mastering Lightning Web Comp
 ```
 lwc-prep/
 ├── README.md
-├── research.md          # Source material / notes
-├── implementation.md    # Full build plan (9 phases, 75 tasks)
-├── prompt.md
+├── LICENSE
+├── .github/
+│   └── workflows/
+│       └── deploy.yml       # GitHub Actions: auto-deploys blog/ to GitHub Pages on push to main
 └── blog/
-    ├── index.html       # Homepage (article list, search, progress tracker)
-    ├── style.css        # All styles (dark/light mode, responsive layout)
-    ├── search.js        # Client-side search logic
-    ├── progress.json    # Article metadata used by progress tracker
+    ├── index.html            # Homepage (article list, search, progress tracker)
+    ├── style.css             # All styles (dark/light mode, responsive layout)
+    ├── search.js             # Client-side search logic
+    ├── progress.json         # Article metadata used by progress tracker
+    ├── robots.txt            # Crawler permissions + sitemap reference
+    ├── sitemap.xml           # XML sitemap for all 21 articles
+    ├── .nojekyll             # Disables Jekyll so GitHub Pages serves files as-is
+    ├── .well-known/
+    │   └── security.txt      # Responsible disclosure contact info
     ├── articles/
     │   ├── 01-what-is-lwc.html
     │   ├── 02-web-standards.html
@@ -101,6 +109,16 @@ For basic reading you can just double-click `blog/index.html` to open it in your
 
 ---
 
+## Deployment
+
+The site is deployed automatically to GitHub Pages via GitHub Actions (`.github/workflows/deploy.yml`). Every push to `main` triggers a deployment of the `blog/` directory to:
+
+**https://mohakp.github.io/lwc-prep/**
+
+No manual steps are required after merging to `main`.
+
+---
+
 ## Features
 
 | Feature | Details |
@@ -141,6 +159,14 @@ For basic reading you can just double-click `blog/index.html` to open it in your
 | 19 | Advanced Patterns | Mixins, composable decorators, render strategies |
 | 20 | Scenario Q&A | Expert interview / assessment scenarios with answers |
 | 21 | Study Resources | Curated links, Trailhead paths, official docs |
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+Lightning Web Components (LWC) and Salesforce are trademarks of Salesforce, Inc. This site is an independent educational resource and is not affiliated with, endorsed by, or sponsored by Salesforce, Inc.
 
 ---
 

@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/14-performance.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -149,7 +150,7 @@
           to diagnosing performance problems.
         </p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="Parse → Style → Layout → Paint → Composite">
             <thead>
               <tr>
                 <th>Stage</th>
@@ -553,7 +554,7 @@ async handleSave() {
           goals:
         </p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="Conditional Rendering vs Dynamic Import">
             <thead>
               <tr>
                 <th>Technique</th>
@@ -735,7 +736,7 @@ const mod = await import(`c/${name}Component`); // NOT allowed</code></pre>
 
         <h3 id="pagination">Server-Side vs Client-Side Pagination</h3>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="Server-Side vs Client-Side Pagination">
             <thead>
               <tr>
                 <th>Approach</th>
@@ -1377,32 +1378,40 @@ renderedCallback() {
     })();
 
     // ----------------------------------------------------------------
-    // 2. Mark as Read
+    // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
       const btn = document.getElementById('markReadBtn');
       if (!btn) return;
 
-      const articleId = btn.dataset.articleId;
-      const key       = 'lwc-article-read-' + articleId;
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
-      function syncBtn(isRead) {
-        btn.setAttribute('aria-pressed', String(isRead));
-        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
-        btn.classList.toggle('mark-read-btn--done', isRead);
+      function getReadSet() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
 
-      try {
-        const wasRead = localStorage.getItem(key) === 'true';
-        syncBtn(wasRead);
-      } catch { /* */ }
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
 
       btn.addEventListener('click', () => {
-        try {
-          const wasRead = localStorage.getItem(key) === 'true';
-          localStorage.setItem(key, (!wasRead).toString());
-          syncBtn(!wasRead);
-        } catch { /* */ }
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
       });
     })();
 

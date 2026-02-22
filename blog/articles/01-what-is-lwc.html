@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/01-what-is-lwc.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -300,7 +301,7 @@ import myLabel from '@salesforce/label/c.MyLabel'; // Static resource reference<
 
         <h3 id="lwc-vs-aura">LWC vs Aura — Deep Comparison</h3>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="LWC vs Aura — Deep Comparison">
             <thead>
               <tr>
                 <th>Dimension</th>
@@ -373,13 +374,22 @@ import myLabel from '@salesforce/label/c.MyLabel'; // Static resource reference<
           </table>
         </div>
 
+        <figure style="margin: 1.5rem 0; text-align: center;">
+          <img src="../assets/diagrams/lwc-vs-aura.svg"
+               alt="LWC vs Aura comparison diagram showing architectural differences between the proprietary Aura component model and the web-standards-based LWC model"
+               style="max-width: 100%; border-radius: 8px; border: 1px solid var(--color-border);">
+          <figcaption style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-text-muted);">
+            Fig 1 — LWC vs Aura: how Salesforce moved from a proprietary component model to W3C web standards.
+          </figcaption>
+        </figure>
+
         <h3 id="lwc-vs-frameworks">LWC vs React / Angular / Vue</h3>
         <p>
           Understanding LWC's position relative to mainstream frameworks helps you explain architectural
           decisions to non-Salesforce developers on a team.
         </p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="LWC vs React / Angular / Vue">
             <thead>
               <tr>
                 <th>Dimension</th>

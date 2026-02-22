@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/05-lifecycle-hooks.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -206,7 +207,7 @@ customElements.define('my-counter', MyCounter);</code></pre>
         <p>
           LWC maps directly onto three of the browser callbacks and adds two of its own:
         </p>
-        <table>
+        <table aria-label="LWC's Mapping &amp; Extensions">
           <thead>
             <tr>
               <th>Browser Custom Element</th>
@@ -385,7 +386,7 @@ Grandparent disconnectedCallback()</code></pre>
         </p>
 
         <h3 id="constructor-rules">What You Can and Cannot Do</h3>
-        <table>
+        <table aria-label="What You Can and Cannot Do">
           <thead>
             <tr>
               <th>Operation</th>
@@ -868,7 +869,7 @@ export default class ErrorBoundary extends LightningElement {
 &lt;/template&gt;</code></pre>
 
         <h3 id="error-vs-trycatch">vs <code>try-catch</code> — Key Differences</h3>
-        <table>
+        <table aria-label="vs try-catch — Key Differences">
           <thead>
             <tr>
               <th>Aspect</th>
@@ -975,7 +976,7 @@ export default class ErrorBoundary extends LightningElement {
           A common question: should initialization logic go in a getter or in
           <code>connectedCallback()</code>? They have fundamentally different contracts:
         </p>
-        <table>
+        <table aria-label="9. Getters vs connectedCallback">
           <thead>
             <tr>
               <th>Aspect</th>
@@ -1295,7 +1296,7 @@ wiredAccount({ data, error }) {
            ============================================================ -->
       <section id="recall">
         <h2>13. Quick Recall Card</h2>
-        <table>
+        <table aria-label="13. Quick Recall Card">
           <thead>
             <tr>
               <th>Hook</th>
@@ -1345,7 +1346,7 @@ wiredAccount({ data, error }) {
         </table>
 
         <h3>Parent-Child Order Summary</h3>
-        <table>
+        <table aria-label="Parent-Child Order Summary">
           <thead>
             <tr>
               <th>Phase</th>

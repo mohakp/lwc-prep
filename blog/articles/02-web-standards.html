@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/02-web-standards.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -283,7 +284,7 @@ document.body.innerHTML += '&lt;p&gt;I am in the light DOM. Not red.&lt;/p&gt;';
           Four critical concepts that the expert assessment will test:
         </p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="Shadow DOM Internals">
             <thead>
               <tr>
                 <th>Concept</th>
@@ -602,7 +603,7 @@ export default tmpl;</code></pre>
         </p>
 
         <div class="table-wrapper">
-          <table>
+          <table aria-label="LWC Reactivity vs React's Virtual DOM">
             <thead>
               <tr>
                 <th>Dimension</th>
@@ -822,7 +823,7 @@ export default class QueryDemo extends LightningElement {
 
         <p>Key implementation differences:</p>
         <div class="table-wrapper">
-          <table>
+          <table aria-label="Synthetic vs Native Shadow DOM">
             <thead>
               <tr>
                 <th>Aspect</th>

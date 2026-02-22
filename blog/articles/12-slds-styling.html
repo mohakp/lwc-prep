@@ -12,6 +12,7 @@
   <link rel="canonical" href="https://mohakp.github.io/lwc-prep/articles/12-slds-styling.html">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../assets/prism.min.css">
+<script>try{var t=localStorage.getItem("lwc_blog_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 </head>
 <body>
 
@@ -184,7 +185,7 @@
         <h3 id="token-categories">Token Categories</h3>
         <p>SLDS tokens fall into two main tiers:</p>
 
-        <table>
+        <table aria-label="Token Categories">
           <thead>
             <tr>
               <th>Tier</th>
@@ -415,7 +416,7 @@
 &lt;/div&gt;</code></pre>
 
         <p>Key grid modifier classes:</p>
-        <table>
+        <table aria-label="Grid &amp; Flexbox Layout">
           <thead>
             <tr><th>Class</th><th>Effect</th></tr>
           </thead>
@@ -504,7 +505,7 @@
         <p>
           SLDS has two distinct layers that developers frequently confuse:
         </p>
-        <table>
+        <table aria-label="5. Blueprint vs Base Components">
           <thead>
             <tr>
               <th>Layer</th>
@@ -779,7 +780,7 @@ c-my-card {
         </p>
 
         <h3 id="slds2-what-changed">What Changed</h3>
-        <table>
+        <table aria-label="What Changed">
           <thead>
             <tr>
               <th>Aspect</th>
@@ -1254,7 +1255,7 @@ lightning-button.primary-action .slds-button {
            ============================================================ -->
       <section id="recall">
         <h2>14. Quick Recall Card</h2>
-        <table>
+        <table aria-label="14. Quick Recall Card">
           <thead>
             <tr>
               <th>Concept</th>
@@ -1412,31 +1413,38 @@ lightning-button.primary-action .slds-button {
     // 2. Mark as Read (localStorage)
     // ----------------------------------------------------------------
     (function () {
-      const btn       = document.getElementById('markReadBtn');
-      const articleId = btn ? btn.getAttribute('data-article-id') : null;
-      const key       = articleId ? `lwc_read_${articleId}` : null;
+      const btn = document.getElementById('markReadBtn');
+      if (!btn) return;
 
-      function syncBtn(read) {
-        if (!btn) return;
-        btn.textContent    = read ? '✓ Read' : 'Mark as Read';
-        btn.setAttribute('aria-pressed', read ? 'true' : 'false');
-        btn.classList.toggle('mark-read-btn--done', read);
-      }
+      const articleId   = btn.dataset.articleId;
+      const STORAGE_KEY = 'lwc_blog_read';
 
-      if (key) {
+      function getReadSet() {
         try {
-          const wasRead = localStorage.getItem(key) === 'true';
-          syncBtn(wasRead);
-        } catch { /* */ }
-
-        btn.addEventListener('click', () => {
-          try {
-            const wasRead = localStorage.getItem(key) === 'true';
-            localStorage.setItem(key, (!wasRead).toString());
-            syncBtn(!wasRead);
-          } catch { /* */ }
-        });
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? new Set(JSON.parse(raw)) : new Set();
+        } catch { return new Set(); }
       }
+
+      function saveReadSet(set) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch { /* */ }
+      }
+
+      function setReadState(isRead) {
+        btn.textContent = isRead ? '✓ Read' : 'Mark as Read';
+        btn.classList.toggle('mark-read-btn--done', isRead);
+        btn.setAttribute('aria-pressed', isRead ? 'true' : 'false');
+      }
+
+      setReadState(getReadSet().has(articleId));
+
+      btn.addEventListener('click', () => {
+        const readSet = getReadSet();
+        const isRead  = readSet.has(articleId);
+        if (isRead) { readSet.delete(articleId); } else { readSet.add(articleId); }
+        saveReadSet(readSet);
+        setReadState(!isRead);
+      });
     })();
 
     // ----------------------------------------------------------------
