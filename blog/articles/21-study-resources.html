@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>21. Study Resources &amp; Learning Roadmap — LWC.guide</title>
-  <meta name="description" content="A complete study roadmap for expert-level LWC competency: 8-week plan, Trailhead priority map, GitHub repos, dev org setup, VS Code extensions, and mock assessment strategy.">
+  <meta name="description" content="A complete study roadmap for expert-level LWC competency: 8-week plan, Trailhead priority map, GitHub repos, dev org setup, VS Code extensions, and timed practice strategy.">
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; frame-ancestors 'none';">
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
@@ -58,7 +58,7 @@
           <li><a href="#github">GitHub Repos to Study</a></li>
           <li><a href="#exercises">Hands-On Exercises</a></li>
           <li><a href="#community">Community &amp; Forums</a></li>
-          <li><a href="#assessment">Mock Assessment Strategy</a></li>
+          <li><a href="#assessment">Timed Practice Strategy</a></li>
           <li><a href="#recall">Quick Recall Card</a></li>
         </ul>
       </nav>
@@ -107,28 +107,9 @@
           <li><strong>Intermediate:</strong> "Shadow DOM provides CSS encapsulation." vs <strong>Expert:</strong> "Salesforce uses synthetic shadow DOM, which polyfills encapsulation — this means CSS custom properties (--variables) pierce shadow boundaries but class selectors do not; SLDS styling hooks are the only Salesforce-sanctioned way to style sub-components from outside."</li>
         </ul>
         <p>
-          This article gives you everything you need to get to that level: a rubric, a structured timeline, specific Trailhead modules, GitHub codebases to study, and a mock assessment strategy.
+          This article gives you everything you need to get to that level: a rubric, a structured timeline, specific Trailhead modules, GitHub codebases to study, and a timed practice strategy.
         </p>
 
-        <div class="callout callout--insight">
-          <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
-            <span>💡 How the Assessment Works</span>
-            <span class="callout__toggle">▼</span>
-          </div>
-          <div class="callout__body">
-            <p>
-              expert-level LWC assessments are online proctored with a mix of:
-              <strong>scenario-based multiple-choice</strong> (what would you do in this situation?),
-              <strong>code reading</strong> (identify the bug or anti-pattern),
-              and <strong>architecture questions</strong> (which approach and why?).
-            </p>
-            <p>
-              There is rarely a single "right" answer — examiners want to see that you understand
-              <em>trade-offs</em> and can justify your choice based on context.
-              Memorising API signatures is necessary but not sufficient.
-            </p>
-          </div>
-        </div>
       </section>
 
       <!-- ============================================================
@@ -137,7 +118,7 @@
       <section id="rubric">
         <h2>The Expert-Level Proficiency Rubric</h2>
         <p>
-          Based on patterns seen in expert-level skill assessments and official Salesforce Certified JavaScript Developer content, Expert requires mastery across these eight dimensions:
+          Based on official Salesforce Certified JavaScript Developer content and expert practitioner patterns, mastery requires these eight dimensions:
         </p>
 
         <table aria-label="The Expert-Level Proficiency Rubric">
@@ -384,7 +365,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
               <li>Event log showing event propagation</li>
             </ul>
             <p>
-              For expert assessment preparation, use the Performance tab to study
+              To deeply understand re-render behaviour, use the Performance tab to study
               re-render behaviour when you change reactive properties — it makes
               the rendering engine's behaviour concrete rather than theoretical.
             </p>
@@ -438,8 +419,8 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
           </tbody>
         </table>
 
-        <h3>Tier 2 — Depth (Complete Before Assessment)</h3>
-        <table aria-label="Tier 2 — Depth (Complete Before Assessment)">
+        <h3>Tier 2 — Depth</h3>
+        <table aria-label="Tier 2 — Depth">
           <thead>
             <tr>
               <th>Module / Superbadge</th>
@@ -494,7 +475,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
             <tr>
               <td><a href="https://trailhead.salesforce.com/en/content/learn/superbadges/superbadge_lwc_specialist" target="_blank" rel="noopener noreferrer">Lightning Web Components Specialist</a></td>
               <td>~10–15 hrs</td>
-              <td>End-to-end LWC development: data, events, wire, navigation — the most important superbadge for this assessment</td>
+              <td>End-to-end LWC development: data, events, wire, navigation — the most comprehensive superbadge</td>
             </tr>
             <tr>
               <td><a href="https://trailhead.salesforce.com/en/content/learn/superbadges/superbadge_aura_lc_specialist" target="_blank" rel="noopener noreferrer">Aura Components Specialist</a></td>
@@ -757,8 +738,8 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
         </table>
         <p><strong>Milestone:</strong> You can write complete Jest test suites including wire adapter mocking, event testing, and navigation mocking.</p>
 
-        <h3>Week 8 — Review &amp; Mock Assessment</h3>
-        <table aria-label="Week 8 — Review &amp; Mock Assessment">
+        <h3>Week 8 — Review &amp; Timed Practice</h3>
+        <table aria-label="Week 8 — Review &amp; Timed Practice">
           <thead>
             <tr><th>Activity</th><th>Resource</th><th>Goal</th></tr>
           </thead>
@@ -779,9 +760,9 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
               <td>Rapid review of all key facts</td>
             </tr>
             <tr>
-              <td>Mock Assessment — timed practice</td>
+              <td>Timed practice — scenario questions</td>
               <td>See strategy below</td>
-              <td>Simulate exam conditions</td>
+              <td>Build recall under pressure</td>
             </tr>
             <tr>
               <td>Target weak areas from mock results</td>
@@ -790,7 +771,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
             </tr>
           </tbody>
         </table>
-        <p><strong>Milestone:</strong> LWC Specialist Superbadge earned + mock assessment score above threshold.</p>
+        <p><strong>Milestone:</strong> LWC Specialist Superbadge earned + consistent timed practice scores.</p>
       </section>
 
       <!-- ============================================================
@@ -890,7 +871,7 @@ npm install --save-dev @salesforce/eslint-plugin-lwc \
       <section id="exercises">
         <h2>Hands-On Exercises by Topic</h2>
         <p>
-          Concepts only become expert knowledge when you've built them yourself. These exercises are specifically designed to force you to confront the edge cases that appear on assessments.
+          Concepts only become expert knowledge when you've built them yourself. These exercises are specifically designed to force you to confront the edge cases you'll encounter in real-world projects.
         </p>
 
         <h3>Exercise 1: Lifecycle Order Tracer</h3>
@@ -973,7 +954,7 @@ grandparent:renderedCallback</code></pre>
           The highest signal-to-noise LWC Q&amp;A resource. Sorted by votes, the top answers represent community consensus on best practices. When studying, search for your specific problem here before anywhere else — the answers often include Expert-level nuance from experienced architects.
         </p>
         <p>
-          <strong>Study strategy:</strong> Browse the top-voted questions in the LWC tag. Many of the highest-scored questions are about exactly the edge cases that appear in expert assessments.
+          <strong>Study strategy:</strong> Browse the top-voted questions in the LWC tag. Many of the highest-scored questions cover exactly the edge cases encountered in real-world LWC development.
         </p>
 
         <h3>Trailblazer Community</h3>
@@ -1003,25 +984,25 @@ grandparent:renderedCallback</code></pre>
       </section>
 
       <!-- ============================================================
-           MOCK ASSESSMENT STRATEGY
+           TIMED PRACTICE STRATEGY
            ============================================================ -->
       <section id="assessment">
-        <h2>Mock Assessment Strategy</h2>
+        <h2>Timed Practice Strategy</h2>
         <p>
-          The mock assessment is the most important activity in week 8. The goal is not to measure readiness — it is to expose gaps you didn't know existed.
+          Timed practice is the most important activity in week 8. The goal is not to measure readiness — it is to expose gaps you didn't know existed.
         </p>
 
-        <h3>Building Your Mock Assessment</h3>
+        <h3>Building Your Practice Set</h3>
         <p>
-          Since there is no official  practice exam available externally, build your own from these sources:
+          Build your practice set from these sources:
         </p>
         <ol>
           <li>
             <strong>Salesforce Certified JavaScript Developer I practice questions</strong>
-            — <a href="https://www.salesforce.com/form/exam/salesforce-certified-javascript-developer-i/" target="_blank" rel="noopener noreferrer">Official Salesforce Certification</a>. The JavaScript Developer I exam overlaps heavily with Expert LWC — it tests async, module system, and browser APIs.
+            — <a href="https://www.salesforce.com/form/exam/salesforce-certified-javascript-developer-i/" target="_blank" rel="noopener noreferrer">Official Salesforce Certification</a>. Overlaps heavily with Expert LWC — it tests async, module system, and browser APIs.
           </li>
           <li>
-            <strong>LWC Specialist Superbadge challenges</strong> — each challenge step is effectively a mini-assessment scenario.
+            <strong>LWC Specialist Superbadge challenges</strong> — each challenge step is a real-world scenario with a clear success criterion.
           </li>
           <li>
             <strong>Article 20 scenarios</strong> — time yourself to answer each of the 20 scenario-based questions from this blog series within 3 minutes each.
@@ -1033,8 +1014,8 @@ grandparent:renderedCallback</code></pre>
 
         <h3>Timed Practice Protocol</h3>
         <ol>
-          <li><strong>Set a timer</strong> — expert assessments are time-limited. Practice under pressure.</li>
-          <li><strong>Answer without notes first</strong> — simulate exam conditions.</li>
+          <li><strong>Set a timer</strong> — practice under pressure to build recall speed.</li>
+          <li><strong>Answer without notes first</strong> — close your tabs and think it through.</li>
           <li><strong>After each block of 10 questions</strong>, check answers and note every question you got wrong OR guessed on.</li>
           <li><strong>For each gap</strong>: go back to the relevant article section, re-read it, then re-do that question from scratch the next day.</li>
           <li><strong>Repeat until you can answer correctly without hesitation.</strong></li>
@@ -1062,16 +1043,16 @@ grandparent:renderedCallback</code></pre>
 
         <div class="callout callout--insight">
           <div class="callout__header" role="button" tabindex="0" aria-expanded="true">
-            <span>💡 The Day Before the Assessment</span>
+            <span>💡 The Final Review</span>
             <span class="callout__toggle">▼</span>
           </div>
           <div class="callout__body">
             <ul>
-              <li>Do NOT learn anything new the day before — only review what you already know.</li>
+              <li>Do NOT learn anything new — only review what you already know.</li>
               <li>Read through all 21 Quick Recall Cards (the last section of each article).</li>
               <li>Re-do 5–10 of the scenario questions from Article 20 that you found hardest.</li>
               <li>Get adequate sleep — memory consolidation happens during sleep.</li>
-              <li>On the day: read each question fully before answering; don't rush the first few.</li>
+              <li>Read each scenario fully before answering; don't rush the first few.</li>
             </ul>
           </div>
         </div>
@@ -1149,7 +1130,7 @@ grandparent:renderedCallback</code></pre>
               <td>Parent-child lifecycle order, <code>notifyRecordUpdateAvailable</code>, <code>refreshApex</code> takes wired result, event retargeting</td>
             </tr>
             <tr>
-              <td><strong>Mock assessment resources</strong></td>
+              <td><strong>Practice resources</strong></td>
               <td>Article 20 scenarios + Salesforce JS Developer I practice + Superbadge challenges</td>
             </tr>
             <tr>
@@ -1167,7 +1148,7 @@ grandparent:renderedCallback</code></pre>
           <div class="callout__body">
             <p>
               If you have read all 21 articles in this series, completed the LWC Specialist Superbadge,
-              and worked through the hands-on exercises — you are prepared for a expert assessment.
+              and worked through the hands-on exercises — you have genuine expert-level LWC mastery.
             </p>
             <p>
               The distinguishing characteristic of a expert developer is not the breadth of APIs
@@ -1176,7 +1157,7 @@ grandparent:renderedCallback</code></pre>
               you that foundational reasoning, not just the surface-level facts.
             </p>
             <p>
-              Good luck on your assessment.
+              Good luck on your LWC journey.
             </p>
           </div>
         </div>
